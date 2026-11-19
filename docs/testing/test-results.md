@@ -100,3 +100,14 @@ No existen pruebas de código: la Fase 0 no contiene código funcional.
 | E2E: `GET /readyz` después de migrar | ✅ 200 `{"status":"ready"}` | |
 | `APP_ENV=qa api migrate down` | ✅ rechazado | `migrate down is not allowed in qa`, exit 1 |
 | Contraseña de BD en logs de la API | ✅ no aparece | |
+
+## 2026-11-19 · Fase 1 · T1.5 — SQLC
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| `sqlc generate` (1ª) | ❌ | `field x-go-defaults not found`: sqlc no admite anclas YAML con claves propias → overrides globales |
+| `sqlc generate` (2ª) | ✅ | Paquete `internal/platform/db/platformq` (sqlc v1.31.1, pgx/v5) |
+| `task sqlc:check` (`sqlc vet` + `sqlc diff`) | ✅ exit 0 | |
+| `sqlc diff` con consulta modificada a propósito | ✅ exit 1 | Detecta código generado desactualizado; consulta restaurada (sin diff) |
+| `task check` | ✅ 0 issues, pruebas ok, sin vulnerabilidades | El código generado queda excluido del lint (cabecera "Code generated") |
+| `go test -tags=integration ./...` | ✅ 7 paquetes ok | Nuevo `TestSQLCGeneratedQuery`: la consulta generada lista postgis, btree_gist y citext en PG real |
