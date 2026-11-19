@@ -65,8 +65,10 @@ gitGraph
   rulesets no se aplican; requieren GitHub Pro/Team (ver pending-questions P23).
 
 ### Autorizaciones
-Ningún merge, commit, push, creación de PR ni despliegue sin autorización explícita del
-usuario. Claude Code tiene una regla `ask` para `git push` en su configuración local.
+- Commit y push en ramas `feature/*`: **autorización permanente** del usuario desde
+  2026-11-19; se realizan sin preguntar y se informan en el resumen de cada tarea.
+- Creación de PR, merge, borrado de ramas, despliegues y cambios directos sobre `main`/`qa`:
+  autorización explícita del usuario en cada caso.
 
 ## Consecuencias
 - (+) Validación explícita en QA antes de producción; PROD usa exactamente lo validado.
