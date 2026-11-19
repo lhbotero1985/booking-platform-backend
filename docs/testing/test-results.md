@@ -351,3 +351,21 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Integración PostgreSQL | ✅ 2 pruebas | 4 filas reales (login FAILURE/SUCCESS, `authz.denied`, logout) con IP IPv6 `inet`, `occurred_at` = reloj de la aplicación, recurso `session`, JSON de metadatos; restricción CHECK temporal (`NOT VALID`) que rechaza la fila → el login hace rollback y no deja sesión |
 | `task check` / `sqlc:check` / `test:integration` | ✅ | lint 0 issues, sin vulnerabilidades |
 | E2E Docker Compose + Mailpit | ✅ | 1.er `task up` falló de forma transitoria (exit 17) y el reintento levantó todo. 6 filas: registered, email_verified, login FAILURE (`wrong_password`, `request_id` del cliente), login SUCCESS, password_changed, logout; filas con email, contraseña o token: 0 |
+
+## 2026-11-19 · Fase 2 · T2.8 — CI
+
+| Comando | Resultado |
+|---|---|
+| PR #20 — ci + security | ✅ 6/6 (unit+race 3m49s, integración 3m32s, lint 2m42s, Trivy 49s, govulncheck, gitleaks); squash merge `54f8513` |
+
+## 2026-11-19 · Fase 2 · T2.9 — Suite de seguridad y cierre
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| `go test ./tests/security/` | ✅ 17 pruebas | 8 nuevas: matriz 5 rutas × 12 credenciales inválidas (401 + `WWW-Authenticate` + `no-store`), tokens nuevos y sin fijación, cookie endurecida, CSRF (4 Origin inválidos), asignación masiva (4 campos), anti-enumeración en 4 endpoints × 3 estados de cuenta, tokens ligados a su propósito, secretos fuera de logs y auditoría. 1.ª corrida: el caso "cookie inválida" en POST recibió 403 `CSRF_REJECTED` (correcto: CSRF se evalúa antes de autenticar) → el caso envía un Origin permitido |
+| `go test -count=3 ./tests/security/` | ✅ | Sin inestabilidad (incluye la prueba de tiempos) |
+| `worker_test.go` | ✅ 100 % | Registro único de workers, args solo con `user_id`, opciones (coalescido vs. no), delegación, timeout acotado, errores propagados para reintento |
+| Cobertura (`go test -cover`) | ✅ | domain 100 %, worker 100 %, reqctx 100 %, ratelimit 98.8 %, argon2 95.8 %, httpx 93.7 %, http 85.2 %, application 84.6 %, contract 80 % |
+| `task check` | ✅ | 1.ª corrida: gosec G124 en una cookie de petición simulada → atributos agregados; luego 0 issues, sin vulnerabilidades |
+| `task test:integration` / `sqlc:check` | ✅ | |
+| `task secrets` (gitleaks) | ✅ | 25 commits, sin fugas |

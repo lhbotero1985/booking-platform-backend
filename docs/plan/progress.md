@@ -394,3 +394,18 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
   `contract.Authorizer.RequirePlatformAdmin(ctx, p)`, pruebas, `security.md`.
 - **Notas:** en DEV la IP auditada es la puerta de enlace de Docker; la IP real llega con Caddy
   (Fase 3). Retención/consulta en la Fase 12 (P30).
+
+## 2026-11-19 · Fase 2 · T2.8 integrada
+
+- PR #20 → `qa`: 6/6 ✅, squash merge `54f8513`. Rama `feature/t2.7-rate-limiting` borrada.
+
+## 2026-11-19 · Fase 2 · T2.9 — Suite de seguridad y cierre de fase
+
+- **Estado:** ✅ Completada en `feature/t2.9-security-closure` (commit y push; PR y merge
+  pendientes de autorización). **Fase 2 pendiente de aprobación.**
+- **Archivos:** `tests/security/auth_suite_test.go` (8 pruebas nuevas sobre el stack HTTP
+  completo), `identity/infrastructure/worker/worker_test.go` (0 % → 100 %),
+  `docs/plan/phase-2-closure.md` (entregables, checklist, revisión ASVS L2 V2/V3/V4, riesgos).
+- **Hallazgos:** brechas ASVS frente a la política aprobada → P31 (mínimo 12 y lista de
+  contraseñas filtradas), P32 (MFA para administradores), P33 (listado de sesiones). No se
+  modificó la arquitectura aprobada: requieren decisión del usuario.
