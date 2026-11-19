@@ -164,3 +164,18 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
   módulo.
 - **Pruebas:** ver `test-results.md`.
 - **Próximos pasos:** autorización de commit/push/PR; luego T1.6 (River).
+
+## 2026-11-19 · Integración en `qa` y ajustes de GitHub
+
+- Rama `qa` creada desde `main`; `feat/t1.4-database` renombrada a `feature/t1.4-database`.
+- GitHub CLI 2.105.0 instalado y autenticado.
+- PR #3 (T1.4) → `qa`: gitleaks ✅, squash merge `e8b33e6`.
+- PR #4 (T1.5, apilado) cerrado automáticamente por GitHub al borrarse su base; rama rebasada
+  sobre `qa` (build, vet, lint, tests, `sqlc diff` ✅) y reemplazado por PR #5 → `qa`:
+  gitleaks ✅, squash merge `67f3739`.
+- PRs #1 (PostGIS 17→18) y #2 (actions/checkout 4→7) de Dependabot cerrados: apuntaban a
+  `main` y #1 es un salto mayor de PostgreSQL. `.github/dependabot.yml` ajustado
+  (`target-branch: qa`, ignorar mayores de postgis) en `feature/dependabot-qa`.
+- Protección de ramas: ninguna (decisión del usuario).
+- Nota: `main` local tiene 2 commits de docs no publicados, ya incluidos en `qa` vía #3; se
+  alineará con `origin/main` en el primer PR `qa` → `main`.
