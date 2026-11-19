@@ -248,6 +248,31 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/v1/me/memberships:
+    get:
+      tags: [Auth]
+      operationId: listMyMemberships
+      summary: Businesses and roles of the current account
+      description: |
+        Active memberships only, sorted by `businessId`. Customers have none (empty list).
+        Roles are read from the database on every request, so a revoked membership disappears
+        immediately. Not paginated (a user belongs to a handful of businesses at most).
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The caller's active memberships.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MembershipsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
 
   /api/v1/auth/password/forgot:
     post:
@@ -533,6 +558,28 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    MembershipsResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Membership"
+
+    Membership:
+      type: object
+      additionalProperties: false
+      required: [businessId, role]
+      properties:
+        businessId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [OWNER, MANAGER, PROFESSIONAL]
 
     ForgotPasswordRequest:
       type: object

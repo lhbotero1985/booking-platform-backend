@@ -28,6 +28,7 @@ type Service interface {
 	ForgotPassword(ctx context.Context, email string) error
 	ResetPassword(ctx context.Context, in application.ResetPasswordInput) error
 	ChangePassword(ctx context.Context, p contract.Principal, in application.ChangePasswordInput) error
+	MyMemberships(ctx context.Context, p contract.Principal) ([]contract.Membership, error)
 }
 
 // Options configures the handler.
@@ -63,6 +64,7 @@ func (h *Handler) Routes(rt *httpx.Router) {
 	rt.Handle("POST /api/v1/auth/logout-all", h.RequireAuth(http.HandlerFunc(h.logoutAll)))
 	rt.Handle("GET /api/v1/me", h.RequireAuth(http.HandlerFunc(h.me)))
 	rt.Handle("POST /api/v1/me/password", h.RequireAuth(http.HandlerFunc(h.changePassword)))
+	rt.Handle("GET /api/v1/me/memberships", h.RequireAuth(http.HandlerFunc(h.myMemberships)))
 }
 
 type registerRequest struct {
@@ -124,6 +126,9 @@ func (h *Handler) resendVerification(w http.ResponseWriter, r *http.Request) {
 // fail maps application errors to problems. Unexpected errors are logged and answered with a
 // generic 500 (no internal details).
 func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
+	if httpx.WriteAuthzProblem(w, r, err) {
+		return
+	}
 	var verr *application.ValidationError
 	switch {
 	case errors.As(err, &verr):

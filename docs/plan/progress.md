@@ -335,3 +335,25 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
   OpenAPI (3 operaciones), pruebas.
 - **Endpoints:** `POST /api/v1/auth/password/forgot`, `POST /api/v1/auth/password/reset`,
   `POST /api/v1/me/password`.
+
+## 2026-11-19 · Fase 2 · T2.5 integrada
+
+- PR #17 → `qa`: 6/6 ✅, squash merge `af1a4ae`. Ramas `feature/t2.4-login-sessions` y
+  `feature/t2.5-password-reset` borradas. PR de Dependabot #15 (`actions/checkout` 4→7) y #16
+  (`postgis` 17→18) cerrados con autorización: apuntaban a `main` porque la configuración que los
+  dirige a `qa` aún no está en `main`.
+
+## 2026-11-19 · Fase 2 · T2.6 — RBAC y autorización por recurso
+
+- **Estado:** ✅ Completada en `feature/t2.6-rbac` (commit y push; PR y merge pendientes de
+  autorización).
+- **Archivos:** `internal/platform/authz` (sentinelas), `internal/platform/httpx/authz.go`
+  (`WriteAuthzProblem`, código `FORBIDDEN`), `identity/contract/authz.go` (roles, conjuntos,
+  `Authorizer`, políticas puras), `identity/application/authz.go` (`RequireBusinessRole`,
+  `RequirePlatformAdmin`, `MyMemberships`; puerto `ActiveMembershipsByUser`),
+  `identity/infrastructure/postgres` (consulta de membresías), `apptest` (membresías),
+  `identity/interfaces/http/memberships.go`, OpenAPI, `docs/architecture/security.md` (matriz).
+- **Endpoint:** `GET /api/v1/me/memberships`.
+- **Notas:** el patrón se prueba de extremo a extremo con rutas de prueba (403 mismo negocio,
+  404 otro negocio idéntico a ruta inexistente, revocación inmediata) sin adelantar la Fase 4.
+  La gestión de membresías (invitar, cambiar rol, revocar) llega con los negocios en la Fase 4.

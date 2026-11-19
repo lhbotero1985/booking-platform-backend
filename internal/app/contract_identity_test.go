@@ -13,8 +13,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application/apptest"
+	identitycontract "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 	identityhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/interfaces/http"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/config"
@@ -161,6 +164,10 @@ func TestContractSessionEndpoints(t *testing.T) {
 
 	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/me", "", tok, http.StatusOK)
 	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/me", "", "", http.StatusUnauthorized)
+	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/me/memberships", "", tok, http.StatusOK)
+	e.store.GrantMembership(e.store.User("ana@example.com").ID(), uuid.New(), identitycontract.RoleOwner)
+	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/me/memberships", "", tok, http.StatusOK)
+	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/me/memberships", "", "", http.StatusUnauthorized)
 	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/auth/logout-all", "", tok, http.StatusOK)
 	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/auth/logout", "", tok, http.StatusUnauthorized)
 }

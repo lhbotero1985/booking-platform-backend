@@ -53,7 +53,11 @@ Decisiones relevantes no arquitectónicas (las arquitectónicas tienen ADR en `d
 | 2026-11-19 | IP del cliente = par TCP; X-Forwarded-For se confiará solo desde Caddy (Fase 3) | Evitar suplantación de IP | Pendiente (Fase 3) |
 | 2026-11-19 | Reset de contraseña: token `bp_pr_` 30 min, un solo uso; política validada antes de consumir el token; revoca todas las sesiones; aviso por email | security.md §1 | Aplicado |
 | 2026-11-19 | Cambio autenticado de contraseña conserva la sesión actual y revoca las demás | Usabilidad sin perder seguridad | Aplicado |
+| 2026-11-19 | Autorización dentro del caso de uso (`contract.Authorizer`), no como middleware de ruta | ADR-0007: políticas explícitas en la capa de aplicación; el caso de uso conoce el recurso | Aplicado (T2.6) |
+| 2026-11-19 | `PLATFORM_ADMIN` sin rol implícito en negocios | Mínimo privilegio; las acciones de soporte serán casos de uso de administración auditados | Aplicado (T2.6) |
+| 2026-11-19 | Sentinelas `authz.ErrForbidden`/`ErrNotFound` en `internal/platform/authz` y mapeo único `httpx.WriteAuthzProblem` | Todos los módulos responden 403/404 igual sin importarse entre sí | Aplicado (T2.6) |
+| 2026-11-19 | Rol desconocido leído de la BD → error (falla cerrado), no se ignora | Defensa ante deriva entre esquema y código | Aplicado (T2.6) |
 | 2026-11-18 | Imágenes en GHCR | Gratuito con GitHub, integrado con Actions | Propuesto |
 | 2026-11-18 | Búsqueda de negocios por ciudad en MVP (PostGIS listo para cercanía futura) | Simplicidad | Propuesto |
 | 2026-11-18 | Sin auto-cancelación de citas pendientes en MVP | Regla del prompt; requiere política aprobada | Propuesto |
-| 2026-11-18 | Recurso de otro negocio → 404 | Evita enumeración (IDOR) | Propuesto |
+| 2026-11-18 | Recurso de otro negocio → 404 | Evita enumeración (IDOR) | Aplicado (T2.6) |
