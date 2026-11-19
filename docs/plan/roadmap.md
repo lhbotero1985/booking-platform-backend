@@ -56,7 +56,7 @@ Módulo `internal/modules/identity` (ADR-0006, ADR-0007, `docs/architecture/secu
 | T2.6 ✅ | RBAC: roles, membresías, políticas por caso de uso, patrón 404 entre negocios | Matriz rol × acción; 403 mismo negocio, 404 otro negocio |
 | T2.7 ✅ | Rate limiting (login, registro, recuperación) y backoff ante fuerza bruta | Pruebas de límites y de backoff |
 | T2.8 ✅ | Auditoría básica (login, fallos, cambios de contraseña/membresía) | Eventos auditados sin datos sensibles |
-| T2.9 | Suite de seguridad de la fase + cierre | `tests/security` ampliada; checklist de fase |
+| T2.9 ✅ | Suite de seguridad de la fase + cierre | `tests/security` ampliada; checklist de fase |
 
 Las fases 3–13 se desglosarán en tareas al iniciar cada una.
 
