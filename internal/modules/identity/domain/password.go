@@ -6,10 +6,11 @@ import (
 	"unicode/utf8"
 )
 
-// Password policy (NIST SP 800-63B style, docs/architecture/security.md): length limits and a
-// blocklist of common passwords; no forced composition rules.
+// Password policy (NIST SP 800-63B, docs/architecture/security.md): length limits and a small
+// blocklist of common passwords; no forced composition rules. The minimum of 8 is a user
+// decision (2026-11-19, P31): NIST minimum, below OWASP ASVS L2 (12) — documented exception.
 const (
-	MinPasswordLength = 10
+	MinPasswordLength = 8
 	MaxPasswordLength = 128
 )
 
@@ -63,8 +64,14 @@ func (Password) LogValue() slog.Value { return slog.StringValue(redacted) }
 func (Password) MarshalText() ([]byte, error) { return []byte(redacted), nil }
 
 // commonPasswords is a small blocklist of the most used passwords that satisfy the length
-// rule; extended later with a larger list if needed. Compared case-insensitively.
+// rule (kept small by decision, P31). Compared case-insensitively.
 var commonPasswords = map[string]struct{}{
+	"12345678": {}, "123456789": {}, "87654321": {}, "11111111": {}, "00000000": {},
+	"password": {}, "password1": {}, "passw0rd": {}, "qwertyui": {}, "qwerty123": {},
+	"qwerty12": {}, "abcd1234": {}, "1q2w3e4r": {}, "asdfghjk": {}, "iloveyou": {},
+	"sunshine": {}, "princess": {}, "football": {}, "baseball": {}, "welcome1": {},
+	"admin123": {}, "colombia": {}, "colombia1": {}, "barberia": {}, "barbero1": {},
+	"12341234": {}, "11223344": {}, "123123123": {}, "superman": {}, "teamo123": {},
 	"1234567890": {}, "12345678910": {}, "123456789a": {}, "0123456789": {},
 	"1111111111": {}, "0000000000": {}, "1q2w3e4r5t": {}, "qwertyuiop": {},
 	"password12": {}, "password123": {}, "password1234": {}, "passw0rd123": {},

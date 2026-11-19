@@ -1,6 +1,6 @@
 # Cierre de la Fase 2 — Autenticación y autorización
 
-Fecha: 2026-11-19 · Estado: **🟡 Pendiente de aprobación del usuario**
+Fecha: 2026-11-19 · Estado: **✅ Aprobada por el usuario (2026-11-19)**
 
 ## 1. Entregables
 
@@ -55,11 +55,11 @@ Leyenda: ✅ cumple · ⚠️ brecha (requiere decisión) · ➖ no aplica aún.
 
 | Req. | Requisito (resumen) | Estado | Detalle |
 |---|---|---|---|
-| V2.1.1 | Contraseñas de al menos 12 caracteres | ⚠️ | La política aprobada es 10 (security.md §1). **P31** |
+| V2.1.1 | Contraseñas de al menos 12 caracteres | ⚠️ excepción | Mínimo 8 por decisión del usuario (P31, T2.10); cumple NIST SP 800-63B |
 | V2.1.2 | Permitir 64+ caracteres, máximo 128 | ✅ | 10–128 |
 | V2.1.3 | Sin truncado | ✅ | Más de 128 se rechaza, nunca se trunca |
 | V2.1.4 | Cualquier carácter Unicode imprimible, incluidos espacios | ✅ | Frases con espacios en las pruebas |
-| V2.1.7 | Verificar contra contraseñas filtradas (top 1.000–10.000 o servicio) | ⚠️ | Lista local pequeña. **P31** |
+| V2.1.7 | Verificar contra contraseñas filtradas (top 1.000–10.000 o servicio) | ⚠️ excepción | Lista local pequeña por decisión del usuario (P31) |
 | V2.1.9 | Sin reglas de composición | ✅ | |
 | V2.2.1 | Controles anti-automatización | ✅ | T2.7; ataques distribuidos en **P28** |
 | V2.2.3 | Notificación tras cambios de credenciales | ✅ | Email "Tu contraseña fue cambiada" |
@@ -67,7 +67,7 @@ Leyenda: ✅ cumple · ⚠️ brecha (requiere decisión) · ➖ no aplica aún.
 | V2.5.2 | Sin pistas ni preguntas de seguridad | ✅ | |
 | V2.5.4 | Sin cuentas compartidas o por defecto | ✅ | |
 | V2.5.6 | Recuperación con token temporal de un solo uso | ✅ | 30 min, revoca sesiones |
-| V2.8 / V4.3.1 | MFA (recomendado para administración) | ⚠️ | Fuera del MVP; propuesta para PLATFORM_ADMIN. **P32** |
+| V2.8 / V4.3.1 | MFA (recomendado para administración) | ⚠️ Fase 12 | TOTP para PLATFORM_ADMIN (P32) |
 | V3.1.1 | Token de sesión nunca en la URL | ✅ | Header o cookie |
 | V3.2.1 | Token nuevo al autenticar | ✅ | `TestSessionTokensAreFreshAndOpaque` |
 | V3.2.2 | Al menos 64 bits de entropía | ✅ | 256 bits |
@@ -75,7 +75,7 @@ Leyenda: ✅ cumple · ⚠️ brecha (requiere decisión) · ➖ no aplica aún.
 | V3.3.1 | Logout invalida la sesión en el servidor | ✅ | |
 | V3.3.2 | Expiración por inactividad y absoluta | ✅ | Web 12 h / 7 d · móvil 30 d / 90 d · admin 1 h / 12 h |
 | V3.3.3 | Cerrar otras sesiones tras cambiar la contraseña | ✅ | Automático |
-| V3.3.4 | El usuario puede ver y cerrar sus sesiones activas | ⚠️ | Solo logout-all; listado no expuesto. **P33** |
+| V3.3.4 | El usuario puede ver y cerrar sus sesiones activas | ⚠️ Fase 12 | Solo logout-all por ahora (P33) |
 | V3.4.1–V3.4.5 | Cookie Secure, HttpOnly, SameSite, prefijo `__Host-`, Path | ✅ | |
 | V3.5.x | Tokens de sesión | ✅ | Opacos y revocables (sin JWT, ADR-0006) |
 | V3.7.1 | Reautenticación antes de cambios sensibles | ✅ | Cambio de contraseña exige la actual |
@@ -102,11 +102,10 @@ Leyenda: ✅ cumple · ⚠️ brecha (requiere decisión) · ➖ no aplica aún.
 | 9 | `main` sigue en T1.3; Dependabot lee su configuración desde `main` | PR `qa` → `main` tras validar en QA (Fase 3) |
 | 10 | Rate limiting en memoria (una instancia) | Mover a almacenamiento compartido si se escala horizontalmente |
 
-## 6. Decisión requerida
+## 6. Decisiones del usuario (2026-11-19)
 
-1. ¿Cómo resolver P31 (V2.1.1 / V2.1.7)? Opciones: **(a)** subir el mínimo a 12 y ampliar la
-   lista de contraseñas comunes a ~10.000 ahora, como tarea corta T2.10, antes de cerrar; **(b)**
-   mantener 10 y documentar la excepción; **(c)** posponer a la Fase 12.
-2. ¿P32 (MFA admin) y P33 (sesiones) para la Fase 12?
-3. Aprobar el cierre de la Fase 2 y autorizar el inicio de la **Fase 3 — Infraestructura QA**
-   (Droplet en DigitalOcean: crea recursos con costo y requiere autorización explícita).
+1. **P31:** mínimo de contraseña **8 caracteres** (antes 10) y lista de contraseñas comunes
+   pequeña. Implementado en T2.10. Excepción documentada frente a ASVS L2 (V2.1.1, V2.1.7).
+2. **P32** (MFA para administradores) y **P33** (listado y cierre selectivo de sesiones): Fase 12.
+3. **Cierre de la Fase 2 aprobado.** La Fase 3 (infraestructura QA, recursos con costo en
+   DigitalOcean) requiere autorización explícita antes de iniciar.

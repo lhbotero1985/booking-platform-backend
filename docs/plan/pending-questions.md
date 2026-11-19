@@ -45,8 +45,8 @@ la Fase 0, se adopta la propuesta.
 | P26 | ~~GitHub CLI~~ | ✅ `gh` 2.105.0 instalado y autenticado (lhbotero1985). |
 | P27 | Calibración final de Argon2id en el Droplet QA (objetivo 100–250 ms) | Medir en Fase 3 y fijar `ARGON2_ITERATIONS`; los hashes existentes se actualizan solos al iniciar sesión. |
 | P28 | Ataques distribuidos de contraseña (muchas IP contra una cuenta) | El backoff es por cuenta+IP para no permitir bloquear a la víctima. Propuesta Fase 12: límite global suave por cuenta con CAPTCHA o aviso por email, no bloqueo. |
-| P31 | Política de contraseñas frente a ASVS L2 (V2.1.1 mínimo 12; V2.1.7 lista de filtradas) | Hoy: mínimo 10 (aprobado) y lista pequeña. Propuesta: tarea corta T2.10 con mínimo 12 y ~10.000 contraseñas comunes embebidas. Ver `phase-2-closure.md` §6. |
-| P32 | MFA para PLATFORM_ADMIN | Propuesta: TOTP obligatorio para administradores antes de PROD (Fase 12). |
-| P33 | Listado y cierre selectivo de sesiones (ASVS V3.3.4) | Propuesta: `GET /me/sessions` y `DELETE /me/sessions/{id}`; la consulta SQL ya existe. |
+| P31 | ~~Política de contraseñas frente a ASVS L2~~ | ✅ Respondida 2026-11-19: **mínimo 8** y lista pequeña (excepción ASVS documentada; T2.10). |
+| P32 | MFA para PLATFORM_ADMIN | ✅ Decidido 2026-11-19: **Fase 12** (TOTP obligatorio para administradores antes de PROD). |
+| P33 | Listado y cierre selectivo de sesiones (ASVS V3.3.4) | ✅ Decidido 2026-11-19: **Fase 12** (`GET /me/sessions`, `DELETE /me/sessions/{id}`). |
 | P30 | Retención y acceso a `audit_log` | Propuesta Fase 12: 12 meses en línea, consulta solo PLATFORM_ADMIN (auditada), purga programada con River; revisar requisitos legales de protección de datos (Colombia, Ley 1581). |
 | P29 | Límites por IP detrás de NAT (p. ej. wifi de un salón) | 10/min en endpoints de credenciales es holgado para pocos dispositivos; revisar con datos reales de QA. Requiere IP real vía Caddy (Fase 3). |

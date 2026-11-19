@@ -29,7 +29,7 @@ mínimo si se repiten; se decidirá en Fase 1 evitando un "shared kernel" grande
 - **User (A)**: `id`, `email`, `phone?`, `passwordHash`, `fullName`, `status`
   (`PENDING_VERIFICATION`, `ACTIVE`, `SUSPENDED`), `isPlatformAdmin`, `locale`, timestamps.
   - Invariantes: email único; usuario `SUSPENDED` no puede autenticarse; la contraseña cumple
-    política (≥ 10 caracteres, no en lista de contraseñas comprometidas comunes).
+    política (≥ 8 caracteres, no en una lista pequeña de contraseñas comunes; decisión P31).
 - **Session (A)**: `id`, `userId`, `tokenHash` (SHA-256), `clientType` (`MOBILE`, `WEB`),
   `createdAt`, `lastSeenAt`, `idleExpiresAt`, `absoluteExpiresAt`, `revokedAt?`, `ip`, `userAgent`.
   - Invariantes: sesión válida ⇔ no revocada ∧ `now < idleExpiresAt` ∧ `now < absoluteExpiresAt`.

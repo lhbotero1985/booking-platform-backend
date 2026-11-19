@@ -66,8 +66,13 @@ func TestNewPasswordPolicy(t *testing.T) {
 		in   string
 		want error
 	}{
-		{"corto123", ErrPasswordTooShort},
-		{"ñandú1234", ErrPasswordTooShort}, // 9 runes, 11 bytes: counted in runes
+		{"corto12", ErrPasswordTooShort},
+		{"ñandú12", ErrPasswordTooShort}, // 7 runes, 9 bytes: counted in runes
+		{"12345678", ErrPasswordTooCommon},
+		{"Password1", ErrPasswordTooCommon},
+		{"aaaaaaaa", ErrPasswordTooCommon},
+		{"tijera78", nil}, // exactly the minimum
+		{"ñandú123", nil}, // 8 runes
 		{strings.Repeat("x", MaxPasswordLength) + "y", ErrPasswordTooLong},
 		{"password123", ErrPasswordTooCommon},
 		{"PassWord123", ErrPasswordTooCommon}, // case-insensitive blocklist

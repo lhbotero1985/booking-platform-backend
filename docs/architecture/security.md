@@ -9,8 +9,11 @@ Estado: **Propuesta — Fase 0.** ADR-0006 y ADR-0007.
   (`$argon2id$v=19$m=65536,t=3,p=2$salt$hash`), sal aleatoria de 16 bytes, hash de 32 bytes.
   Parámetros por encima del mínimo OWASP (m=19 MiB, t=2, p=1); se calibrarán para ~100–250 ms en
   el Droplet de QA. Rehash transparente al iniciar sesión si cambian los parámetros.
-- Política: mínimo 10 caracteres, máximo 128, rechazo de contraseñas comunes, sin reglas de
-  composición forzada.
+- Política: mínimo 8 caracteres (mínimo NIST SP 800-63B), máximo 128, rechazo de una lista
+  pequeña de contraseñas comunes, sin reglas de composición forzada. **Excepción documentada
+  frente a OWASP ASVS L2** (V2.1.1 pide 12; V2.1.7 una lista amplia de filtradas): decisión del
+  usuario 2026-11-19 (P31), compensada con Argon2id, rate limiting y backoff. Las contraseñas
+  anteriores siguen siendo válidas para iniciar sesión.
 - Comparaciones en tiempo constante. Mensajes de error genéricos ("credenciales inválidas").
 - Mitigación de enumeración: el login con email inexistente ejecuta un hash ficticio.
 

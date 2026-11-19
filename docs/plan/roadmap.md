@@ -57,6 +57,9 @@ Módulo `internal/modules/identity` (ADR-0006, ADR-0007, `docs/architecture/secu
 | T2.7 ✅ | Rate limiting (login, registro, recuperación) y backoff ante fuerza bruta | Pruebas de límites y de backoff |
 | T2.8 ✅ | Auditoría básica (login, fallos, cambios de contraseña/membresía) | Eventos auditados sin datos sensibles |
 | T2.9 ✅ | Suite de seguridad de la fase + cierre | `tests/security` ampliada; checklist de fase |
+| T2.10 ✅ | Política de contraseñas: mínimo 8 (decisión P31), lista de comunes de 8–9 caracteres | Unitarias de la política; OpenAPI `minLength: 8` |
+
+**Fase 2 aprobada por el usuario (2026-11-19).**
 
 Las fases 3–13 se desglosarán en tareas al iniciar cada una.
 
