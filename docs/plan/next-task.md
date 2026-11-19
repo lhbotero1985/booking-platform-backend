@@ -1,34 +1,26 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T1.7 — Contrato OpenAPI 3.1 (2026-11-19), en la rama local `feature/t1.7-openapi` (sin commit:
-pendiente de autorización).
+T1.9 — Seguridad básica y cierre de la Fase 1 (2026-11-19), en `feature/t1.9-phase1-closure`.
 
 ## Flujo de ramas (ADR-0017)
 
 `feature/*` (nace de `qa`) → PR → `qa` → despliegue y validación QA → PR `qa` → `main` →
-PROD con el mismo artefacto. Hotfix: `hotfix/*` → `main` → back-merge a `qa`.
-Ningún merge, commit, push, PR ni despliegue sin autorización explícita del usuario.
+PROD con el mismo artefacto. Commit y push en `feature/*`: autorización permanente. PR, merge,
+borrado de ramas y despliegues: autorización explícita por tarea.
 
-## Acciones pendientes de autorización
+## Pendiente de autorización
 
-1. Commit, push, PR y merge de `feature/t1.7-openapi` → `qa`.
-2. Borrar la rama ya fusionada `feature/t1.6-river` (local y remota).
+1. PR de `feature/t1.9-phase1-closure` → `qa` (el CI valida también la integración, que no se
+   pudo repetir localmente porque Docker Desktop se detuvo) y merge si queda en verde.
+2. **Aprobación del cierre de la Fase 1** (`docs/plan/phase-1-closure.md`).
 
-## Próxima tarea: T1.8 — GitHub Actions (CI y seguridad)
+## Próxima tarea (tras aprobar la Fase 1): T2.1 — Esqueleto del módulo `identity`
 
-- **Objetivo:** pipeline obligatorio en cada PR hacia `qa`/`main` y en cada push a esas ramas.
-- **Archivos:** `.github/workflows/ci.yml`, `.github/workflows/security.yml` (reemplaza a
-  `secret-scan.yml`), `.github/dependabot.yml` sin cambios.
-- **Jobs previstos (Ubuntu, Go 1.27.4, acciones fijadas por SHA, `permissions: contents: read`):**
-  - `build-test`: `go build`, `go vet`, `go test -race` (primera ejecución real del detector de
-    carreras), cobertura como artefacto.
-  - `integration`: `go test -tags=integration` (testcontainers con el Docker del runner).
-  - `lint`: golangci-lint (versión fijada), `sqlc diff`/`sqlc vet`, `task openapi:lint`.
-  - `security`: gitleaks (historial completo), govulncheck, Trivy `config` y build + Trivy
-    `image` (HIGH/CRITICAL con fix → falla).
-- **Pruebas:** el pipeline debe pasar en el PR; verificación negativa en una rama temporal
-  (p. ej. un fallo de lint) para comprobar que bloquea — solo con autorización.
-- **Criterios de aceptación:** todos los jobs en verde en el PR de T1.8; tiempos razonables
-  (< 10 min); sin secretos requeridos.
-- **Bloqueos:** ninguno.
+- **Objetivo:** primer módulo de negocio con las capas de Clean Architecture y su esquema.
+- **Archivos:** `internal/modules/identity/{domain,application,infrastructure,interfaces/http,contract}`,
+  `db/migrations/00003_identity.sql` (`users`, `sessions`, `password_reset_tokens`,
+  `memberships`, `audit_log`), `db/queries/identity/*.sql`, entrada en `sqlc.yaml`,
+  reglas depguard del módulo (dominio puro, sin importar otros módulos salvo `contract`).
+- **Pruebas:** migración up/down/up; `sqlc diff`; violación intencional de depguard detectada.
+- **Pregunta abierta para la Fase 2:** P13 proveedor de email (recuperación de contraseña).

@@ -234,3 +234,19 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
   `docs/architecture/devsecops.md` §5.
 - **Decisiones:** acciones fijadas por SHA; escáneres como imágenes por digest; versión de
   setup-go con ≥ 2 semanas; `-race` también en integración; security semanal.
+
+## 2026-11-19 · Fase 1 · Integración de T1.8
+
+- PR #9 (T1.8) → `qa`: los 6 jobs en verde; squash merge `bbf7626`; workflows `ci` y
+  `security` también en verde sobre `qa`. Rama `feature/t1.8-ci` borrada (local y remoto).
+- Commit y push en `feature/*`: autorización permanente del usuario (CLAUDE.md regla 9).
+
+## 2026-11-19 · Fase 1 · T1.9 — Seguridad básica y cierre de fase
+
+- **Estado:** ✅ Implementada en `feature/t1.9-phase1-closure`. Integración local no verificable
+  (Docker Desktop detenido); queda a cargo del CI del PR.
+- **Archivos:** `internal/app/server.go` (`NewHTTPServer`, `MaxHeaderBytes`), `cmd/api/main.go`
+  (usa `NewHTTPServer`), `tests/security/baseline_test.go`, `Taskfile.yml` (`test:security`),
+  `docs/plan/phase-1-closure.md`, `docs/plan/roadmap.md` (desglose Fase 2), `test-results.md`.
+- **Resultado:** Fase 1 completa; **pendiente de aprobación del usuario** para cerrarla e
+  iniciar la Fase 2.

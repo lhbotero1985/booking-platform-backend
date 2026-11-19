@@ -161,3 +161,31 @@ No existen pruebas de código: la Fase 0 no contiene código funcional.
 | gitleaks v8.30.1 (digest fijado) sobre historial completo | ✅ no leaks found | Misma imagen que CI |
 | Trivy 0.76.2 `config /deploy` | ✅ 0 misconfigurations | Misma imagen que CI |
 | Trivy 0.76.2 `image` (build actual) | ✅ debian 0, `api` 0, `worker` 0 | HIGH/CRITICAL con fix |
+
+## 2026-11-19 · Fase 1 · T1.8 — GitHub Actions (ejecución real)
+
+PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
+
+| Workflow / job | PR #9 | `qa` (push) |
+|---|---|---|
+| ci / build + unit tests (race) | ✅ 3m31s | ✅ |
+| ci / integration tests (PostgreSQL) | ✅ 3m03s | ✅ |
+| ci / lint (golangci-lint, sqlc) | ✅ 3m52s | ✅ |
+| security / secrets (gitleaks, historial completo) | ✅ | ✅ |
+| security / dependencies (govulncheck) | ✅ | ✅ |
+| security / container (trivy config + image) | ✅ | ✅ |
+
+- Primera ejecución real de `-race` (unitarias e integración): sin carreras detectadas.
+- Cobertura unitaria en CI: total 52.2 % (app 100 %, buildinfo 100 %, config 98.7 %, httpx 92.9 %,
+  logging 90.9 %, db 38.3 % — el resto de db lo cubre integración).
+
+## 2026-11-19 · Fase 1 · T1.9 — Seguridad básica y cierre
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| `task test:security` (1ª) | ❌ → ✅ | `TestOversizedHeadersRejected`: 64 KiB + 1 KiB devolvió 200 — net/http admite MaxHeaderBytes + 4096 de holgura; la prueba usa ahora +8 KiB y documenta el límite efectivo (~68 KiB) |
+| `task test:security` | ✅ 7 pruebas | Cabeceras en 200/404/405/TRACE/413/503; sin fugas; CORS solo lista blanca exacta; body chunked; inyección vía X-Request-ID; 431; slowloris cortado en ~1 s |
+| `golangci-lint run` (1ª) | ❌ → ✅ 0 issues | noctx: `net.Listen`/`net.Dial` → `ListenConfig`/`DialContext` |
+| `task check` (unitarias + lint + build + vet) | ✅ | |
+| `govulncheck ./...` | ✅ No vulnerabilities found | 1er intento falló por DNS |
+| `task test:integration` | ⚠️ No verificable localmente | Docker Desktop detenido (`open //./pipe/dockerDesktopLinuxEngine`); se valida en el CI del PR |
