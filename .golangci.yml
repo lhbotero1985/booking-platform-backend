@@ -39,7 +39,7 @@ linters:
               desc: el dominio no depende de la base de datos
             - pkg: github.com/riverqueue/river
               desc: el dominio no depende de River
-            - pkg: booking-platform-backend/internal/platform
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/platform
               desc: el dominio no depende de la plataforma técnica
     forbidigo:
       forbid:
@@ -60,4 +60,4 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - booking-platform-backend
+        - github.com/lhbotero1985/booking-platform-backend

@@ -2,8 +2,8 @@
 //
 // Values are set with:
 //
-//	go build -ldflags "-X booking-platform-backend/internal/platform/buildinfo.version=v1.2.3 \
-//	  -X booking-platform-backend/internal/platform/buildinfo.commit=abc123"
+//	go build -ldflags "-X github.com/lhbotero1985/booking-platform-backend/internal/platform/buildinfo.version=v1.2.3 \
+//	  -X github.com/lhbotero1985/booking-platform-backend/internal/platform/buildinfo.commit=abc123"
 package buildinfo
 
 import "runtime"

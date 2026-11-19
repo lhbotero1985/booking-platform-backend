@@ -10,7 +10,7 @@ Decisiones relevantes no arquitectónicas (las arquitectónicas tienen ADR en `d
 | 2026-11-18 | Instalar Go y herramientas en la máquina local | Autorización del usuario (P3) | Aplicado |
 | 2026-11-18 | `booking-platform.code-workspace` y `README.md` en la raíz del workspace, sin versionar | No pertenecen a ningún repo (ADR-0016) | Aplicado |
 | 2026-11-18 | Fase 0 aprobada; ADR 0001–0015 aceptados (0014 luego reemplazado) | Aprobación del usuario | Aceptado |
-| 2026-11-18 | Ruta del módulo Go provisional `booking-platform-backend` | Se cambia a `github.com/<owner>/booking-platform-backend` cuando se conozca el owner | Provisional |
+| 2026-11-18 | Ruta del módulo Go `github.com/lhbotero1985/booking-platform-backend` | Usuario de GitHub confirmado | Aplicado |
 | 2026-11-18 | Conventional Commits + trunk-based + squash merge | Historial legible, compatible con releases automáticos | Propuesto |
 | 2026-11-18 | Migraciones en `db/migrations/` en lugar de `migrations/` | Agrupar con `db/queries/` de SQLC | Propuesto |
 | 2026-11-18 | `Taskfile.yml` (go-task) en lugar de Makefile | Multiplataforma (desarrollo en Windows, CI en Linux) | Propuesto |

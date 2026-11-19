@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"os"
 
-	"booking-platform-backend/internal/platform/buildinfo"
+	"github.com/lhbotero1985/booking-platform-backend/internal/platform/buildinfo"
 )
 
 func main() {

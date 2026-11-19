@@ -2,7 +2,7 @@
 version: "3"
 
 vars:
-  MODULE: booking-platform-backend
+  MODULE: github.com/lhbotero1985/booking-platform-backend
   VERSION:
     sh: git describe --tags --always --dirty 2>/dev/null || echo dev
   COMMIT:

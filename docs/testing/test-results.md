@@ -39,3 +39,11 @@ No existen pruebas de código: la Fase 0 no contiene código funcional.
 | `bin/api.exe` | ✅ exit 0 | Log JSON con versión, commit y Go |
 | depguard con import `net/http` en `internal/modules/probe/domain` | ✅ Detectado (`domain-purity`) | Archivo temporal eliminado |
 | `go test -race` | ⚠️ No ejecutado | Sin gcc/cgo en Windows; se cubrirá en CI (T1.8) |
+
+## 2026-11-18 · Fase 1 · Cambio de ruta del módulo + escaneo de secretos
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| `task check` (módulo `github.com/lhbotero1985/booking-platform-backend`) | ✅ 0 issues, pruebas ok, sin vulnerabilidades | |
+| `gitleaks git` (historial, 4 commits) | ✅ no leaks found | Docker Desktop activo; resuelve el pendiente de T0.2 |
+| `gitleaks dir` (directorio de trabajo) | ✅ no leaks found | |

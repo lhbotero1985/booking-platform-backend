@@ -119,7 +119,7 @@ DOCUMENTACIÓN · SIGUIENTE TAREA.
 ## Comandos
 
 Toolchain local: Go 1.27.4, golangci-lint 2.x, govulncheck, sqlc, goose, Task (go-task).
-Ruta del módulo Go (provisional): `booking-platform-backend`.
+Ruta del módulo Go: `github.com/lhbotero1985/booking-platform-backend`.
 
 | Comando | Qué hace |
 |---|---|
