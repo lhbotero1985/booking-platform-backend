@@ -43,11 +43,22 @@ type HTTP struct {
 	CORSAllowedOrigins []string
 }
 
+// Database holds PostgreSQL settings. URLs contain credentials: never log them.
+type Database struct {
+	// URL is used by the runtime (API and worker), with DML-only privileges in QA/PROD.
+	URL string
+	// MigratorURL is used only by "migrate"; falls back to URL when empty.
+	MigratorURL    string
+	MaxConns       int32
+	ConnectTimeout time.Duration
+}
+
 // Config is the full process configuration.
 type Config struct {
 	Env      Env
 	LogLevel slog.Level
 	HTTP     HTTP
+	Database Database
 }
 
 // Load reads configuration using getenv (usually os.Getenv) and validates it.
@@ -67,6 +78,15 @@ func Load(getenv func(string) string) (Config, error) {
 			MaxBodyBytes:       p.int64("HTTP_MAX_BODY_BYTES", 1<<20),
 			CORSAllowedOrigins: p.list("CORS_ALLOWED_ORIGINS"),
 		},
+		Database: Database{
+			URL:            p.postgresURL("DATABASE_URL", true),
+			MigratorURL:    p.postgresURL("DATABASE_MIGRATOR_URL", false),
+			MaxConns:       int32(p.intRange("DB_MAX_CONNS", 10, 1, 100)), //nolint:gosec // bounded to [1,100]
+			ConnectTimeout: p.duration("DB_CONNECT_TIMEOUT", 5*time.Second),
+		},
+	}
+	if cfg.Database.MigratorURL == "" {
+		cfg.Database.MigratorURL = cfg.Database.URL
 	}
 
 	p.validateOrigins(cfg.Env, cfg.HTTP.CORSAllowedOrigins)
@@ -146,6 +166,32 @@ func (p *parser) int64(key string, def int64) int64 {
 		return def
 	}
 	return n
+}
+
+func (p *parser) intRange(key string, def, minV, maxV int64) int64 {
+	n := p.int64(key, def)
+	if n < minV || n > maxV {
+		p.fail(key, fmt.Sprintf("must be between %d and %d", minV, maxV))
+		return def
+	}
+	return n
+}
+
+// postgresURL validates a connection URL without ever echoing it (it carries a password).
+func (p *parser) postgresURL(key string, required bool) string {
+	v := strings.TrimSpace(p.getenv(key))
+	if v == "" {
+		if required {
+			p.fail(key, "is required (postgres://user:password@host:port/db)")
+		}
+		return ""
+	}
+	u, err := url.Parse(v)
+	if err != nil || (u.Scheme != "postgres" && u.Scheme != "postgresql") || u.Host == "" || strings.Trim(u.Path, "/") == "" {
+		p.fail(key, "must be a postgres:// URL with host and database name (value not shown)")
+		return ""
+	}
+	return v
 }
 
 func (p *parser) list(key string) []string {

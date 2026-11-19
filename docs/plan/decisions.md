@@ -17,6 +17,11 @@ Decisiones relevantes no arquitectónicas (las arquitectónicas tienen ADR en `d
 | 2026-11-18 | Integración con `testcontainers-go` (imagen postgis) | PG real y aislado por suite, igual local y CI | Propuesto |
 | 2026-11-19 | Puerto DEV de PostgreSQL 55432 | PostgreSQL nativo ocupa 5432 en la máquina de desarrollo | Aplicado |
 | 2026-11-19 | Trivy fijado a 0.58.1 con DB desde GHCR | mirror.gcr.io inalcanzable por IPv6 en la red local | Aplicado |
+| 2026-11-19 | La API arranca sin BD; `/readyz` (BD + migraciones) decide si recibe tráfico | Resiliencia ante arranques desordenados | Aplicado |
+| 2026-11-19 | `migrate down` prohibido en QA/PROD | Forward-only; revertir = restaurar backup | Aplicado |
+| 2026-11-19 | El Down de 00001 no elimina postgis | Imagen/proveedor la preinstalan con extensiones dependientes | Aplicado |
+| 2026-11-19 | Roles `app_migrator`/`app_runtime` diferidos a Fase 3 | Se crean con la infraestructura QA; DEV usa un solo rol | Pendiente |
+| 2026-11-19 | Una rama `feat/…` por tarea + PR a `main`; sin rama `qa` | Trunk-based (ADR-0013): QA es ambiente, no rama | Aplicado |
 | 2026-11-18 | Imágenes en GHCR | Gratuito con GitHub, integrado con Actions | Propuesto |
 | 2026-11-18 | Búsqueda de negocios por ciudad en MVP (PostGIS listo para cercanía futura) | Simplicidad | Propuesto |
 | 2026-11-18 | Sin auto-cancelación de citas pendientes en MVP | Regla del prompt; requiere política aprobada | Propuesto |

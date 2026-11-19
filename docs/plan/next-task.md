@@ -1,43 +1,28 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T1.3 — Docker y Docker Compose DEV (2026-11-19).
+T1.4 — Base de datos, migraciones y readiness (2026-11-19), en la rama `feat/t1.4-database`.
 
-## Acción pendiente del usuario: primer push a GitHub
+## Repositorio remoto y flujo
 
-Claude Code no puede completar el push (requiere autenticación interactiva y la política de
-permisos lo bloquea). Ejecutar en una terminal:
+- `main` publicado en https://github.com/lhbotero1985/booking-platform-backend.
+- Cada tarea se trabaja en una rama `feat/…` y entra a `main` por Pull Request (ADR-0013).
+  QA es un ambiente que despliega desde `main` (Fase 3), no una rama.
+- Cada `git push` requiere aprobación del usuario (regla `ask` en `.claude/settings.local.json`).
+- Pendiente: abrir PR de `feat/t1.4-database` → `main` y verificar el workflow `security`.
 
-```powershell
-cd C:\Users\PC-1\Desktop\booking-platform\booking-platform-backend
-git push -u origin main
-```
+## Próxima tarea: T1.5 — SQLC
 
-Después: verificar en la pestaña Actions que el workflow `security` (gitleaks) pase.
-
-## Próxima tarea: T1.4 — Base de datos, migraciones y readiness
-
-- **Objetivo:** conexión a PostgreSQL con pgx, migraciones Goose embebidas, comando de
-  migración explícito y `/readyz`.
+- **Objetivo:** generación de código tipado desde SQL, integrada al flujo y verificada en CI.
 - **Archivos:**
-  - `internal/platform/db/` — `pgxpool` (config por `DATABASE_URL`, timeouts, tamaño de pool),
-    helper `WithTx`, mapeo de errores PostgreSQL (`23505`, `23P01`, …).
-  - `db/migrations/00001_extensions.sql` — `postgis`, `btree_gist`, `citext`.
-  - `db/migrations/embed.go` — `embed.FS`.
-  - `cmd/api` — subcomando `migrate up|down|status` (usa `DATABASE_MIGRATOR_URL`).
-  - `GET /readyz` — 200 si la BD responde y no hay migraciones pendientes; 503 problem+json si no.
-  - `internal/platform/config` — `DATABASE_URL`, `DATABASE_MIGRATOR_URL`, pool.
-  - Compose DEV y `.env.example` — variables de BD; `task migrate`.
-  - `Taskfile.yml` — `task test:integration` (build tag `integration`, testcontainers-go).
-- **Dependencias nuevas:** `github.com/jackc/pgx/v5`, `github.com/pressly/goose/v3`,
-  `github.com/testcontainers/testcontainers-go` (+ módulo postgres).
-- **Pruebas:**
-  - Unitarias: config de BD, mapeo de errores.
-  - Integración (PostgreSQL real): migraciones up → down → up; extensiones instaladas;
-    `/readyz` 200 con BD y migraciones al día, 503 con BD caída o migración pendiente;
-    `WithTx` hace rollback ante error y ante pánico.
-  - Seguridad: `DATABASE_URL` nunca aparece en logs; usuario runtime sin permisos DDL (si se
-    crean roles en esta tarea).
-- **Comandos de validación:** `task check`, `task test:integration`, `task up`, `task migrate`.
+  - `sqlc.yaml` — motor postgresql, esquema desde `db/migrations`, consultas en
+    `db/queries/<modulo>/`, salida por módulo en `internal/modules/<modulo>/infrastructure/sqlcgen`
+    (o `internal/platform/...` para consultas técnicas), driver `pgx/v5`, `emit_interface`,
+    tipos `uuid`/`timestamptz` mapeados.
+  - Una consulta mínima de ejemplo que valide la configuración (sin lógica de negocio).
+  - `Taskfile.yml` — `task sqlc` (generate) y `task sqlc:check` (`sqlc diff` / `sqlc vet`).
+- **Pruebas:** `sqlc generate` reproducible; `sqlc diff` sin cambios; código generado compila y
+  pasa lint; prueba de integración que ejecute la consulta de ejemplo.
+- **Comandos de validación:** `task sqlc`, `task check`, `task test:integration`.
 - **Criterios de aceptación:** los anteriores en verde y documentados en `test-results.md`.
-- **Bloqueos:** DNS intermitente puede requerir reintentos al descargar dependencias.
+- **Bloqueos:** ninguno.

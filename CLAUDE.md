@@ -134,7 +134,13 @@ Ruta del módulo Go: `github.com/lhbotero1985/booking-platform-backend`.
 | `task docker:build` | Imagen `booking-platform-backend:dev` (distroless, nonroot) |
 | `task trivy` | Trivy config + imagen (HIGH/CRITICAL) |
 
-Pendientes de tareas posteriores: `task test:integration` (T1.4), `task sqlc` (T1.5).
+| `task migrate -- up\|down\|status` | Migraciones Goose en el entorno DEV (contenedor `api migrate …`) |
+| `task test:integration` | Pruebas con PostgreSQL real (testcontainers, build tag `integration`; requiere Docker) |
+
+Pendiente de tareas posteriores: `task sqlc` (T1.5).
+
+Flujo Git: una rama `feat/<tarea>` por tarea → PR a `main`. QA es un ambiente que despliega
+desde `main`, no una rama. Cada `git push` requiere aprobación explícita del usuario.
 
 Notas del entorno local:
 - PostgreSQL nativo de Windows ocupa el puerto 5432; por eso DEV usa 55432.

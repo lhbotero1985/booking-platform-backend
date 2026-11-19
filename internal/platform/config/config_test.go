@@ -7,8 +7,20 @@ import (
 	"time"
 )
 
+const testDBURL = "postgres://app:s3cr3t-pass@localhost:5432/booking?sslmode=disable"
+
+// envFrom returns a getenv backed by m. DATABASE_URL defaults to a valid value unless the
+// map sets the key (an empty string means "unset").
 func envFrom(m map[string]string) func(string) string {
-	return func(k string) string { return m[k] }
+	return func(k string) string {
+		if v, ok := m[k]; ok {
+			return v
+		}
+		if k == "DATABASE_URL" {
+			return testDBURL
+		}
+		return ""
+	}
 }
 
 func TestLoadDefaults(t *testing.T) {
@@ -35,6 +47,12 @@ func TestLoadDefaults(t *testing.T) {
 	if len(cfg.HTTP.CORSAllowedOrigins) != 0 {
 		t.Errorf("CORSAllowedOrigins = %v", cfg.HTTP.CORSAllowedOrigins)
 	}
+	if cfg.Database.URL != testDBURL || cfg.Database.MigratorURL != testDBURL {
+		t.Errorf("Database URLs not loaded / migrator fallback not applied")
+	}
+	if cfg.Database.MaxConns != 10 || cfg.Database.ConnectTimeout != 5*time.Second {
+		t.Errorf("Database pool defaults = %d, %v", cfg.Database.MaxConns, cfg.Database.ConnectTimeout)
+	}
 }
 
 func TestLoadOverrides(t *testing.T) {
@@ -47,6 +65,9 @@ func TestLoadOverrides(t *testing.T) {
 		"CORS_ALLOWED_ORIGINS":     " https://business.example.com , https://admin.example.com:8443 ",
 		"HTTP_SHUTDOWN_TIMEOUT":    "1m",
 		"HTTP_READ_HEADER_TIMEOUT": "2s",
+		"DATABASE_MIGRATOR_URL":    "postgresql://migrator:x@db:5432/booking",
+		"DB_MAX_CONNS":             "25",
+		"DB_CONNECT_TIMEOUT":       "2s",
 	}))
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
@@ -55,11 +76,15 @@ func TestLoadOverrides(t *testing.T) {
 	if cfg.LogLevel != slog.LevelDebug || cfg.HTTP.Addr != "127.0.0.1:9000" ||
 		cfg.HTTP.ReadTimeout != 3*time.Second || cfg.HTTP.MaxBodyBytes != 2048 ||
 		cfg.HTTP.ShutdownTimeout != time.Minute || cfg.HTTP.ReadHeaderTimeout != 2*time.Second {
-		t.Errorf("unexpected config: %+v", cfg)
+		t.Errorf("unexpected HTTP config: %+v", cfg.HTTP)
 	}
 	want := []string{"https://business.example.com", "https://admin.example.com:8443"}
 	if strings.Join(cfg.HTTP.CORSAllowedOrigins, "|") != strings.Join(want, "|") {
 		t.Errorf("CORSAllowedOrigins = %v, want %v", cfg.HTTP.CORSAllowedOrigins, want)
+	}
+	if cfg.Database.MigratorURL != "postgresql://migrator:x@db:5432/booking" ||
+		cfg.Database.MaxConns != 25 || cfg.Database.ConnectTimeout != 2*time.Second {
+		t.Errorf("unexpected database config (MaxConns=%d)", cfg.Database.MaxConns)
 	}
 }
 
@@ -80,6 +105,11 @@ func TestLoadInvalid(t *testing.T) {
 		{"origin with path", map[string]string{"APP_ENV": "development", "CORS_ALLOWED_ORIGINS": "https://a.com/app"}, "invalid origin"},
 		{"origin without scheme", map[string]string{"APP_ENV": "development", "CORS_ALLOWED_ORIGINS": "a.com"}, "invalid origin"},
 		{"http origin in production", map[string]string{"APP_ENV": "production", "CORS_ALLOWED_ORIGINS": "http://a.com"}, "must use https"},
+		{"missing DATABASE_URL", map[string]string{"APP_ENV": "test", "DATABASE_URL": ""}, "DATABASE_URL: is required"},
+		{"non-postgres DATABASE_URL", map[string]string{"APP_ENV": "test", "DATABASE_URL": "mysql://u:p@h/db"}, "DATABASE_URL: must be a postgres"},
+		{"DATABASE_URL without db name", map[string]string{"APP_ENV": "test", "DATABASE_URL": "postgres://u:p@h:5432"}, "DATABASE_URL: must be a postgres"},
+		{"bad migrator URL", map[string]string{"APP_ENV": "test", "DATABASE_MIGRATOR_URL": "nope"}, "DATABASE_MIGRATOR_URL"},
+		{"pool too large", map[string]string{"APP_ENV": "test", "DB_MAX_CONNS": "500"}, "DB_MAX_CONNS: must be between"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -94,12 +124,28 @@ func TestLoadInvalid(t *testing.T) {
 	}
 }
 
-func TestLoadReportsAllErrors(t *testing.T) {
-	_, err := Load(envFrom(map[string]string{"LOG_LEVEL": "loud", "HTTP_READ_TIMEOUT": "x"}))
+func TestLoadNeverLeaksDatabaseCredentials(t *testing.T) {
+	_, err := Load(envFrom(map[string]string{
+		"APP_ENV":               "test",
+		"DATABASE_URL":          "mysql://admin:topsecret@h/db",
+		"DATABASE_MIGRATOR_URL": "postgres://mig:alsosecret@h", // no db name
+	}))
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	for _, key := range []string{"APP_ENV", "LOG_LEVEL", "HTTP_READ_TIMEOUT"} {
+	for _, secret := range []string{"topsecret", "alsosecret"} {
+		if strings.Contains(err.Error(), secret) {
+			t.Errorf("error leaks credentials: %q", err)
+		}
+	}
+}
+
+func TestLoadReportsAllErrors(t *testing.T) {
+	_, err := Load(envFrom(map[string]string{"LOG_LEVEL": "loud", "HTTP_READ_TIMEOUT": "x", "DATABASE_URL": ""}))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	for _, key := range []string{"APP_ENV", "LOG_LEVEL", "HTTP_READ_TIMEOUT", "DATABASE_URL"} {
 		if !strings.Contains(err.Error(), key) {
 			t.Errorf("error %q missing %s", err, key)
 		}
