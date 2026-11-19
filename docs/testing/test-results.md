@@ -111,3 +111,27 @@ No existen pruebas de código: la Fase 0 no contiene código funcional.
 | `sqlc diff` con consulta modificada a propósito | ✅ exit 1 | Detecta código generado desactualizado; consulta restaurada (sin diff) |
 | `task check` | ✅ 0 issues, pruebas ok, sin vulnerabilidades | El código generado queda excluido del lint (cabecera "Code generated") |
 | `go test -tags=integration ./...` | ✅ 7 paquetes ok | Nuevo `TestSQLCGeneratedQuery`: la consulta generada lista postgis, btree_gist y citext en PG real |
+
+## 2026-11-19 · Fase 1 · T1.6 — River (jobs en segundo plano)
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| `sqlc diff` (1ª) | ❌ → ✅ | Detectó modelos River nuevos en `platformq` al entrar las tablas al esquema; solución `omit_unused_structs: true` |
+| `golangci-lint run` (1ª) | ❌ → ✅ 0 issues | misspell: "cancelled" → "canceled" en comentarios/logs |
+| `task check` | ✅ 0 issues, pruebas ok, sin vulnerabilidades | |
+| `go test -tags=integration` jobs+migrate | ⚠️ intermitente | `failed to create Docker provider` (testcontainers + Docker Desktop en Windows con paquetes concurrentes). Mitigado con reintentos en `pgtest.Start` |
+| `go test -tags=integration ./...` × 4 corridas | ✅ 4/4, 8 paquetes ok | Tras los reintentos |
+| ↳ migrate `TestUpDownUp` con `00002_river.sql` | ✅ | Up/Down/Up de todo el esquema River |
+| ↳ jobs `TestInsertTxCommittedJobIsProcessed` | ✅ | Job insertado con `InsertTx` + commit se procesa |
+| ↳ jobs `TestInsertTxRolledBackJobIsNeverProcessed` | ✅ | Rollback → 0 filas en `river_job`, nunca procesado (outbox, ADR-0008) |
+| ↳ jobs `TestUniqueByArgsSkipsDuplicates` | ✅ | 2º insert `UniqueSkippedAsDuplicate`, 1 fila |
+| ↳ jobs `TestPingWorkerCompletes` | ✅ | Registro de workers de plataforma, cola `maintenance` |
+| ↳ Stop graceful del cliente en cada prueba | ✅ | `client.Stop` sin error |
+| `docker build` | ✅ 2º intento | DNS |
+| E2E: worker con migración 00002 pendiente | ✅ | `pending migrations: run api migrate up…`, reinicios del contenedor |
+| E2E: `api migrate up` | ✅ | `00002_river.sql` aplicada |
+| E2E: worker tras migrar | ✅ `worker started`; `/readyz` 200 | |
+| E2E: job `platform.ping` insertado por SQL | ✅ `completed`, attempt 1 | Log `ping job processed` |
+| E2E: SIGTERM al worker | ✅ `worker shutting down` → `worker stopped cleanly`, exit 0 | |
+| Contraseña de BD en logs (api + worker) | ✅ no aparece | |
+| gitleaks | ✅ no leaks found | |

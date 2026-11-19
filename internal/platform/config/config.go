@@ -53,12 +53,19 @@ type Database struct {
 	ConnectTimeout time.Duration
 }
 
+// Worker holds settings for cmd/worker.
+type Worker struct {
+	// ShutdownTimeout is how long running jobs may finish after SIGTERM before being canceled.
+	ShutdownTimeout time.Duration
+}
+
 // Config is the full process configuration.
 type Config struct {
 	Env      Env
 	LogLevel slog.Level
 	HTTP     HTTP
 	Database Database
+	Worker   Worker
 }
 
 // Load reads configuration using getenv (usually os.Getenv) and validates it.
@@ -83,6 +90,9 @@ func Load(getenv func(string) string) (Config, error) {
 			MigratorURL:    p.postgresURL("DATABASE_MIGRATOR_URL", false),
 			MaxConns:       int32(p.intRange("DB_MAX_CONNS", 10, 1, 100)), //nolint:gosec // bounded to [1,100]
 			ConnectTimeout: p.duration("DB_CONNECT_TIMEOUT", 5*time.Second),
+		},
+		Worker: Worker{
+			ShutdownTimeout: p.duration("WORKER_SHUTDOWN_TIMEOUT", 30*time.Second),
 		},
 	}
 	if cfg.Database.MigratorURL == "" {

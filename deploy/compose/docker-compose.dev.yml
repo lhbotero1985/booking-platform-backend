@@ -53,5 +53,30 @@ services:
     stop_grace_period: 25s
     restart: unless-stopped
 
+  # River worker (same image, different entrypoint). Exits while migrations are pending and is
+  # restarted until `task migrate` has run.
+  worker:
+    image: booking-platform-backend:dev
+    entrypoint: ["/usr/local/bin/worker"]
+    environment:
+      APP_ENV: development
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      WORKER_SHUTDOWN_TIMEOUT: 20s
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_started # api builds the shared image
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    pids_limit: 200
+    stop_grace_period: 30s
+    restart: unless-stopped
+
 volumes:
   pgdata:

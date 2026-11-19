@@ -38,3 +38,6 @@ sql:
         emit_interface: true
         emit_empty_slices: true
         emit_pointers_for_null_types: true
+        # Only generate structs used by this package's queries (the schema also contains
+        # River's tables and, later, other modules' tables).
+        omit_unused_structs: true
