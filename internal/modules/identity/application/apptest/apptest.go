@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application"
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/domain"
 )
 
@@ -25,7 +26,9 @@ type Store struct {
 	tokens   map[string]*evToken
 	sessions map[string]*sessRec
 	resets   map[string]*evToken
-	Enqueued []uuid.UUID // verification emails scheduled (after commit)
+	// memberships holds ACTIVE memberships per user (revoked ones are removed).
+	memberships map[uuid.UUID][]contract.Membership
+	Enqueued    []uuid.UUID // verification emails scheduled (after commit)
 	// ResetEnqueued and ChangedEnqueued record password reset / password changed emails.
 	ResetEnqueued   []uuid.UUID
 	ChangedEnqueued []uuid.UUID
@@ -40,7 +43,7 @@ type evToken struct {
 
 // NewStore returns an empty store.
 func NewStore() *Store {
-	return &Store{users: map[uuid.UUID]*domain.User{}, tokens: map[string]*evToken{}, sessions: map[string]*sessRec{}, resets: map[string]*evToken{}}
+	return &Store{users: map[uuid.UUID]*domain.User{}, tokens: map[string]*evToken{}, sessions: map[string]*sessRec{}, resets: map[string]*evToken{}, memberships: map[uuid.UUID][]contract.Membership{}}
 }
 
 // WithinTx implements application.Store.
@@ -434,4 +437,28 @@ func (t *storeTx) EnqueuePasswordResetEmail(_ context.Context, id uuid.UUID) err
 func (t *storeTx) EnqueuePasswordChangedEmail(_ context.Context, id uuid.UUID) error {
 	t.changedEnqueued = append(t.changedEnqueued, id)
 	return nil
+}
+
+// GrantMembership gives userID an active role in businessID (test helper).
+func (s *Store) GrantMembership(userID, businessID uuid.UUID, role contract.Role) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.memberships[userID] = append(s.memberships[userID], contract.Membership{BusinessID: businessID, Role: role})
+}
+
+// RevokeMembership removes userID's membership in businessID (test helper).
+func (s *Store) RevokeMembership(userID, businessID uuid.UUID) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	kept := s.memberships[userID][:0]
+	for _, m := range s.memberships[userID] {
+		if m.BusinessID != businessID {
+			kept = append(kept, m)
+		}
+	}
+	s.memberships[userID] = kept
+}
+
+func (t *storeTx) ActiveMembershipsByUser(_ context.Context, userID uuid.UUID) ([]contract.Membership, error) {
+	return append([]contract.Membership{}, t.s.memberships[userID]...), nil
 }

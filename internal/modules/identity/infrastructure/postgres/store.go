@@ -16,6 +16,7 @@ import (
 	"github.com/riverqueue/river/rivertype"
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application"
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/domain"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/infrastructure/sqlcgen"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/infrastructure/worker"
@@ -201,4 +202,22 @@ func (t *txStore) EnqueuePasswordChangedEmail(ctx context.Context, userID uuid.U
 		return fmt.Errorf("enqueue password changed email: %w", err)
 	}
 	return nil
+}
+
+func (t *txStore) ActiveMembershipsByUser(ctx context.Context, userID uuid.UUID) ([]contract.Membership, error) {
+	rows, err := t.q.ListActiveMembershipsByUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]contract.Membership, 0, len(rows))
+	for _, r := range rows {
+		// The CHECK constraint already restricts roles; parsing again fails closed if the
+		// schema and the code ever drift.
+		role, err := domain.ParseRole(r.Role)
+		if err != nil {
+			return nil, fmt.Errorf("membership role %q: %w", r.Role, err)
+		}
+		out = append(out, contract.Membership{BusinessID: r.BusinessID, Role: contract.Role(role)})
+	}
+	return out, nil
 }

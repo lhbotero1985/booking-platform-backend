@@ -59,6 +59,35 @@ Estado: **Propuesta — Fase 0.** ADR-0006 y ADR-0007.
 4. Las membresías se cargan por request (consulta indexada) — sin cachear permisos en el token
    para que la revocación sea inmediata.
 
+### Implementación (T2.6)
+
+- `identity/contract`: `Role`, `Membership`, puerto `Authorizer` y las políticas puras
+  `CheckBusinessRole` / `CheckPlatformAdmin`. Otros módulos reciben un `contract.Authorizer`
+  (implementado por el servicio de identity) y lo invocan **dentro del caso de uso**, no como
+  middleware de ruta.
+- Reglas de `RequireBusinessRole(principal, businessID, roles...)`:
+  sin membresía activa en ese negocio → `ErrNotFound` (404) · membresía con rol no permitido →
+  `ErrForbidden` (403) · lista de roles vacía → `ErrForbidden` (falla cerrado).
+- `PLATFORM_ADMIN` **no** tiene rol implícito en los negocios: las operaciones de administración
+  usan casos de uso propios protegidos con `RequirePlatformAdmin` (mínimo privilegio y auditoría).
+- Errores compartidos en `internal/platform/authz`; `httpx.WriteAuthzProblem` los traduce. El
+  404 es idéntico al de una ruta inexistente (sin `detail`).
+- `GET /api/v1/me/memberships` lista los negocios y roles activos del usuario.
+
+### Matriz de políticas (conjuntos de roles)
+
+| Conjunto | Roles | Acciones (Fase 4 en adelante) |
+|---|---|---|
+| `RolesOwner` | OWNER | Configuración y suspensión del negocio, membresías y roles |
+| `RolesManagement` | OWNER, MANAGER | Catálogo, profesionales y horarios, agenda completa, clientes |
+| `RolesStaff` | OWNER, MANAGER, PROFESSIONAL | Agenda propia; el caso de uso además compara el dueño del recurso con el principal |
+| — (sin membresía) | CUSTOMER | Solo recursos propios (`/me/...`); nunca datos internos de un negocio |
+| `RequirePlatformAdmin` | PLATFORM_ADMIN | Geografía, alta/suspensión de negocios, auditoría |
+
+| Caso | Mismo negocio, rol permitido | Mismo negocio, rol insuficiente | Otro negocio / sin membresía |
+|---|---|---|---|
+| Respuesta | 200 | 403 `FORBIDDEN` | 404 `NOT_FOUND` |
+
 ### Enlaces compartidos de agenda
 Token opaco hasheado, alcance mínimo (un día de agenda o una cita), solo lectura, expiración
 obligatoria (≤ 7 días), revocable, sin datos de contacto del cliente (solo nombre de pila y

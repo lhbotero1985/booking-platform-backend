@@ -13,6 +13,7 @@ const ContentTypeProblem = "application/problem+json"
 // Stable machine-readable error codes for clients.
 const (
 	CodeNotFound         = "NOT_FOUND"
+	CodeForbidden        = "FORBIDDEN"
 	CodeMethodNotAllowed = "METHOD_NOT_ALLOWED"
 	CodeBodyTooLarge     = "BODY_TOO_LARGE"
 	CodeInvalidRequest   = "INVALID_REQUEST"

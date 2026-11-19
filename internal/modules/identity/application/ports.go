@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/domain"
 )
 
@@ -85,6 +86,9 @@ type Tx interface {
 	EnqueuePasswordResetEmail(ctx context.Context, userID uuid.UUID) error
 	// EnqueuePasswordChangedEmail schedules the "your password changed" notice.
 	EnqueuePasswordChangedEmail(ctx context.Context, userID uuid.UUID) error
+
+	// ActiveMembershipsByUser returns the user's ACTIVE memberships (any order; empty if none).
+	ActiveMembershipsByUser(ctx context.Context, userID uuid.UUID) ([]contract.Membership, error)
 }
 
 // Mailer delivers a plain-text email.

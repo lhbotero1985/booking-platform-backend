@@ -291,3 +291,24 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | E2E Docker Compose + Mailpit (12 pasos) | ✅ | forgot 202 ×2 idénticos → 1 email "Restablece tu contraseña" (`bp_pr_`) → reset débil 400 → reset 200 → sesión previa 401 → clave vieja 401 / nueva 200 → reuso 400 → aviso "Tu contraseña fue cambiada" → cambio autenticado 204 y sesión actual 200; secretos en logs 0; 3 jobs `completed` |
 | `task test:integration` | ✅ 18 paquetes | |
 | `golangci-lint` / govulncheck / `sqlc diff` / gitleaks | ✅ | 4 falsos positivos G101 en plantillas de email anotados |
+
+## 2026-11-19 · Fase 2 · T2.5 — CI
+
+| Comando | Resultado |
+|---|---|
+| PR #17 — ci + security | ✅ 6/6 (unit+race 4m36s, integración 3m35s, lint 3m6s, Trivy, govulncheck, gitleaks); squash merge `af1a4ae` |
+
+## 2026-11-19 · Fase 2 · T2.6 — RBAC y autorización por recurso
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| Unitarias `contract` (políticas puras) | ✅ 4 pruebas | Matriz 3 conjuntos × 3 roles × mismo/otro negocio + cliente sin membresía; falla cerrado (lista vacía, negocio nulo, rol desconocido); negocios independientes; admin sin rol implícito |
+| Unitarias aplicación | ✅ 4 pruebas | Revocación pierde acceso en la siguiente llamada; anónimo → `ErrUnauthenticated`; fallo de BD se propaga (no se convierte en decisión de política); listado ordenado y acotado al usuario |
+| `httpx.WriteAuthzProblem` | ✅ | 404/403 problem+json, errores envueltos, no mapea otros errores |
+| Handlers HTTP | ✅ 2 pruebas | `/me/memberships` vacío/con rol/401; patrón E2E con rutas de prueba: 200 permitido, 403 `FORBIDDEN`, 404 otro negocio y UUID inválido **idénticos** al 404 de ruta inexistente, 404 tras revocar |
+| Contrato OpenAPI | ✅ | `/me/memberships` 200 (vacío y con membresía) y 401 |
+| Integración PostgreSQL | ✅ `TestAuthorizationOnPostgres` | 2 usuarios, 3 membresías; 200/403/404; `status='REVOKED'` excluida de inmediato; flag de admin leído de la fila del usuario al autenticar |
+| `task test:integration` | ✅ | Todos los paquetes ok |
+| `task check` | ✅ | lint 0 issues (2 comentarios revive corregidos); govulncheck: 1.er intento falló por DNS (`vuln.go.dev`), reintento sin vulnerabilidades |
+| `task sqlc:check` / `openapi:lint` | ✅ | |
+| E2E Docker Compose + Mailpit (6 pasos) | ✅ | 401 sin auth → verify 200 → `{"items":[]}` → membresía MANAGER insertada → listada → revocada → `{"items":[]}`; token en logs: 0 |

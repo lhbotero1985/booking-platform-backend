@@ -28,6 +28,7 @@ type fixture struct {
 	store  *apptest.Store
 	mailer *apptest.Mailer
 	logs   *bytes.Buffer
+	api    *httpapi.Handler
 }
 
 func newFixture() fixture {
@@ -39,7 +40,8 @@ func newFixture() fixture {
 		Config: application.Config{PublicAppURL: "https://app.example.test"}, Logger: logger,
 	})
 	rt := httpx.NewRouter()
-	httpapi.New(f.svc, logger, httpapi.Options{AllowedOrigins: []string{allowedOrigin}}).Routes(rt)
+	f.api = httpapi.New(f.svc, logger, httpapi.Options{AllowedOrigins: []string{allowedOrigin}})
+	f.api.Routes(rt)
 	f.h = httpx.Chain(rt, httpx.RequestID, httpx.Recover(logger), httpx.LimitBody(1<<20))
 	return f
 }
