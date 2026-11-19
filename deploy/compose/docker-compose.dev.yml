@@ -38,6 +38,12 @@ services:
       # Inside the compose network the database host is "postgres". DEV uses one role for
       # runtime and migrations; QA/PROD use separate roles (Phase 3).
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:3000}
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_TLS: none
+      # Memory budget: ARGON2_MAX_CONCURRENT x 64 MiB must fit in mem_limit with headroom.
+      ARGON2_MAX_CONCURRENT: "2"
     ports:
       - "127.0.0.1:${API_PORT:-8080}:8080"
     depends_on:
@@ -48,7 +54,7 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
-    mem_limit: 256m
+    mem_limit: 512m
     pids_limit: 200
     stop_grace_period: 25s
     restart: unless-stopped
@@ -63,9 +69,16 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-debug}
       WORKER_SHUTDOWN_TIMEOUT: 20s
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:3000}
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_TLS: none
+      ARGON2_MAX_CONCURRENT: "1"
     depends_on:
       postgres:
         condition: service_healthy
+      mailpit:
+        condition: service_started
       api:
         condition: service_started # api builds the shared image
     read_only: true
@@ -76,6 +89,18 @@ services:
     mem_limit: 256m
     pids_limit: 200
     stop_grace_period: 30s
+    restart: unless-stopped
+
+  # DEV mail catcher: SMTP on 1025 (internal), web UI on http://127.0.0.1:8025.
+  mailpit:
+    image: axllent/mailpit:v1.33.0@sha256:9b3a463be15354c0f0eba91697d80e3e0d8a5623ef0e627cacc836bc17fd5231
+    ports:
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+    environment:
+      MP_MAX_MESSAGES: "500"
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
     restart: unless-stopped
 
 volumes:

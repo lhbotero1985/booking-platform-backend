@@ -46,4 +46,5 @@ type User struct {
 	Locale          string
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+	EmailVerifiedAt *time.Time
 }

@@ -26,7 +26,7 @@ la Fase 0, se adopta la propuesta.
 | P10 | ¿Negocio nuevo queda `ACTIVE` al registrarse o requiere revisión admin? | `PENDING_REVIEW` → activación por admin (control de calidad del piloto). |
 | P11 | Crear una ausencia/bloqueo sobre citas existentes | Rechazar con lista de citas en conflicto; el negocio debe reprogramarlas/cancelarlas primero. |
 | P12 | ¿El cliente necesita cuenta para reservar? | Sí desde la app; el negocio puede crear clientes sin cuenta en reservas manuales. |
-| P13 | Proveedor de email (recuperación de contraseña) | Proveedor transaccional con capa gratuita, decidir en Fase 2 (p. ej. Resend, Amazon SES, Postmark). |
+| P13 | Proveedor de email para PROD | **QA usa Mailpit** (decisión 2026-11-19). Para PROD elegir proveedor con SMTP+TLS antes de la Fase 13 (p. ej. Amazon SES, Resend, Postmark, Brevo); requiere dominio con SPF/DKIM. |
 | P14 | ¿Los portales Next.js llaman a la API directamente (cookie + CORS) o mediante BFF? | Directamente con cookie `__Host-` en subdominio común; reevaluar en Fase 8. |
 | P15 | Dominio para QA/PROD | A definir antes de Fase 3. |
 | P16 | ¿Quién asume el costo de WhatsApp? ¿Tope por negocio? | Plataforma, con tope mensual por negocio configurable. |

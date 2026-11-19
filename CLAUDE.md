@@ -70,10 +70,12 @@ REST + OpenAPI 3.1 · Docker / Docker Compose · GitHub Actions · DigitalOcean 
 6. No declarar terminada una tarea con errores críticos.
 7. Actualizar Markdown tras cada tarea (`progress.md`, `next-task.md`, decisiones, ADR).
 8. No modificar arquitectura aprobada sin consultar.
-9. No ejecutar comandos destructivos ni crear recursos pagos. **No realizar merges,
-   creación de Pull Requests ni despliegues sin autorización explícita del usuario.** Commit y
-   push en ramas `feature/*` tienen autorización permanente del usuario (2026-11-19).
-   No desarrollar sobre `main` ni `qa`.
+9. No ejecutar comandos destructivos ni crear recursos pagos. No desarrollar sobre `main` ni `qa`.
+   **Autorizaciones (decisión del usuario, 2026-11-19):**
+   - **Commit y push en ramas `feature/*`: autorización permanente. NO preguntar antes de
+     hacerlos**; solo informarlos en el resumen de la tarea.
+   - Requieren autorización explícita en el chat, por tarea: crear Pull Requests, merges,
+     borrado de ramas, despliegues y cualquier cambio directo sobre `main` o `qa`.
 10. No almacenar secretos en Git (gitleaks en pre-commit y CI). No usar datos reales fuera de PROD.
 11. No modificar archivos fuera de `booking-platform-backend` sin autorización explícita.
 
@@ -145,7 +147,9 @@ Ruta del módulo Go: `github.com/lhbotero1985/booking-platform-backend`.
 | `task sqlc` / `task sqlc:check` | Genera código desde `db/queries` / verifica que esté al día (`sqlc vet` + `sqlc diff`) |
 
 Flujo Git (ADR-0017): `feature/<tarea>` → PR a `qa` → validación en QA → PR `qa` → `main`.
-Cada `git push` requiere aprobación explícita del usuario (regla `ask`).
+Commit y push en `feature/*` sin preguntar (autorización permanente, regla 9). Si Claude Code
+muestra un diálogo de confirmación para `git push`, es la regla `ask` local del usuario: puede
+cambiarla a `allow` con `/permissions`.
 
 Notas del entorno local:
 - PostgreSQL nativo de Windows ocupa el puerto 5432; por eso DEV usa 55432.

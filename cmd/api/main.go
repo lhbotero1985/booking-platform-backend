@@ -23,9 +23,11 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/app"
+	identityhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/interfaces/http"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/buildinfo"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/config"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/db"
+	"github.com/lhbotero1985/booking-platform-backend/internal/platform/jobs"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/logging"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/migrate"
 )
@@ -88,10 +90,24 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		logger.Warn("database not reachable at startup", slog.String("error", err.Error()))
 	}
 
-	handler := app.NewHTTPHandler(cfg, logger, app.Deps{Readiness: []app.Check{
-		{Name: "database", Fn: pool.Ping},
-		{Name: "migrations", Fn: migrator.Check},
-	}})
+	jobClient, err := jobs.NewInsertClient(pool, logger)
+	if err != nil {
+		return err
+	}
+	identitySvc, err := app.NewIdentityService(cfg, pool, jobClient, logger)
+	if err != nil {
+		return err
+	}
+
+	handler := app.NewHTTPHandler(cfg, logger, app.Deps{
+		Readiness: []app.Check{
+			{Name: "database", Fn: pool.Ping},
+			{Name: "migrations", Fn: migrator.Check},
+		},
+		Modules: []app.RouteRegistrar{
+			identityhttp.New(identitySvc, logger),
+		},
+	})
 	srv := app.NewHTTPServer(ctx, cfg, logger, handler)
 
 	serveErr := make(chan error, 1)

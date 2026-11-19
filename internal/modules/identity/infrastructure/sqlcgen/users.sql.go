@@ -14,7 +14,7 @@ import (
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (id, email, phone, password_hash, full_name, status, locale)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, email, phone, password_hash, full_name, status, is_platform_admin, locale, created_at, updated_at
+RETURNING id, email, phone, password_hash, full_name, status, is_platform_admin, locale, created_at, updated_at, email_verified_at
 `
 
 type CreateUserParams struct {
@@ -49,12 +49,13 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Locale,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.EmailVerifiedAt,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, phone, password_hash, full_name, status, is_platform_admin, locale, created_at, updated_at FROM users WHERE email = $1
+SELECT id, email, phone, password_hash, full_name, status, is_platform_admin, locale, created_at, updated_at, email_verified_at FROM users WHERE email = $1
 `
 
 // citext: comparison is case-insensitive.
@@ -72,12 +73,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.Locale,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.EmailVerifiedAt,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, phone, password_hash, full_name, status, is_platform_admin, locale, created_at, updated_at FROM users WHERE id = $1
+SELECT id, email, phone, password_hash, full_name, status, is_platform_admin, locale, created_at, updated_at, email_verified_at FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -94,6 +96,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.Locale,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.EmailVerifiedAt,
 	)
 	return i, err
 }

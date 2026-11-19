@@ -40,6 +40,13 @@ Decisiones relevantes no arquitectónicas (las arquitectónicas tienen ADR en `d
 | 2026-11-19 | Reglas depguard por módulo (frontera y dirección de dependencias) | Clean Architecture verificable en CI (ADR-0002) | Aplicado |
 | 2026-11-19 | Argon2id 64 MiB / t=3 / p=2 por defecto; calibrar `ARGON2_ITERATIONS` en el Droplet QA | 71 ms en el equipo de desarrollo; el servidor será más lento; `needsRehash` permite subirlo sin migración | Aplicado (calibración pendiente Fase 3) |
 | 2026-11-19 | Límites de costo al decodificar hashes y semáforo de concurrencia en Argon2 | Evitar DoS por hashes manipulados o logins masivos (64 MiB por hash) | Aplicado |
+| 2026-11-19 | Verificación de email obligatoria antes del primer login | Decisión del usuario | Aplicado (T2.3) |
+| 2026-11-19 | Registro y reenvío responden siempre igual (202) | Anti-enumeración de cuentas | Aplicado |
+| 2026-11-19 | El token de verificación lo genera el worker al enviar; la cola solo lleva el user_id | Ningún token en claro en reposo (ni en river_job) | Aplicado |
+| 2026-11-19 | Email vía SMTP genérico (stdlib); **Mailpit en DEV y QA** (ningún correo real sale de QA); TLS obligatorio solo en PROD | Decisión del usuario; independiente del proveedor (P13 abierto solo para PROD) | Aplicado |
+| 2026-11-19 | La UI de Mailpit en QA no se expone públicamente (solo túnel SSH) | Muestra todos los correos, incluidos tokens de verificación | Pendiente (Fase 3) |
+| 2026-11-19 | Endpoints JSON exigen `Content-Type: application/json` (415) | Bloquea POST de formularios entre sitios | Aplicado |
+| 2026-11-19 | Dimensionar memoria ≥ ARGON2_MAX_CONCURRENT × ARGON2_MEMORY_KIB + margen | Evitar OOM por hashing concurrente | Aplicado |
 | 2026-11-18 | Imágenes en GHCR | Gratuito con GitHub, integrado con Actions | Propuesto |
 | 2026-11-18 | Búsqueda de negocios por ciudad en MVP (PostGIS listo para cercanía futura) | Simplicidad | Propuesto |
 | 2026-11-18 | Sin auto-cancelación de citas pendientes en MVP | Regla del prompt; requiere política aprobada | Propuesto |

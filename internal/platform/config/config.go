@@ -68,6 +68,16 @@ type Argon2 struct {
 	MaxConcurrent int
 }
 
+// SMTP configures transactional email. QA/PROD must use TLS (starttls or tls).
+type SMTP struct {
+	Host     string
+	Port     int
+	From     string
+	Username string
+	Password string
+	TLSMode  string
+}
+
 // Config is the full process configuration.
 type Config struct {
 	Env      Env
@@ -76,6 +86,9 @@ type Config struct {
 	Database Database
 	Worker   Worker
 	Argon2   Argon2
+	SMTP     SMTP
+	// PublicAppURL is the base URL of the client app used in email links (/verify-email, …).
+	PublicAppURL string
 }
 
 // Load reads configuration using getenv (usually os.Getenv) and validates it.
@@ -111,12 +124,23 @@ func Load(getenv func(string) string) (Config, error) {
 			Parallelism:   uint8(p.intRange("ARGON2_PARALLELISM", 2, 1, 16)),
 			MaxConcurrent: int(p.intRange("ARGON2_MAX_CONCURRENT", 4, 1, 64)),
 		},
+		SMTP: SMTP{
+			Host:     p.str("SMTP_HOST", "localhost"),
+			Port:     int(p.intRange("SMTP_PORT", 1025, 1, 65535)),
+			From:     p.str("SMTP_FROM", "Reservas <no-reply@booking.local>"),
+			Username: p.str("SMTP_USERNAME", ""),
+			Password: p.str("SMTP_PASSWORD", ""),
+			TLSMode:  p.str("SMTP_TLS", "none"),
+		},
+		PublicAppURL: p.str("PUBLIC_APP_URL", "http://localhost:3000"),
 	}
 	if cfg.Database.MigratorURL == "" {
 		cfg.Database.MigratorURL = cfg.Database.URL
 	}
 
 	p.validateOrigins(cfg.Env, cfg.HTTP.CORSAllowedOrigins)
+	p.validateSMTP(cfg.Env, cfg.SMTP)
+	p.validatePublicURL(cfg.Env, cfg.PublicAppURL)
 	if cfg.HTTP.MaxBodyBytes <= 0 {
 		p.fail("HTTP_MAX_BODY_BYTES", "must be greater than zero")
 	}
@@ -254,5 +278,33 @@ func (p *parser) validateOrigins(env Env, origins []string) {
 		default:
 			p.fail(key, fmt.Sprintf("origin %q has unsupported scheme", o))
 		}
+	}
+}
+
+func (p *parser) validateSMTP(env Env, s SMTP) {
+	switch s.TLSMode {
+	case "none", "starttls", "tls":
+	default:
+		p.fail("SMTP_TLS", fmt.Sprintf("unsupported value %q (none, starttls, tls)", s.TLSMode))
+	}
+	// QA delivers to Mailpit on the private compose network (no real email leaves QA, decision of
+	// 2026-11-19); production must reach a real provider over TLS.
+	if env == EnvProduction && s.TLSMode == "none" {
+		p.fail("SMTP_TLS", "must be starttls or tls in production")
+	}
+	if (s.Username == "") != (s.Password == "") {
+		p.fail("SMTP_USERNAME", "SMTP_USERNAME and SMTP_PASSWORD must be set together")
+	}
+}
+
+func (p *parser) validatePublicURL(env Env, raw string) {
+	const key = "PUBLIC_APP_URL"
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") || u.RawQuery != "" || u.Fragment != "" {
+		p.fail(key, "must be an absolute http(s) URL without query or fragment")
+		return
+	}
+	if env.IsDeployed() && u.Scheme != "https" {
+		p.fail(key, fmt.Sprintf("must use https in %s", env))
 	}
 }

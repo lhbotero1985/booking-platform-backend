@@ -4,10 +4,10 @@ title = "booking-platform-backend gitleaks config"
 useDefault = true
 
 [[rules]]
-id = "booking-platform-session-token"
-description = "Token de sesión opaco de booking-platform"
-regex = '''bp_s_[A-Za-z0-9_-]{43}'''
-keywords = ["bp_s_"]
+id = "booking-platform-opaque-token"
+description = "Token opaco de booking-platform (sesión bp_s_, verificación de email bp_ev_, reset bp_pr_)"
+regex = '''bp_(s|ev|pr)_[A-Za-z0-9_-]{43}'''
+keywords = ["bp_s_", "bp_ev_", "bp_pr_"]
 
 [[rules]]
 id = "whatsapp-cloud-api-access-token"

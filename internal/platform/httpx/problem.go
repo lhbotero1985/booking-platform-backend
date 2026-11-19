@@ -17,6 +17,7 @@ const (
 	CodeBodyTooLarge     = "BODY_TOO_LARGE"
 	CodeInvalidRequest   = "INVALID_REQUEST"
 	CodeForbiddenOrigin  = "FORBIDDEN_ORIGIN"
+	CodeUnsupportedMedia = "UNSUPPORTED_MEDIA_TYPE"
 	CodeInternal         = "INTERNAL_ERROR"
 )
 

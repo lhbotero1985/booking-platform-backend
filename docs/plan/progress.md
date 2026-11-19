@@ -284,3 +284,22 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - **Decisiones:** `Password` no imprimible; límites de costo al decodificar hashes (anti-DoS);
   semáforo de concurrencia; `VerifyDummy` para no revelar emails registrados por tiempo de
   respuesta; política NIST sin reglas de composición; t=3 por defecto con calibración en QA.
+
+## 2026-11-19 · Fase 2 · T2.2 integrada
+
+- PR #12 → `qa`: 6/6 ✅, squash merge `ebc7f98`. Rama `feature/t2.1-identity-skeleton` borrada.
+- Usuario: **verificación de email obligatoria** antes del primer login. Autorización permanente
+  de commit/push escrita en `CLAUDE.md` (regla 9) y ADR-0017.
+
+## 2026-11-19 · Fase 2 · T2.3 — Registro y verificación de email
+
+- **Estado:** ✅ Completada en `feature/t2.3-register-verify-login` (commit y push; PR y merge
+  pendientes de autorización). Login se movió a T2.4 (desglose actualizado en el roadmap).
+- **Archivos:** migración `00004_email_verification.sql`, consultas, `platform/clock`,
+  `platform/mail` (SMTP), dominio (`VerifyEmail`, `Token`), aplicación (puertos, errores de
+  validación, `registration.go`, `apptest`), infraestructura (`postgres` store, `worker` job),
+  `interfaces/http` (handlers), `internal/app` (módulos, `NewIdentityService`), `cmd/api`,
+  `cmd/worker`, `httpx.DecodeJSON` (415), OpenAPI, config (`SMTP_*`, `PUBLIC_APP_URL`), compose
+  (Mailpit, límites de memoria), `.env.example`, `.gitleaks.toml`.
+- **Hallazgo corregido:** límite de memoria de la API (256 MiB) = Argon2 64 MiB × 4 concurrentes →
+  riesgo de OOM; API a 512 MiB y `ARGON2_MAX_CONCURRENT=2` en DEV.

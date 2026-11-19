@@ -2,8 +2,18 @@ package application
 
 import (
 	"context"
+	"errors"
+	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/domain"
+)
+
+// Repository errors returned by Store implementations.
+var (
+	ErrNotFound   = errors.New("identity: not found")
+	ErrEmailTaken = errors.New("identity: email already registered")
 )
 
 // PasswordHasher hashes and verifies passwords (implemented with Argon2id, ADR-0006).
@@ -17,4 +27,35 @@ type PasswordHasher interface {
 	// VerifyDummy spends the same time as Verify without a stored hash. Login calls it when
 	// the account does not exist so response timing does not reveal registered emails.
 	VerifyDummy(ctx context.Context, p domain.Password)
+}
+
+// Store runs a unit of work in a database transaction.
+type Store interface {
+	WithinTx(ctx context.Context, fn func(tx Tx) error) error
+}
+
+// Tx is the set of persistence operations available inside a transaction. Jobs enqueued
+// through it are committed atomically with the data (transactional outbox, ADR-0008).
+type Tx interface {
+	// CreateUser returns ErrEmailTaken if the email is already registered.
+	CreateUser(ctx context.Context, u *domain.User) error
+	// UserByEmail and UserByID return ErrNotFound when absent.
+	UserByEmail(ctx context.Context, email domain.Email) (*domain.User, error)
+	UserByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
+	MarkEmailVerified(ctx context.Context, userID uuid.UUID, now time.Time) error
+
+	InvalidateEmailVerificationTokens(ctx context.Context, userID uuid.UUID, now time.Time) error
+	CreateEmailVerificationToken(ctx context.Context, tokenHash []byte, userID uuid.UUID, now, expiresAt time.Time) error
+	// ConsumeEmailVerificationToken marks a valid, unused, unexpired token as used and returns
+	// its user; otherwise ErrNotFound.
+	ConsumeEmailVerificationToken(ctx context.Context, tokenHash []byte, now time.Time) (uuid.UUID, error)
+
+	// EnqueueVerificationEmail schedules the verification email for userID. Duplicate
+	// requests within a short window are coalesced.
+	EnqueueVerificationEmail(ctx context.Context, userID uuid.UUID) error
+}
+
+// Mailer delivers a plain-text email.
+type Mailer interface {
+	Send(ctx context.Context, to, subject, body string) error
 }

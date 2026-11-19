@@ -13,6 +13,7 @@ Estado: **Propuesta — Fase 0.**
 | Dominio | `localhost` | `api.qa.<dominio>` ❓ | `api.<dominio>` ❓ |
 | Datos | Sintéticos (seed) | Sintéticos | Reales |
 | WhatsApp | Deshabilitado (adaptador fake) | Número de prueba de Meta + lista blanca de destinatarios | Número productivo |
+| Email | Mailpit (UI 127.0.0.1:8025) | **Mailpit** en la red interna; UI solo por túnel SSH; ningún correo real | Proveedor SMTP con TLS (P13) |
 | Push | Fake / Expo dev | Expo (proyecto QA) | Expo (proyecto PROD) |
 | Secretos | `.env` local (ignorado) | GitHub Environment `qa` + archivo en servidor (0600) | GitHub Environment `prod` + archivo en servidor (0600) |
 | Backups | No | Diario, retención 7 días | Diario + WAL ❓, retención 30 días, prueba de restauración mensual |

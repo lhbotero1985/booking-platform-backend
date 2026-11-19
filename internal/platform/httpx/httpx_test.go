@@ -172,13 +172,13 @@ func TestLimitBody(t *testing.T) {
 
 	t.Run("declared length too large", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		h.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(`{"name":"`+strings.Repeat("a", 64)+`"}`)))
+		h.ServeHTTP(rec, jsonPost(t, strings.NewReader(`{"name":"`+strings.Repeat("a", 64)+`"}`)))
 		if rec.Code != http.StatusRequestEntityTooLarge || decodeProblem(t, rec).Code != CodeBodyTooLarge {
 			t.Errorf("status = %d", rec.Code)
 		}
 	})
 	t.Run("streamed body too large", func(t *testing.T) {
-		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(`{"name":"`+strings.Repeat("a", 64)+`"}`))
+		req := jsonPost(t, strings.NewReader(`{"name":"`+strings.Repeat("a", 64)+`"}`))
 		req.ContentLength = -1 // unknown length (chunked)
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, req)
@@ -188,7 +188,7 @@ func TestLimitBody(t *testing.T) {
 	})
 	t.Run("small body passes", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		h.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(`{"name":"ok"}`)))
+		h.ServeHTTP(rec, jsonPost(t, strings.NewReader(`{"name":"ok"}`)))
 		if rec.Code != http.StatusNoContent {
 			t.Errorf("status = %d", rec.Code)
 		}
@@ -209,7 +209,7 @@ func TestDecodeJSONRejectsInvalidInput(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			rec := httptest.NewRecorder()
 			var p payload
-			if DecodeJSON(rec, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(body)), &p) {
+			if DecodeJSON(rec, jsonPost(t, strings.NewReader(body)), &p) {
 				t.Fatal("DecodeJSON() = true, want false")
 			}
 			if rec.Code != http.StatusBadRequest || decodeProblem(t, rec).Code != CodeInvalidRequest {
@@ -294,4 +294,31 @@ func TestRouterProblems(t *testing.T) {
 			t.Errorf("Allow = %q", allow)
 		}
 	})
+}
+
+func jsonPost(t *testing.T, body io.Reader) *http.Request {
+	t.Helper()
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", body)
+	r.Header.Set("Content-Type", "application/json; charset=utf-8")
+	return r
+}
+
+func TestDecodeJSONRequiresJSONContentType(t *testing.T) {
+	for _, ct := range []string{"", "text/plain", "application/x-www-form-urlencoded", "multipart/form-data; boundary=x", "application/jsonp", "garbage;;"} {
+		rec := httptest.NewRecorder()
+		r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(`{"name":"a"}`))
+		if ct != "" {
+			r.Header.Set("Content-Type", ct)
+		}
+		var p struct {
+			Name string `json:"name"`
+		}
+		if DecodeJSON(rec, r, &p) {
+			t.Errorf("Content-Type %q accepted", ct)
+			continue
+		}
+		if rec.Code != http.StatusUnsupportedMediaType || decodeProblem(t, rec).Code != CodeUnsupportedMedia {
+			t.Errorf("Content-Type %q: status %d", ct, rec.Code)
+		}
+	}
 }

@@ -20,6 +20,10 @@ servers:
 tags:
   - name: Operations
     description: Liveness and readiness probes. Public, no authentication.
+  - name: Auth
+    description: |
+      Registration and email verification. Accounts start `PENDING_VERIFICATION` and must verify
+      their email before the first login. Responses never reveal whether an email is registered.
 
 paths:
   /healthz:
@@ -62,6 +66,85 @@ paths:
                 $ref: "#/components/schemas/ReadyResponse"
         "503":
           $ref: "#/components/responses/NotReady"
+
+  /api/v1/auth/register:
+    post:
+      tags: [Auth]
+      operationId: register
+      summary: Register an account
+      description: |
+        Creates a `PENDING_VERIFICATION` account and emails a verification link. When the email
+        is already registered the response is identical (anti-enumeration); a pending account
+        receives a new link.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/Accepted"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/auth/verify-email:
+    post:
+      tags: [Auth]
+      operationId: verifyEmail
+      summary: Verify the email with the emailed token
+      description: |
+        Activates the account. Tokens are single-use and expire after 24 hours. Unknown,
+        malformed, expired and used tokens all return `INVALID_TOKEN`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyEmailRequest"
+      responses:
+        "200":
+          description: Email verified; the account is active.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifiedResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/auth/verify-email/resend:
+    post:
+      tags: [Auth]
+      operationId: resendVerificationEmail
+      summary: Resend the verification email
+      description: |
+        Always `202` for well-formed emails. A new link is sent only if the account exists and is
+        pending; requests for the same account are coalesced to one per minute.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResendVerificationRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/Accepted"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
 
 components:
   headers:
@@ -135,8 +218,102 @@ components:
           type: string
         message:
           type: string
+          description: Stable field error code (e.g. INVALID_EMAIL, PASSWORD_TOO_SHORT, REQUIRED).
+
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password, fullName]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 10
+          maxLength: 128
+          writeOnly: true
+          description: 10–128 characters; common passwords are rejected. No composition rules.
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 120
+
+    VerifyEmailRequest:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token:
+          type: string
+          description: Token from the emailed link (`bp_ev_…`).
+          writeOnly: true
+
+    ResendVerificationRequest:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+
+    AcceptedResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          const: accepted
+
+    VerifiedResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          const: verified
 
   responses:
+    Accepted:
+      description: Request accepted. The same response is returned whether or not the email exists.
+      headers:
+        X-Request-ID:
+          $ref: "#/components/headers/XRequestID"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/AcceptedResponse"
+    BadRequest:
+      description: |
+        Invalid input (`INVALID_REQUEST` with `errors[]`) or invalid token (`INVALID_TOKEN`).
+      headers:
+        X-Request-ID:
+          $ref: "#/components/headers/XRequestID"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    PayloadTooLarge:
+      description: Request body exceeds the configured limit (`BODY_TOO_LARGE`).
+      headers:
+        X-Request-ID:
+          $ref: "#/components/headers/XRequestID"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    UnsupportedMediaType:
+      description: The body must be `application/json` (`UNSUPPORTED_MEDIA_TYPE`).
+      headers:
+        X-Request-ID:
+          $ref: "#/components/headers/XRequestID"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
     NotFound:
       description: The resource does not exist (also returned for resources of another business).
       headers:
