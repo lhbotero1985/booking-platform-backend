@@ -38,6 +38,8 @@ Decisiones relevantes no arquitectónicas (las arquitectónicas tienen ADR en `d
 | 2026-11-19 | Expiración de sesiones evaluada con el `now` de la aplicación en las consultas | Reloj inyectable y pruebas deterministas (ADR-0005) | Aplicado |
 | 2026-11-19 | FK `business_id` de memberships/audit_log diferida a la Fase 4 | La tabla businesses aún no existe | Pendiente (Fase 4) |
 | 2026-11-19 | Reglas depguard por módulo (frontera y dirección de dependencias) | Clean Architecture verificable en CI (ADR-0002) | Aplicado |
+| 2026-11-19 | Argon2id 64 MiB / t=3 / p=2 por defecto; calibrar `ARGON2_ITERATIONS` en el Droplet QA | 71 ms en el equipo de desarrollo; el servidor será más lento; `needsRehash` permite subirlo sin migración | Aplicado (calibración pendiente Fase 3) |
+| 2026-11-19 | Límites de costo al decodificar hashes y semáforo de concurrencia en Argon2 | Evitar DoS por hashes manipulados o logins masivos (64 MiB por hash) | Aplicado |
 | 2026-11-18 | Imágenes en GHCR | Gratuito con GitHub, integrado con Actions | Propuesto |
 | 2026-11-18 | Búsqueda de negocios por ciudad en MVP (PostGIS listo para cercanía futura) | Simplicidad | Propuesto |
 | 2026-11-18 | Sin auto-cancelación de citas pendientes en MVP | Regla del prompt; requiere política aprobada | Propuesto |

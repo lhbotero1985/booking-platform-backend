@@ -59,6 +59,15 @@ type Worker struct {
 	ShutdownTimeout time.Duration
 }
 
+// Argon2 holds password hashing cost (ADR-0006). Bounds match the hasher's accepted limits.
+type Argon2 struct {
+	MemoryKiB   uint32
+	Iterations  uint32
+	Parallelism uint8
+	// MaxConcurrent caps simultaneous hash computations (each allocates MemoryKiB).
+	MaxConcurrent int
+}
+
 // Config is the full process configuration.
 type Config struct {
 	Env      Env
@@ -66,6 +75,7 @@ type Config struct {
 	HTTP     HTTP
 	Database Database
 	Worker   Worker
+	Argon2   Argon2
 }
 
 // Load reads configuration using getenv (usually os.Getenv) and validates it.
@@ -93,6 +103,13 @@ func Load(getenv func(string) string) (Config, error) {
 		},
 		Worker: Worker{
 			ShutdownTimeout: p.duration("WORKER_SHUTDOWN_TIMEOUT", 30*time.Second),
+		},
+		//nolint:gosec // every value is bounded by intRange before the conversion
+		Argon2: Argon2{
+			MemoryKiB:     uint32(p.intRange("ARGON2_MEMORY_KIB", 64*1024, 19*1024, 256*1024)),
+			Iterations:    uint32(p.intRange("ARGON2_ITERATIONS", 3, 2, 10)),
+			Parallelism:   uint8(p.intRange("ARGON2_PARALLELISM", 2, 1, 16)),
+			MaxConcurrent: int(p.intRange("ARGON2_MAX_CONCURRENT", 4, 1, 64)),
 		},
 	}
 	if cfg.Database.MigratorURL == "" {

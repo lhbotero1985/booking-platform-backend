@@ -209,3 +209,22 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `TestUpDownUp` con 00003 | ✅ | |
 | `task test:integration` | ✅ 11 paquetes ok | |
 | `govulncheck ./...` | ✅ No vulnerabilities found | 1er intento falló por DNS |
+
+## 2026-11-19 · Fase 2 · T2.1 — CI
+
+| Comando | Resultado |
+|---|---|
+| PR #11 — ci + security | ✅ 6/6; squash merge `a305183` |
+
+## 2026-11-19 · Fase 2 · T2.2 — Dominio de identidad y Argon2id
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| `go test -cover ./internal/modules/identity/...` | ✅ domain 100 %, argon2 95.8 % | Meta del dominio ≥ 90 % cumplida |
+| Pruebas del dominio | ✅ | Email (normalización, display names, dominios inválidos, longitudes), política de contraseña (runas, blocklist sin mayúsculas, carácter repetido), `Password` nunca se imprime (fmt `%v %+v %#v %s %q`, struct anidado, slog JSON, json.Marshal), invariantes de `User`, ciclo suspender/reactivar, estados y roles |
+| Pruebas de Argon2id | ✅ | Formato PHC, sales únicas, verificación correcta/incorrecta, `needsRehash` al subir parámetros, 16 hashes malformados rechazados **sin ejecutar el KDF** (< 50 ms, incl. "memory bomb" de 4 GiB), parámetros fuera de rango, contraseña vacía, semáforo de concurrencia (máx. 2 observado), cancelación por contexto, `VerifyDummy` con tiempo comparable a `Verify` (ratio 0.5–2) |
+| `go test -fuzz FuzzParseEmail -fuzztime 30s` | ✅ PASS | Emails aceptados siempre normalizados, acotados y estables al re-parsear |
+| `go test -fuzz FuzzDecode -fuzztime 30s` | ✅ PASS | Ningún hash aceptado fuera de los límites de costo |
+| Benchmark Argon2id, 64 MiB, p=2 (equipo de desarrollo, 16 CPU) | t=3: 71 ms · t=4: 88 ms · t=5: 108 ms · t=6: 129 ms | 67 MB/op. Default t=3; calibración final en el Droplet QA (Fase 3) vía `ARGON2_ITERATIONS` |
+| `golangci-lint run` | ✅ 0 issues | 1ª: revive (comentarios en accesores), gosec G115 en prueba → corregidos |
+| `govulncheck ./...` | ✅ No vulnerabilities found | 1er intento falló por DNS |
