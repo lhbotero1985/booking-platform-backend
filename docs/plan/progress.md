@@ -179,3 +179,19 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - Protección de ramas: ninguna (decisión del usuario).
 - Nota: `main` local tiene 2 commits de docs no publicados, ya incluidos en `qa` vía #3; se
   alineará con `origin/main` en el primer PR `qa` → `main`.
+## 2026-11-19 · Fase 1 · T1.6 — River
+
+- **Estado:** ✅ Implementada y probada en `feature/t1.6-river` (desde `qa`). **Sin commit**:
+  pendiente de autorización.
+- **Archivos:** `internal/platform/jobs/` (clientes insert/worker, colas default/notifications/
+  maintenance, `PingArgs`/`PingWorker`, pruebas de integración), `db/migrations/00002_river.sql`
+  (generado con River CLI v0.51.2, sin la versión 1), `cmd/worker/main.go`,
+  `internal/platform/config` (`WORKER_SHUTDOWN_TIMEOUT`), `internal/platform/pgtest` (reintentos),
+  `sqlc.yaml` (`omit_unused_structs`), compose (servicio `worker`), `.env.example`.
+- **Dependencias nuevas:** river v0.51.2 + riverpgxv5.
+- **Decisiones:** esquema River como migración Goose (un solo sistema de migraciones); worker
+  no arranca con migraciones pendientes; soft stop con timeout y luego cancelación; la API aún
+  no usa el cliente de inserción (llegará con los módulos que encolan).
+- **Pruebas:** ver `test-results.md`.
+- **Pendiente de autorización:** commit/push/PR de T1.6; merge del PR #6 (Dependabot).
+- **Próximos pasos:** T1.7 (OpenAPI 3.1).

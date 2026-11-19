@@ -37,7 +37,7 @@ Orden obligatorio. **No se avanza de fase sin aprobación explícita del usuario
 | T1.3 ✅ | Docker: Dockerfile multi-stage no-root + `docker-compose.dev.yml` (postgis) + `.env.example` | `task up` levanta API y BD; Trivy config sin HIGH/CRITICAL |
 | T1.4 ✅ | BD: pgxpool, Goose embebido, migración 00001 (extensiones, roles), `api migrate`, `/healthz`, `/readyz` | Integración: migraciones up/down/up en PG real; `/readyz` 503 sin BD |
 | T1.5 ✅ | SQLC configurado + verificación `sqlc diff` en CI | Código generado al día |
-| T1.6 | River: migraciones, cliente, `cmd/worker`, job de mantenimiento de ejemplo | Integración: job encolado con `InsertTx` y procesado |
+| T1.6 ✅ | River: migraciones, cliente, `cmd/worker`, job de mantenimiento de ejemplo | Integración: job encolado con `InsertTx` y procesado |
 | T1.7 | OpenAPI 3.1 base (`/healthz`, `/readyz`, esquema Problem) + validación de respuestas en tests | Spec válido (lint) y respuestas conformes |
 | T1.8 | GitHub Actions `ci.yml` + `security.yml` (build, unit, race, integración, golangci-lint/gosec, govulncheck, gitleaks, trivy) con acciones fijadas por SHA | Pipeline verde en el primer PR |
 | T1.9 | Seguridad básica + cierre de fase: documentación, test-results | Checklist de fase completo |

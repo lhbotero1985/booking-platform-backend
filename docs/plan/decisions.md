@@ -26,6 +26,10 @@ Decisiones relevantes no arquitectónicas (las arquitectónicas tienen ADR en `d
 | 2026-11-19 | Nombres de rama `feature/…` (no `feat/…`) | ADR-0017; la rama remota `feat/t1.4-database` se renombra solo con autorización | Aceptado |
 | 2026-11-19 | Dependabot: PRs contra `qa`; sin actualizaciones mayores automáticas de PostGIS/PostgreSQL | ADR-0017; un salto mayor de PG requiere migración de datos planificada | Aplicado (efectivo al llegar a `main`) |
 | 2026-11-19 | Sin protección de ramas por ahora | Decisión del usuario (P23); se aplica por disciplina + CI | Aceptado |
+| 2026-11-19 | Esquema de River como migración Goose `00002_river.sql` (River CLI v0.51.2, sin versión 1) | Un solo sistema de migraciones; al actualizar River se genera una migración nueva con las versiones nuevas | Aplicado |
+| 2026-11-19 | El worker no arranca con migraciones pendientes | Evita errores en tablas inexistentes; el orquestador lo reinicia | Aplicado |
+| 2026-11-19 | `omit_unused_structs` en sqlc | El esquema compartido no debe generar modelos ajenos en cada paquete | Aplicado |
+| 2026-11-19 | Reintentos al arrancar contenedores de prueba | testcontainers en Windows falla intermitentemente al crear el provider | Aplicado |
 | 2026-11-18 | Imágenes en GHCR | Gratuito con GitHub, integrado con Actions | Propuesto |
 | 2026-11-18 | Búsqueda de negocios por ciudad en MVP (PostGIS listo para cercanía futura) | Simplicidad | Propuesto |
 | 2026-11-18 | Sin auto-cancelación de citas pendientes en MVP | Regla del prompt; requiere política aprobada | Propuesto |
