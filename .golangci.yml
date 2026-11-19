@@ -3,6 +3,8 @@ version: "2"
 run:
   timeout: 5m
   tests: true
+  build-tags:
+    - integration
 
 linters:
   default: standard # errcheck, govet, ineffassign, staticcheck, unused
@@ -52,6 +54,11 @@ linters:
   exclusions:
     presets:
       - std-error-handling
+    rules:
+      # Tests use synthetic connection strings; real secrets are caught by gitleaks.
+      - path: _test\.go
+        linters: [gosec]
+        text: G101
 
 formatters:
   enable:

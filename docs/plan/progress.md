@@ -120,3 +120,23 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
   cada push muestra una confirmación al usuario.
 - `git push -u origin main` ✅ — `main` publicado en GitHub con 7 commits (hasta T1.3).
 - Pendiente: revisar el resultado del workflow `security` (gitleaks) en GitHub Actions.
+
+## 2026-11-19 · Fase 1 · T1.4 — Base de datos, migraciones y readiness
+
+- **Estado:** ✅ Completada (rama `feat/t1.4-database`)
+- **Flujo Git:** desde esta tarea, cada tarea en rama `feat/…` → PR a `main` (ADR-0013).
+  QA es un ambiente que despliega desde `main`, no una rama (explicado al usuario).
+- **Archivos:** `internal/platform/db/` (pool, WithTx, errores PG), `internal/platform/migrate/`,
+  `internal/platform/pgtest/` (testcontainers, solo tag `integration`), `db/migrations/`
+  (`embed.go`, `00001_extensions.sql`), `internal/platform/config` (DATABASE_URL,
+  DATABASE_MIGRATOR_URL, DB_MAX_CONNS, DB_CONNECT_TIMEOUT), `internal/app/http.go` (`/readyz`,
+  `Deps`), `cmd/api/main.go` (subcomandos serve / migrate up|down|status), Dockerfile (COPY db),
+  compose (DATABASE_URL), `.env.example`, Taskfile (`migrate`, `test:integration`),
+  `.golangci.yml` (build tag integration, exclusión G101 en tests).
+- **Dependencias nuevas:** pgx v5.13.0, goose v3.30.1, testcontainers-go v0.45.0 (+ postgres).
+- **Decisiones:** la API arranca sin BD y `/readyz` lo reporta; `migrate down` prohibido en QA/PROD;
+  el Down de 00001 no elimina postgis; timeouts de sesión (statement 15 s, idle in tx 30 s);
+  roles `app_migrator`/`app_runtime` diferidos a Fase 3.
+- **Pruebas:** ver `test-results.md` (unitarias, integración con PG real, E2E compose).
+- **Problemas:** DNS intermitente en Docker y Go (reintentos).
+- **Próximos pasos:** PR de la rama a `main`; T1.5 (SQLC).

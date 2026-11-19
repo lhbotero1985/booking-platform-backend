@@ -78,3 +78,25 @@ No existen pruebas de código: la Fase 0 no contiene código funcional.
 | `trivy image booking-platform-backend:dev` | ✅ Total: 0 (HIGH: 0, CRITICAL: 0) | 1er intento falló al bajar la DB (IPv6 inalcanzable a mirror.gcr.io); se usa `ghcr.io/aquasecurity/trivy-db` |
 | `task check` | ✅ 0 issues, pruebas ok, sin vulnerabilidades | |
 | `gitleaks dir` | ✅ no leaks found | Incluye `.env` local (ignorado por Git) |
+
+## 2026-11-19 · Fase 1 · T1.4 — Base de datos, migraciones y readiness
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| `golangci-lint run` (incluye build tag `integration`) | ✅ 0 issues | 1ª ejecución: 3 × gosec G101 por URLs sintéticas en tests → exclusión acotada a `_test.go` |
+| `go test -count=1 ./...` (unitarias) | ✅ todos ok | Nuevos: config de BD (incl. no filtrar credenciales), mapeo de errores PG, readyz (ok / 503 sin internals / timeout 2 s) |
+| `govulncheck ./...` | ✅ No vulnerabilities found | 1er intento falló por DNS |
+| `go test -tags=integration ./...` (1ª) | ❌ | `TestUpDownUp`: `cannot drop extension postgis because other objects depend on it` — la imagen postgis preinstala postgis_topology/tiger. Corregido: el Down no elimina postgis |
+| `go test -tags=integration ./...` (2ª) | ✅ 7 paquetes ok | PostgreSQL/PostGIS real vía testcontainers |
+| ↳ migrate `TestUpDownUp` | ✅ | pending → up → extensiones presentes → down total → pending → up |
+| ↳ db `WithTx` commit / rollback por error / rollback por pánico | ✅ | |
+| ↳ db exclusion constraint (btree_gist + tstzrange) | ✅ | Solape mismo profesional → 23P01; rangos contiguos y otro profesional → ok (mecanismo ADR-0004) |
+| ↳ db unique con citext | ✅ | `Ana@Example.com` vs `ana@example.COM` → 23505 |
+| ↳ db `statement_timeout` y `application_name` | ✅ | 15s / db-test |
+| ↳ app `TestReadyzAgainstRealDatabase` | ✅ | 503 con migraciones pendientes → 200 tras `Up` → 503 con BD detenida |
+| `docker build` | ✅ al 4º intento | DNS de Docker (`auth.docker.io`, `registry-1.docker.io`) |
+| E2E compose: `GET /readyz` antes de migrar | ✅ 503 | log: `check=migrations error="migrate: pending migrations"` |
+| E2E: `api migrate status` / `api migrate up` | ✅ | 00001 pending → applied |
+| E2E: `GET /readyz` después de migrar | ✅ 200 `{"status":"ready"}` | |
+| `APP_ENV=qa api migrate down` | ✅ rechazado | `migrate down is not allowed in qa`, exit 1 |
+| Contraseña de BD en logs de la API | ✅ no aparece | |
