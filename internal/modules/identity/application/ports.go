@@ -73,6 +73,18 @@ type Tx interface {
 	TouchSession(ctx context.Context, sessionID uuid.UUID, now, idleExpiresAt time.Time) error
 	RevokeSession(ctx context.Context, sessionID, userID uuid.UUID, now time.Time) error
 	RevokeAllUserSessions(ctx context.Context, userID uuid.UUID, now time.Time) (int64, error)
+	RevokeOtherUserSessions(ctx context.Context, userID, keepSessionID uuid.UUID, now time.Time) (int64, error)
+
+	InvalidatePasswordResetTokens(ctx context.Context, userID uuid.UUID, now time.Time) error
+	CreatePasswordResetToken(ctx context.Context, tokenHash []byte, userID uuid.UUID, now, expiresAt time.Time) error
+	// ConsumePasswordResetToken marks a valid, unused, unexpired token as used and returns its
+	// user; otherwise ErrNotFound.
+	ConsumePasswordResetToken(ctx context.Context, tokenHash []byte, now time.Time) (uuid.UUID, error)
+
+	// EnqueuePasswordResetEmail schedules the reset email (coalesced per user and minute).
+	EnqueuePasswordResetEmail(ctx context.Context, userID uuid.UUID) error
+	// EnqueuePasswordChangedEmail schedules the "your password changed" notice.
+	EnqueuePasswordChangedEmail(ctx context.Context, userID uuid.UUID) error
 }
 
 // Mailer delivers a plain-text email.

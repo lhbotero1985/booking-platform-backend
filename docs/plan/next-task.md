@@ -1,8 +1,8 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T2.4 — Login, sesiones y middleware de autenticación (2026-11-19), en
-`feature/t2.4-login-sessions` (commit y push hechos; PR y merge pendientes de autorización).
+T2.5 — Recuperación y cambio de contraseña (2026-11-19), en `feature/t2.5-password-reset`
+(commit y push hechos; PR y merge pendientes de autorización).
 
 ## Flujo de ramas (ADR-0017)
 
@@ -12,24 +12,21 @@ preguntar). PR, merge, borrado de ramas y despliegues: autorización explícita 
 
 ## Pendiente de autorización
 
-1. PR `feature/t2.4-login-sessions` → `qa` y merge si el CI queda en verde.
-2. Borrar la rama fusionada `feature/t2.3-register-verify-login` (local y remota).
+1. PR `feature/t2.5-password-reset` → `qa` y merge si el CI queda en verde.
+2. Borrar la rama fusionada `feature/t2.4-login-sessions` (local y remota).
 
-## Próxima tarea: T2.5 — Recuperación de contraseña
+## Próxima tarea: T2.6 — RBAC y autorización por recurso
 
-- **Objetivo:** restablecer la contraseña por email sin revelar cuentas (ADR-0006).
-- **Diseño (reutiliza T2.3):**
-  - `POST /api/v1/auth/password/forgot {email}` → siempre 202; si la cuenta existe y está
-    activa, encola job; el worker genera token `bp_pr_` (solo se guarda el hash, válido 30 min,
-    un solo uso, invalida los anteriores) y envía el enlace `PUBLIC_APP_URL/reset-password?token=`.
-    Coalescido a 1 por minuto por cuenta.
-  - `POST /api/v1/auth/password/reset {token, newPassword}` → valida la política, cambia el
-    hash, **revoca todas las sesiones** y consume el token; tokens inválidos → `INVALID_TOKEN`.
-  - Opcional: `POST /api/v1/me/password {currentPassword, newPassword}` (cambio autenticado,
-    revoca las demás sesiones).
-  - Email de aviso "tu contraseña cambió" al titular.
-- **Archivos:** reutiliza la tabla `password_reset_tokens` (00003), consultas nuevas, casos de
-  uso, job, handlers, OpenAPI.
-- **Pruebas:** anti-enumeración (respuesta idéntica), un solo uso, expiración, rotación,
-  revocación de sesiones tras el reset, política de contraseña, contrato, integración, E2E con
-  Mailpit.
+- **Objetivo:** base de autorización reutilizable por todos los módulos (ADR-0007).
+- **Diseño:**
+  - `identity/contract`: puerto `Memberships` (roles activos del principal por negocio,
+    consultados por request, sin caché en la sesión) y funciones de política puras:
+    `RequireBusinessRole(principal, businessID, roles...)` → `nil` | `ErrForbidden` (mismo
+    negocio, rol insuficiente) | `ErrNotFound` (sin membresía: el recurso "no existe", patrón
+    anti-IDOR) ; `RequirePlatformAdmin`.
+  - Middleware/helper HTTP para mapear a 403 `FORBIDDEN` / 404 `NOT_FOUND`.
+  - Endpoint mínimo para probar el patrón de extremo a extremo sin adelantar la Fase 4:
+    `GET /api/v1/me/memberships` (lista negocios y roles del usuario).
+  - Matriz de políticas documentada (OWNER, MANAGER, PROFESSIONAL, CUSTOMER, PLATFORM_ADMIN).
+- **Pruebas:** tabla rol × acción × mismo/otro negocio; membresía revocada pierde acceso en la
+  siguiente petición; cross-tenant siempre 404; contrato; integración.

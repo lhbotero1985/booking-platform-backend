@@ -168,3 +168,37 @@ func (t *txStore) RevokeSession(ctx context.Context, sessionID, userID uuid.UUID
 func (t *txStore) RevokeAllUserSessions(ctx context.Context, userID uuid.UUID, now time.Time) (int64, error) {
 	return t.q.RevokeAllUserSessions(ctx, sqlcgen.RevokeAllUserSessionsParams{UserID: userID, Now: now})
 }
+
+func (t *txStore) RevokeOtherUserSessions(ctx context.Context, userID, keepSessionID uuid.UUID, now time.Time) (int64, error) {
+	return t.q.RevokeOtherUserSessions(ctx, sqlcgen.RevokeOtherUserSessionsParams{UserID: userID, KeepSessionID: keepSessionID, Now: now})
+}
+
+func (t *txStore) InvalidatePasswordResetTokens(ctx context.Context, userID uuid.UUID, now time.Time) error {
+	return t.q.InvalidatePasswordResetTokens(ctx, sqlcgen.InvalidatePasswordResetTokensParams{UserID: userID, Now: now})
+}
+
+func (t *txStore) CreatePasswordResetToken(ctx context.Context, hash []byte, userID uuid.UUID, now, expiresAt time.Time) error {
+	return t.q.CreatePasswordResetToken(ctx, sqlcgen.CreatePasswordResetTokenParams{TokenHash: hash, UserID: userID, Now: now, ExpiresAt: expiresAt})
+}
+
+func (t *txStore) ConsumePasswordResetToken(ctx context.Context, hash []byte, now time.Time) (uuid.UUID, error) {
+	id, err := t.q.ConsumePasswordResetToken(ctx, sqlcgen.ConsumePasswordResetTokenParams{TokenHash: hash, Now: now})
+	if err != nil {
+		return uuid.Nil, notFound(err)
+	}
+	return id, nil
+}
+
+func (t *txStore) EnqueuePasswordResetEmail(ctx context.Context, userID uuid.UUID) error {
+	if _, err := t.jobs.InsertTx(ctx, t.tx, worker.SendPasswordResetEmailArgs{UserID: userID}, nil); err != nil {
+		return fmt.Errorf("enqueue password reset email: %w", err)
+	}
+	return nil
+}
+
+func (t *txStore) EnqueuePasswordChangedEmail(ctx context.Context, userID uuid.UUID) error {
+	if _, err := t.jobs.InsertTx(ctx, t.tx, worker.SendPasswordChangedEmailArgs{UserID: userID}, nil); err != nil {
+		return fmt.Errorf("enqueue password changed email: %w", err)
+	}
+	return nil
+}

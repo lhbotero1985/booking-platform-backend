@@ -13,8 +13,11 @@ import (
 type Querier interface {
 	// Atomically marks a valid token as used and returns its user (single use).
 	ConsumeEmailVerificationToken(ctx context.Context, arg ConsumeEmailVerificationTokenParams) (uuid.UUID, error)
+	// Atomically marks a valid token as used and returns its user (single use).
+	ConsumePasswordResetToken(ctx context.Context, arg ConsumePasswordResetTokenParams) (uuid.UUID, error)
 	CreateEmailVerificationToken(ctx context.Context, arg CreateEmailVerificationTokenParams) error
 	CreateMembership(ctx context.Context, arg CreateMembershipParams) (Membership, error)
+	CreatePasswordResetToken(ctx context.Context, arg CreatePasswordResetTokenParams) error
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	// Resolves a presented token to its session and user. Expiry is evaluated against $2 (now)
@@ -26,11 +29,15 @@ type Querier interface {
 	InsertAuditEntry(ctx context.Context, arg InsertAuditEntryParams) error
 	// Issuing a new token invalidates the previous unused ones.
 	InvalidateEmailVerificationTokens(ctx context.Context, arg InvalidateEmailVerificationTokensParams) error
+	// Issuing a new token (or changing the password) invalidates previous unused ones.
+	InvalidatePasswordResetTokens(ctx context.Context, arg InvalidatePasswordResetTokensParams) error
 	// Loaded per request for authorization (no cached claims, ADR-0007).
 	ListActiveMembershipsByUser(ctx context.Context, userID uuid.UUID) ([]ListActiveMembershipsByUserRow, error)
 	ListActiveUserSessions(ctx context.Context, arg ListActiveUserSessionsParams) ([]ListActiveUserSessionsRow, error)
 	MarkUserEmailVerified(ctx context.Context, arg MarkUserEmailVerifiedParams) error
 	RevokeAllUserSessions(ctx context.Context, arg RevokeAllUserSessionsParams) (int64, error)
+	// Used after an authenticated password change: keeps the current session.
+	RevokeOtherUserSessions(ctx context.Context, arg RevokeOtherUserSessionsParams) (int64, error)
 	RevokeSession(ctx context.Context, arg RevokeSessionParams) (int64, error)
 	// Sliding idle expiry, never beyond the absolute expiry.
 	TouchSession(ctx context.Context, arg TouchSessionParams) error

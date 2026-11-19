@@ -320,3 +320,18 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
   `RequireAuth` con CSRF por Origin), OpenAPI, `tests/security/auth_timing_test.go`,
   `.env.example` (`CORS_ALLOWED_ORIGINS` DEV).
 - **Pendiente para Fase 3:** IP real detrás de Caddy (X-Forwarded-For solo desde el proxy).
+
+## 2026-11-19 · Fase 2 · T2.4 integrada
+
+- PR #14 → `qa`: 6/6 ✅, squash merge `7264966`. Rama `feature/t2.3-register-verify-login` borrada.
+
+## 2026-11-19 · Fase 2 · T2.5 — Recuperación y cambio de contraseña
+
+- **Estado:** ✅ Completada en `feature/t2.5-password-reset` (commit y push; PR y merge pendientes
+  de autorización).
+- **Archivos:** `db/queries/identity/password_reset.sql`, `identity/application/password.go`
+  (+ puertos, `apptest`, `newToken` compartido), `identity/infrastructure/postgres` (reset, revocar
+  otras sesiones), `identity/infrastructure/worker` (3 jobs de email), `identity/interfaces/http/password.go`,
+  OpenAPI (3 operaciones), pruebas.
+- **Endpoints:** `POST /api/v1/auth/password/forgot`, `POST /api/v1/auth/password/reset`,
+  `POST /api/v1/me/password`.

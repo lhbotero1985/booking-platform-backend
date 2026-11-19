@@ -272,3 +272,22 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | E2E Docker Compose (17 pasos) | ✅ | 202 → 403 `EMAIL_NOT_VERIFIED` → verify 200 → 401 `INVALID_CREDENTIALS` → login MOBILE 200 (48 chars) → `/me` 200 → sin token 401 → login WEB (cookie endurecida, sin token en body) → `/me` cookie 200 → CSRF 403 ×2 → logout 204 → 401 → logout-all `{"revoked":1}` → 401; secretos en logs: 0; BD: 0 activas / 2 |
 | `golangci-lint` | ✅ 0 issues | G101 falso positivo en `CodeInvalidCredentials` anotado |
 | govulncheck / `sqlc diff` / gitleaks | ✅ | |
+
+## 2026-11-19 · Fase 2 · T2.4 — CI
+
+| Comando | Resultado |
+|---|---|
+| PR #14 — ci + security | ✅ 6/6; squash merge `7264966` |
+
+## 2026-11-19 · Fase 2 · T2.5 — Recuperación y cambio de contraseña
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| Unitarias aplicación (6 casos nuevos) | ✅ 81.4 % | Forgot silencioso (solo cuentas activas reciben email); reset revoca todas las sesiones, invalida la clave vieja, un solo uso, aviso programado; política verificada **antes** de consumir el token; rotación, expiración 30 min, token de otro tipo rechazado; cuenta suspendida no restablece ni recibe email; cambio autenticado (clave actual incorrecta/vacía, débil, sin cambio) conserva la sesión actual y revoca las demás |
+| Handlers HTTP | ✅ 85.5 % | forgot idéntico existente/inexistente; reset 400 débil → 200 + cookie borrada → sesión previa 401 → reuso `INVALID_TOKEN`; `/me/password` 401 sin auth, 400 `INVALID_CURRENT_PASSWORD`, 204; contraseñas y token fuera de logs |
+| Contrato OpenAPI | ✅ | forgot 202/400, reset 400/200, `/me/password` 400/204 (`format: email` es anotación en JSON Schema 2020-12: el validador no la exige; el backend sí → 400) |
+| Integración PostgreSQL | ✅ 7 pruebas | forgot coalescido (1 job), hash del token con expiración ≤ 30 min, hash de contraseña cambiado, sesión revocada, aviso encolado, reuso rechazado; cambio autenticado conserva la sesión actual |
+| Hallazgo propio corregido | ✅ | Una directiva `//nolint` (falso positivo G101) quedó dentro del literal del cuerpo del email → movida fuera; nueva prueba que falla si una directiva aparece en el email |
+| E2E Docker Compose + Mailpit (12 pasos) | ✅ | forgot 202 ×2 idénticos → 1 email "Restablece tu contraseña" (`bp_pr_`) → reset débil 400 → reset 200 → sesión previa 401 → clave vieja 401 / nueva 200 → reuso 400 → aviso "Tu contraseña fue cambiada" → cambio autenticado 204 y sesión actual 200; secretos en logs 0; 3 jobs `completed` |
+| `task test:integration` | ✅ 18 paquetes | |
+| `golangci-lint` / govulncheck / `sqlc diff` / gitleaks | ✅ | 4 falsos positivos G101 en plantillas de email anotados |

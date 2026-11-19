@@ -25,6 +25,9 @@ type Service interface {
 	Logout(ctx context.Context, p contract.Principal) error
 	LogoutAll(ctx context.Context, p contract.Principal) (int64, error)
 	Me(ctx context.Context, p contract.Principal) (*domain.User, error)
+	ForgotPassword(ctx context.Context, email string) error
+	ResetPassword(ctx context.Context, in application.ResetPasswordInput) error
+	ChangePassword(ctx context.Context, p contract.Principal, in application.ChangePasswordInput) error
 }
 
 // Options configures the handler.
@@ -53,10 +56,13 @@ func (h *Handler) Routes(rt *httpx.Router) {
 	rt.HandleFunc("POST /api/v1/auth/verify-email", h.verifyEmail)
 	rt.HandleFunc("POST /api/v1/auth/verify-email/resend", h.resendVerification)
 	rt.HandleFunc("POST /api/v1/auth/login", h.login)
+	rt.HandleFunc("POST /api/v1/auth/password/forgot", h.forgotPassword)
+	rt.HandleFunc("POST /api/v1/auth/password/reset", h.resetPassword)
 	// Authenticated.
 	rt.Handle("POST /api/v1/auth/logout", h.RequireAuth(http.HandlerFunc(h.logout)))
 	rt.Handle("POST /api/v1/auth/logout-all", h.RequireAuth(http.HandlerFunc(h.logoutAll)))
 	rt.Handle("GET /api/v1/me", h.RequireAuth(http.HandlerFunc(h.me)))
+	rt.Handle("POST /api/v1/me/password", h.RequireAuth(http.HandlerFunc(h.changePassword)))
 }
 
 type registerRequest struct {

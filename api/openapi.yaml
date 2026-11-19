@@ -249,6 +249,90 @@ paths:
           $ref: "#/components/responses/Unauthorized"
 
 
+  /api/v1/auth/password/forgot:
+    post:
+      tags: [Auth]
+      operationId: forgotPassword
+      summary: Request a password reset email
+      description: |
+        Always `202` for well-formed emails. A reset link (single use, 30 minutes) is emailed only
+        to active accounts; requests are coalesced to one per minute per account.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/Accepted"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/auth/password/reset:
+    post:
+      tags: [Auth]
+      operationId: resetPassword
+      summary: Set a new password with the emailed token
+      description: |
+        Revokes every session of the account and clears the session cookie. The password policy
+        is checked before the token is consumed. Invalid, expired or used tokens return
+        `INVALID_TOKEN`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordRequest"
+      responses:
+        "200":
+          description: Password changed; all sessions revoked.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordResetResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/me/password:
+    post:
+      tags: [Auth]
+      operationId: changePassword
+      summary: Change the password of the current account
+      description: |
+        Requires the current password. Other sessions are revoked; the current one stays.
+        Field codes: `INVALID_CURRENT_PASSWORD`, `PASSWORD_UNCHANGED`, password policy codes.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "204":
+          description: Password changed.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+
 components:
   headers:
     XRequestID:
@@ -449,6 +533,54 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    ForgotPasswordRequest:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+
+    ResetPasswordRequest:
+      type: object
+      additionalProperties: false
+      required: [token, newPassword]
+      properties:
+        token:
+          type: string
+          writeOnly: true
+          description: Token from the emailed link (`bp_pr_…`).
+        newPassword:
+          type: string
+          minLength: 10
+          maxLength: 128
+          writeOnly: true
+
+    ChangePasswordRequest:
+      type: object
+      additionalProperties: false
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+          maxLength: 128
+          writeOnly: true
+        newPassword:
+          type: string
+          minLength: 10
+          maxLength: 128
+          writeOnly: true
+
+    PasswordResetResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          const: password_reset
 
   responses:
     Unauthorized:

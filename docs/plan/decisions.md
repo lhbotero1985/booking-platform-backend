@@ -51,6 +51,8 @@ Decisiones relevantes no arquitectónicas (las arquitectónicas tienen ADR en `d
 | 2026-11-19 | CSRF: peticiones con cookie que cambian estado exigen `Origin` en la lista blanca | Defensa en profundidad sobre SameSite=Lax | Aplicado |
 | 2026-11-19 | `EMAIL_NOT_VERIFIED` solo tras contraseña correcta; resto de fallos de login idénticos | No revelar cuentas ni su estado | Aplicado |
 | 2026-11-19 | IP del cliente = par TCP; X-Forwarded-For se confiará solo desde Caddy (Fase 3) | Evitar suplantación de IP | Pendiente (Fase 3) |
+| 2026-11-19 | Reset de contraseña: token `bp_pr_` 30 min, un solo uso; política validada antes de consumir el token; revoca todas las sesiones; aviso por email | security.md §1 | Aplicado |
+| 2026-11-19 | Cambio autenticado de contraseña conserva la sesión actual y revoca las demás | Usabilidad sin perder seguridad | Aplicado |
 | 2026-11-18 | Imágenes en GHCR | Gratuito con GitHub, integrado con Actions | Propuesto |
 | 2026-11-18 | Búsqueda de negocios por ciudad en MVP (PostGIS listo para cercanía futura) | Simplicidad | Propuesto |
 | 2026-11-18 | Sin auto-cancelación de citas pendientes en MVP | Regla del prompt; requiere política aprobada | Propuesto |

@@ -173,11 +173,7 @@ func (s *Service) VerifyEmail(ctx context.Context, rawToken string) error {
 // SendVerificationEmail issues a fresh verification token and emails it. It runs in the worker
 // (River job) so the raw token is never persisted anywhere, not even in the job queue.
 func (s *Service) SendVerificationEmail(ctx context.Context, userID uuid.UUID) error {
-	entropy := make([]byte, domain.TokenEntropyBytes)
-	if _, err := io.ReadFull(s.random, entropy); err != nil {
-		return fmt.Errorf("verification email: entropy: %w", err)
-	}
-	tok, err := domain.NewToken(domain.TokenPrefixEmailVerification, entropy)
+	tok, err := s.newToken(domain.TokenPrefixEmailVerification)
 	if err != nil {
 		return err
 	}

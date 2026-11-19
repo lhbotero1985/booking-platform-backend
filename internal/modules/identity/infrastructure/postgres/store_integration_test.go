@@ -307,3 +307,86 @@ func TestSessionExpiryOnPostgres(t *testing.T) {
 		t.Fatalf("idle-expired session accepted: %v", err)
 	}
 }
+
+func jobCount(t *testing.T, kind string, userID uuid.UUID) int {
+	t.Helper()
+	var n int
+	if err := pool.QueryRow(t.Context(), `SELECT count(*) FROM river_job WHERE kind = $1 AND args->>'user_id' = $2`, kind, userID.String()).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func TestPasswordResetOnPostgres(t *testing.T) {
+	ctx := t.Context()
+	e := newEnv(t)
+	email := e.activeUser(t)
+	id, _, _ := userRow(t, email)
+	login, err := e.svc.Login(ctx, application.LoginInput{Email: email, Password: "una clave suficientemente larga", ClientType: "MOBILE"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := e.svc.ForgotPassword(ctx, email); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.svc.ForgotPassword(ctx, email); err != nil {
+		t.Fatal(err)
+	}
+	if n := jobCount(t, "identity.send_password_reset_email", id); n != 1 {
+		t.Fatalf("reset jobs = %d, want 1 (coalesced)", n)
+	}
+	if err := e.svc.SendPasswordResetEmail(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := url.QueryUnescape(regexp.MustCompile(`reset-password\?token=([^\s]+)`).FindStringSubmatch(e.mailer.Last().Body)[1])
+	tok, err := domain.ParseToken(domain.TokenPrefixPasswordReset, raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stored int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM password_reset_tokens WHERE user_id=$1 AND token_hash=$2 AND used_at IS NULL AND expires_at <= created_at + interval '30 minutes'`, id, tok.Hash()).Scan(&stored); err != nil || stored != 1 {
+		t.Fatalf("reset token hash not stored with 30 min expiry (count %d, err %v)", stored, err)
+	}
+
+	var before string
+	_ = pool.QueryRow(ctx, `SELECT password_hash FROM users WHERE id=$1`, id).Scan(&before)
+	if err := e.svc.ResetPassword(ctx, application.ResetPasswordInput{Token: raw, NewPassword: "otra frase nueva bastante larga"}); err != nil {
+		t.Fatal(err)
+	}
+	var after string
+	_ = pool.QueryRow(ctx, `SELECT password_hash FROM users WHERE id=$1`, id).Scan(&after)
+	if before == after {
+		t.Fatal("password hash unchanged")
+	}
+	if _, err := e.svc.Authenticate(ctx, login.Token.Reveal()); !errors.Is(err, application.ErrUnauthenticated) {
+		t.Fatal("session survived reset")
+	}
+	if n := jobCount(t, "identity.send_password_changed_email", id); n != 1 {
+		t.Fatalf("password changed notices = %d", n)
+	}
+	if err := e.svc.ResetPassword(ctx, application.ResetPasswordInput{Token: raw, NewPassword: "una tercera clave larguisima"}); !errors.Is(err, domain.ErrInvalidToken) {
+		t.Fatalf("reset token reused: %v", err)
+	}
+}
+
+func TestChangePasswordOnPostgres(t *testing.T) {
+	ctx := t.Context()
+	e := newEnv(t)
+	email := e.activeUser(t)
+	cur, _ := e.svc.Login(ctx, application.LoginInput{Email: email, Password: "una clave suficientemente larga", ClientType: "WEB"})
+	other, _ := e.svc.Login(ctx, application.LoginInput{Email: email, Password: "una clave suficientemente larga", ClientType: "MOBILE"})
+	p, err := e.svc.Authenticate(ctx, cur.Token.Reveal())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.svc.ChangePassword(ctx, p, application.ChangePasswordInput{CurrentPassword: "una clave suficientemente larga", NewPassword: "otra frase nueva bastante larga"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.svc.Authenticate(ctx, cur.Token.Reveal()); err != nil {
+		t.Fatal("current session revoked")
+	}
+	if _, err := e.svc.Authenticate(ctx, other.Token.Reveal()); !errors.Is(err, application.ErrUnauthenticated) {
+		t.Fatal("other session survived")
+	}
+}
