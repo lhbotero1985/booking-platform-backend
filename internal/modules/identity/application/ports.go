@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"net/netip"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,6 +15,14 @@ import (
 var (
 	ErrNotFound   = errors.New("identity: not found")
 	ErrEmailTaken = errors.New("identity: email already registered")
+)
+
+// Authentication errors. ErrInvalidCredentials is deliberately generic: unknown email, wrong
+// password and suspended account are indistinguishable to the caller.
+var (
+	ErrInvalidCredentials = errors.New("identity: invalid credentials")
+	ErrEmailNotVerified   = errors.New("identity: email not verified")
+	ErrUnauthenticated    = errors.New("identity: unauthenticated")
 )
 
 // PasswordHasher hashes and verifies passwords (implemented with Argon2id, ADR-0006).
@@ -53,6 +62,17 @@ type Tx interface {
 	// EnqueueVerificationEmail schedules the verification email for userID. Duplicate
 	// requests within a short window are coalesced.
 	EnqueueVerificationEmail(ctx context.Context, userID uuid.UUID) error
+
+	UpdatePasswordHash(ctx context.Context, userID uuid.UUID, hash domain.PasswordHash) error
+
+	// CreateSession stores a session identified by the SHA-256 of its token.
+	CreateSession(ctx context.Context, s *domain.Session, tokenHash []byte, ip *netip.Addr, userAgent string) error
+	// ActiveSessionByTokenHash returns a non-revoked, unexpired session (at now) and its user,
+	// or ErrNotFound.
+	ActiveSessionByTokenHash(ctx context.Context, tokenHash []byte, now time.Time) (*domain.Session, *domain.User, error)
+	TouchSession(ctx context.Context, sessionID uuid.UUID, now, idleExpiresAt time.Time) error
+	RevokeSession(ctx context.Context, sessionID, userID uuid.UUID, now time.Time) error
+	RevokeAllUserSessions(ctx context.Context, userID uuid.UUID, now time.Time) (int64, error)
 }
 
 // Mailer delivers a plain-text email.

@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"net/netip"
 	"sync"
 	"time"
 
@@ -22,6 +23,7 @@ type Store struct {
 	mu       sync.Mutex
 	users    map[uuid.UUID]*domain.User
 	tokens   map[string]*evToken
+	sessions map[string]*sessRec
 	Enqueued []uuid.UUID // verification emails scheduled (after commit)
 	FailNext error       // if set, the next transaction fails with it
 }
@@ -34,7 +36,7 @@ type evToken struct {
 
 // NewStore returns an empty store.
 func NewStore() *Store {
-	return &Store{users: map[uuid.UUID]*domain.User{}, tokens: map[string]*evToken{}}
+	return &Store{users: map[uuid.UUID]*domain.User{}, tokens: map[string]*evToken{}, sessions: map[string]*sessRec{}}
 }
 
 // WithinTx implements application.Store.
@@ -55,9 +57,14 @@ func (s *Store) WithinTx(_ context.Context, fn func(tx application.Tx) error) er
 		cp := *v
 		snapTokens[k] = &cp
 	}
+	snapSessions := make(map[string]*sessRec, len(s.sessions))
+	for k, v := range s.sessions {
+		cp := *v
+		snapSessions[k] = &cp
+	}
 	tx := &storeTx{s: s}
 	if err := fn(tx); err != nil {
-		s.users, s.tokens = snapUsers, snapTokens
+		s.users, s.tokens, s.sessions = snapUsers, snapTokens, snapSessions
 		return err
 	}
 	s.Enqueued = append(s.Enqueued, tx.enqueued...)
@@ -255,4 +262,103 @@ func (r *FixedRandom) Read(p []byte) (int, error) {
 	r.n++
 	copy(p, bytes.Repeat([]byte{r.n}, len(p)))
 	return len(p), nil
+}
+
+type sessRec struct {
+	session   domain.Session
+	revokedAt *time.Time
+	userAgent string
+}
+
+// SessionCount returns the number of non-revoked sessions of userID.
+func (s *Store) SessionCount(userID uuid.UUID) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for _, r := range s.sessions {
+		if r.session.UserID() == userID && r.revokedAt == nil {
+			n++
+		}
+	}
+	return n
+}
+
+// SessionHashes returns every stored session token hash (hex).
+func (s *Store) SessionHashes() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]string, 0, len(s.sessions))
+	for k := range s.sessions {
+		out = append(out, k)
+	}
+	return out
+}
+
+// SetPlatformAdmin flags a user as platform administrator (test helper).
+func (s *Store) SetPlatformAdmin(email string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for id, u := range s.users {
+		if u.Email().String() == email {
+			s.users[id] = domain.RehydrateUser(u.ID(), u.Email(), u.FullName(), u.PasswordHash(), u.Status(), true, u.EmailVerifiedAt(), u.CreatedAt(), u.UpdatedAt())
+		}
+	}
+}
+
+func (t *storeTx) UpdatePasswordHash(_ context.Context, id uuid.UUID, hash domain.PasswordHash) error {
+	u, ok := t.s.users[id]
+	if !ok {
+		return application.ErrNotFound
+	}
+	return u.ChangePasswordHash(hash, u.UpdatedAt())
+}
+
+func (t *storeTx) CreateSession(_ context.Context, sess *domain.Session, hash []byte, _ *netip.Addr, ua string) error {
+	t.s.sessions[hex.EncodeToString(hash)] = &sessRec{session: *sess, userAgent: ua}
+	return nil
+}
+
+func (t *storeTx) ActiveSessionByTokenHash(_ context.Context, hash []byte, now time.Time) (*domain.Session, *domain.User, error) {
+	r, ok := t.s.sessions[hex.EncodeToString(hash)]
+	if !ok || r.revokedAt != nil || !r.session.IsActive(now) {
+		return nil, nil, application.ErrNotFound
+	}
+	u, ok := t.s.users[r.session.UserID()]
+	if !ok {
+		return nil, nil, application.ErrNotFound
+	}
+	sess, user := r.session, *u
+	return &sess, &user, nil
+}
+
+func (t *storeTx) TouchSession(_ context.Context, id uuid.UUID, now, idle time.Time) error {
+	for _, r := range t.s.sessions {
+		if r.session.ID() == id && r.revokedAt == nil {
+			s := r.session
+			r.session = *domain.RehydrateSession(s.ID(), s.UserID(), s.ClientType(), s.CreatedAt(), now, idle, s.AbsoluteExpiresAt())
+		}
+	}
+	return nil
+}
+
+func (t *storeTx) RevokeSession(_ context.Context, id, userID uuid.UUID, now time.Time) error {
+	for _, r := range t.s.sessions {
+		if r.session.ID() == id && r.session.UserID() == userID && r.revokedAt == nil {
+			n := now
+			r.revokedAt = &n
+		}
+	}
+	return nil
+}
+
+func (t *storeTx) RevokeAllUserSessions(_ context.Context, userID uuid.UUID, now time.Time) (int64, error) {
+	var n int64
+	for _, r := range t.s.sessions {
+		if r.session.UserID() == userID && r.revokedAt == nil {
+			ts := now
+			r.revokedAt = &ts
+			n++
+		}
+	}
+	return n, nil
 }

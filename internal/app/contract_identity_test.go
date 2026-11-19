@@ -42,7 +42,7 @@ func newIdentityServer(t *testing.T) identityEnv {
 		Clock: clock.NewFixed(time.Date(2026, 11, 19, 12, 0, 0, 0, time.UTC)), Random: &apptest.FixedRandom{},
 		Config: application.Config{PublicAppURL: "https://app.example.test"}, Logger: logger,
 	})
-	e.srv = httptest.NewServer(NewHTTPHandler(cfg, logger, Deps{Modules: []RouteRegistrar{identityhttp.New(e.svc, logger)}}))
+	e.srv = httptest.NewServer(NewHTTPHandler(cfg, logger, Deps{Modules: []RouteRegistrar{identityhttp.New(e.svc, logger, identityhttp.Options{AllowedOrigins: []string{"https://business.example.test"}})}}))
 	t.Cleanup(e.srv.Close)
 	return e
 }
@@ -101,4 +101,66 @@ func TestContractIdentityEndpoints(t *testing.T) {
 	raw, _ := url.QueryUnescape(m[1])
 	c.call(t, e.srv, "/api/v1/auth/verify-email", `{"token":"`+raw+`"}`, js, http.StatusOK, true)
 	c.call(t, e.srv, "/api/v1/auth/verify-email", `{"token":"`+raw+`"}`, js, http.StatusBadRequest, true)
+}
+
+// callAuth validates a request with optional bearer token against the contract.
+func (c contract) callAuth(t *testing.T, srv *httptest.Server, method, path, body, token string, wantStatus int) string {
+	t.Helper()
+	newReq := func() *http.Request {
+		r, err := http.NewRequestWithContext(t.Context(), method, srv.URL+path, strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if body != "" {
+			r.Header.Set("Content-Type", "application/json")
+		}
+		if token != "" {
+			r.Header.Set("Authorization", "Bearer "+token)
+		}
+		return r
+	}
+	req := newReq()
+	resp, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != wantStatus {
+		t.Fatalf("%s %s: status %d, want %d (%s)", method, path, resp.StatusCode, wantStatus, b)
+	}
+	resp.Body = io.NopCloser(bytes.NewReader(b))
+	if ok, errs := c.v.ValidateHttpResponse(newReq(), resp); !ok {
+		for _, e := range errs {
+			t.Errorf("%s %s %d does not conform: %s (%s)", method, path, wantStatus, e.Message, e.Reason)
+		}
+	}
+	return string(b)
+}
+
+func TestContractSessionEndpoints(t *testing.T) {
+	c := loadContract(t)
+	e := newIdentityServer(t)
+	const js = "application/json"
+	reg := `{"email":"ana@example.com","password":"una clave suficientemente larga","fullName":"Ana Pérez"}`
+	login := `{"email":"ana@example.com","password":"una clave suficientemente larga","clientType":"MOBILE"}`
+
+	c.call(t, e.srv, "/api/v1/auth/register", reg, js, http.StatusAccepted, true)
+	c.call(t, e.srv, "/api/v1/auth/login", login, js, http.StatusForbidden, true) // not verified yet
+	if err := e.svc.SendVerificationEmail(context.Background(), e.store.Enqueued[0]); err != nil {
+		t.Fatal(err)
+	}
+	m := regexp.MustCompile(`token=([^\s]+)`).FindStringSubmatch(e.mailer.Last().Body)
+	raw, _ := url.QueryUnescape(m[1])
+	c.call(t, e.srv, "/api/v1/auth/verify-email", `{"token":"`+raw+`"}`, js, http.StatusOK, true)
+
+	c.call(t, e.srv, "/api/v1/auth/login", strings.Replace(login, "larga", "corta", 1), js, http.StatusUnauthorized, true)
+	c.call(t, e.srv, "/api/v1/auth/login", strings.Replace(login, "MOBILE", "WEB", 1), js, http.StatusOK, true)
+	body := c.call(t, e.srv, "/api/v1/auth/login", login, js, http.StatusOK, true)
+	tok := regexp.MustCompile(`"token":"([^"]+)"`).FindStringSubmatch(body)[1]
+
+	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/me", "", tok, http.StatusOK)
+	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/me", "", "", http.StatusUnauthorized)
+	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/auth/logout-all", "", tok, http.StatusOK)
+	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/auth/logout", "", tok, http.StatusUnauthorized)
 }

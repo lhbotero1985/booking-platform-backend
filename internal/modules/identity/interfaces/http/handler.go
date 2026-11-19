@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application"
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/domain"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/httpx"
 )
@@ -19,24 +20,43 @@ type Service interface {
 	Register(ctx context.Context, in application.RegisterInput) error
 	VerifyEmail(ctx context.Context, rawToken string) error
 	ResendVerification(ctx context.Context, email string) error
+	Login(ctx context.Context, in application.LoginInput) (application.LoginResult, error)
+	Authenticate(ctx context.Context, rawToken string) (contract.Principal, error)
+	Logout(ctx context.Context, p contract.Principal) error
+	LogoutAll(ctx context.Context, p contract.Principal) (int64, error)
+	Me(ctx context.Context, p contract.Principal) (*domain.User, error)
+}
+
+// Options configures the handler.
+type Options struct {
+	// AllowedOrigins are the web origins allowed to make cookie-authenticated state-changing
+	// requests (same list as CORS_ALLOWED_ORIGINS).
+	AllowedOrigins []string
 }
 
 // Handler serves the identity endpoints.
 type Handler struct {
-	svc    Service
-	logger *slog.Logger
+	svc            Service
+	logger         *slog.Logger
+	allowedOrigins []string
 }
 
 // New builds the handler.
-func New(svc Service, logger *slog.Logger) *Handler {
-	return &Handler{svc: svc, logger: logger}
+func New(svc Service, logger *slog.Logger, opts Options) *Handler {
+	return &Handler{svc: svc, logger: logger, allowedOrigins: opts.AllowedOrigins}
 }
 
-// Routes registers the endpoints (public: no authentication).
+// Routes registers the endpoints.
 func (h *Handler) Routes(rt *httpx.Router) {
+	// Public.
 	rt.HandleFunc("POST /api/v1/auth/register", h.register)
 	rt.HandleFunc("POST /api/v1/auth/verify-email", h.verifyEmail)
 	rt.HandleFunc("POST /api/v1/auth/verify-email/resend", h.resendVerification)
+	rt.HandleFunc("POST /api/v1/auth/login", h.login)
+	// Authenticated.
+	rt.Handle("POST /api/v1/auth/logout", h.RequireAuth(http.HandlerFunc(h.logout)))
+	rt.Handle("POST /api/v1/auth/logout-all", h.RequireAuth(http.HandlerFunc(h.logoutAll)))
+	rt.Handle("GET /api/v1/me", h.RequireAuth(http.HandlerFunc(h.me)))
 }
 
 type registerRequest struct {
@@ -108,6 +128,10 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 		httpx.WriteProblem(w, r, p)
 	case errors.Is(err, domain.ErrInvalidToken):
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusBadRequest, CodeInvalidToken, "the link is invalid or has expired"))
+	case errors.Is(err, application.ErrInvalidCredentials):
+		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusUnauthorized, CodeInvalidCredentials, "invalid email or password"))
+	case errors.Is(err, application.ErrEmailNotVerified):
+		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusForbidden, CodeEmailNotVerified, "verify your email before signing in"))
 	default:
 		h.logger.ErrorContext(r.Context(), "identity request failed",
 			slog.String("request_id", httpx.RequestIDFrom(r.Context())),

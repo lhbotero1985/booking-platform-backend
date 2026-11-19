@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/netip"
 	"time"
 
 	"github.com/google/uuid"
@@ -120,4 +121,50 @@ func toDomain(r sqlcgen.User) (*domain.User, error) {
 	}
 	return domain.RehydrateUser(r.ID, domain.Email(r.Email), r.FullName, domain.PasswordHash(r.PasswordHash),
 		status, r.IsPlatformAdmin, r.EmailVerifiedAt, r.CreatedAt, r.UpdatedAt), nil
+}
+
+func (t *txStore) UpdatePasswordHash(ctx context.Context, userID uuid.UUID, hash domain.PasswordHash) error {
+	return t.q.UpdateUserPasswordHash(ctx, sqlcgen.UpdateUserPasswordHashParams{ID: userID, PasswordHash: string(hash)})
+}
+
+func (t *txStore) CreateSession(ctx context.Context, s *domain.Session, tokenHash []byte, ip *netip.Addr, userAgent string) error {
+	var ua *string
+	if userAgent != "" {
+		ua = &userAgent
+	}
+	_, err := t.q.CreateSession(ctx, sqlcgen.CreateSessionParams{
+		ID: s.ID(), UserID: s.UserID(), TokenHash: tokenHash, ClientType: string(s.ClientType()),
+		IdleExpiresAt: s.IdleExpiresAt(), AbsoluteExpiresAt: s.AbsoluteExpiresAt(), Ip: ip, UserAgent: ua,
+	})
+	return err
+}
+
+func (t *txStore) ActiveSessionByTokenHash(ctx context.Context, tokenHash []byte, now time.Time) (*domain.Session, *domain.User, error) {
+	row, err := t.q.GetActiveSessionByTokenHash(ctx, sqlcgen.GetActiveSessionByTokenHashParams{TokenHash: tokenHash, Now: now})
+	if err != nil {
+		return nil, nil, notFound(err)
+	}
+	ct, err := domain.ParseClientType(row.Session.ClientType)
+	if err != nil {
+		return nil, nil, err
+	}
+	u, err := toDomain(row.User)
+	if err != nil {
+		return nil, nil, err
+	}
+	s := row.Session
+	return domain.RehydrateSession(s.ID, s.UserID, ct, s.CreatedAt, s.LastSeenAt, s.IdleExpiresAt, s.AbsoluteExpiresAt), u, nil
+}
+
+func (t *txStore) TouchSession(ctx context.Context, sessionID uuid.UUID, now, idleExpiresAt time.Time) error {
+	return t.q.TouchSession(ctx, sqlcgen.TouchSessionParams{ID: sessionID, Now: now, IdleExpiresAt: idleExpiresAt})
+}
+
+func (t *txStore) RevokeSession(ctx context.Context, sessionID, userID uuid.UUID, now time.Time) error {
+	_, err := t.q.RevokeSession(ctx, sqlcgen.RevokeSessionParams{ID: sessionID, UserID: userID, Now: now})
+	return err
+}
+
+func (t *txStore) RevokeAllUserSessions(ctx context.Context, userID uuid.UUID, now time.Time) (int64, error) {
+	return t.q.RevokeAllUserSessions(ctx, sqlcgen.RevokeAllUserSessionsParams{UserID: userID, Now: now})
 }

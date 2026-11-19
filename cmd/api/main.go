@@ -105,7 +105,7 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 			{Name: "migrations", Fn: migrator.Check},
 		},
 		Modules: []app.RouteRegistrar{
-			identityhttp.New(identitySvc, logger),
+			identityhttp.New(identitySvc, logger, identityhttp.Options{AllowedOrigins: cfg.HTTP.CORSAllowedOrigins}),
 		},
 	})
 	srv := app.NewHTTPServer(ctx, cfg, logger, handler)

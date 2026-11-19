@@ -146,6 +146,109 @@ paths:
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
 
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Sign in with email and password
+      description: |
+        Opens a session for a verified account. `MOBILE` clients receive a Bearer token in the
+        body. `WEB` clients receive it only in the `__Host-session` cookie (HttpOnly, Secure,
+        SameSite=Lax) and never in the body. Unknown email, wrong password and suspended
+        accounts all return `INVALID_CREDENTIALS` with comparable timing. `EMAIL_NOT_VERIFIED` is
+        returned only after a correct password.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Session opened.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+            Set-Cookie:
+              description: "`__Host-session` for WEB clients only."
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: Revoke the current session
+      description: Cookie sessions must send an allowed `Origin` (CSRF protection).
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "204":
+          description: Session revoked; the session cookie is cleared.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/auth/logout-all:
+    post:
+      tags: [Auth]
+      operationId: logoutAll
+      summary: Revoke every session of the account
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Sessions revoked; the session cookie is cleared.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogoutAllResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/me:
+    get:
+      tags: [Auth]
+      operationId: getMe
+      summary: Current account
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The authenticated account.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+
 components:
   headers:
     XRequestID:
@@ -276,7 +379,101 @@ components:
         status:
           const: verified
 
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password, clientType]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          maxLength: 128
+          writeOnly: true
+        clientType:
+          type: string
+          enum: [MOBILE, WEB]
+
+    LoginResponse:
+      type: object
+      additionalProperties: false
+      required: [expiresAt, idleExpiresAt]
+      properties:
+        tokenType:
+          const: Bearer
+          description: MOBILE only.
+        token:
+          type: string
+          description: "MOBILE only. Opaque session token (`bp_s_…`), sent as `Authorization: Bearer <token>`."
+        expiresAt:
+          type: string
+          format: date-time
+          description: Absolute expiry of the session.
+        idleExpiresAt:
+          type: string
+          format: date-time
+          description: Expiry if there is no activity (slides with use).
+
+    LogoutAllResponse:
+      type: object
+      additionalProperties: false
+      required: [revoked]
+      properties:
+        revoked:
+          type: integer
+          minimum: 0
+
+    MeResponse:
+      type: object
+      additionalProperties: false
+      required: [id, email, fullName, status, isPlatformAdmin, emailVerifiedAt, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+        status:
+          type: string
+          enum: [PENDING_VERIFICATION, ACTIVE, SUSPENDED]
+        isPlatformAdmin:
+          type: boolean
+        emailVerifiedAt:
+          type: [string, "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
   responses:
+    Unauthorized:
+      description: |
+        Missing or invalid credentials (`UNAUTHENTICATED`, `INVALID_CREDENTIALS`).
+      headers:
+        X-Request-ID:
+          $ref: "#/components/headers/XRequestID"
+        WWW-Authenticate:
+          schema:
+            type: string
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Forbidden:
+      description: |
+        Authenticated but not allowed (`EMAIL_NOT_VERIFIED`, `CSRF_REJECTED`, …).
+      headers:
+        X-Request-ID:
+          $ref: "#/components/headers/XRequestID"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
     Accepted:
       description: Request accepted. The same response is returned whether or not the email exists.
       headers:
