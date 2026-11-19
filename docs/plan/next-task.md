@@ -1,7 +1,8 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T1.9 — Seguridad básica y cierre de la Fase 1 (2026-11-19), en `feature/t1.9-phase1-closure`.
+T2.1 — Esqueleto del módulo identity (2026-11-19), en `feature/t2.1-identity-skeleton`
+(commit y push hechos; PR y merge pendientes de autorización).
 
 ## Flujo de ramas (ADR-0017)
 
@@ -11,16 +12,19 @@ borrado de ramas y despliegues: autorización explícita por tarea.
 
 ## Pendiente de autorización
 
-1. PR de `feature/t1.9-phase1-closure` → `qa` (el CI valida también la integración, que no se
-   pudo repetir localmente porque Docker Desktop se detuvo) y merge si queda en verde.
-2. **Aprobación del cierre de la Fase 1** (`docs/plan/phase-1-closure.md`).
+1. PR `feature/t2.1-identity-skeleton` → `qa` y merge si el CI queda en verde.
+2. Borrar la rama fusionada `feature/t1.9-phase1-closure` (local y remota).
 
-## Próxima tarea (tras aprobar la Fase 1): T2.1 — Esqueleto del módulo `identity`
+## Próxima tarea: T2.2 — Dominio de identidad y Argon2id
 
-- **Objetivo:** primer módulo de negocio con las capas de Clean Architecture y su esquema.
-- **Archivos:** `internal/modules/identity/{domain,application,infrastructure,interfaces/http,contract}`,
-  `db/migrations/00003_identity.sql` (`users`, `sessions`, `password_reset_tokens`,
-  `memberships`, `audit_log`), `db/queries/identity/*.sql`, entrada en `sqlc.yaml`,
-  reglas depguard del módulo (dominio puro, sin importar otros módulos salvo `contract`).
-- **Pruebas:** migración up/down/up; `sqlc diff`; violación intencional de depguard detectada.
-- **Pregunta abierta para la Fase 2:** P13 proveedor de email (recuperación de contraseña).
+- **Objetivo:** modelo de dominio puro y hashing de contraseñas seguro.
+- **Archivos:** `internal/modules/identity/domain/` (`Email`, `Password` con política,
+  `UserStatus`, `Role`, `User` con invariantes, errores de dominio), puerto `PasswordHasher` en
+  `application`, implementación Argon2id en `infrastructure/argon2` (formato PHC, sal de 16 bytes,
+  comparación en tiempo constante, `NeedsRehash`), parámetros en config (`ARGON2_*`).
+- **Pruebas:** tablas de casos para VO (emails válidos/inválidos, normalización, contraseñas
+  cortas/largas/comunes); hash/verify; rechazo de hashes malformados; rehash al cambiar
+  parámetros; benchmark para calibrar ≈100–250 ms; fuzzing del parser PHC.
+- **Dependencia nueva:** `golang.org/x/crypto/argon2`.
+- **Criterios de aceptación:** dominio sin dependencias externas (depguard); cobertura del
+  dominio ≥ 90 %; tiempos de hash medidos y registrados.

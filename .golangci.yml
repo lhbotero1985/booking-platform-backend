@@ -43,6 +43,59 @@ linters:
               desc: el dominio no depende de River
             - pkg: github.com/lhbotero1985/booking-platform-backend/internal/platform
               desc: el dominio no depende de la plataforma técnica
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/app
+              desc: el dominio no depende del composition root
+
+        # Casos de uso: sin transporte ni drivers; dependen de puertos (ADR-0002).
+        application-layer:
+          list-mode: lax
+          files:
+            - "**/internal/modules/*/application/**"
+          deny:
+            - pkg: net/http
+              desc: la aplicación no depende de HTTP (eso vive en interfaces/http)
+            - pkg: database/sql
+              desc: la aplicación usa puertos, no la base de datos
+            - pkg: github.com/jackc/pgx
+              desc: la aplicación usa puertos, no la base de datos
+            - pkg: github.com/riverqueue/river
+              desc: la aplicación usa puertos, no River directamente
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/platform/httpx
+              desc: la aplicación no depende de HTTP
+
+        # Fronteras del módulo identity: solo puede importarse a sí mismo (y en el futuro el
+        # paquete contract de otros módulos, que se agregará aquí como allow explícito).
+        identity-module-boundary:
+          list-mode: lax
+          files:
+            - "**/internal/modules/identity/**"
+          allow:
+            - github.com/lhbotero1985/booking-platform-backend/internal/modules/identity
+          deny:
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules
+              desc: los módulos se comunican solo vía su paquete contract
+
+        # Dirección de dependencias dentro de identity (Clean Architecture: hacia el dominio).
+        identity-domain-inward:
+          list-mode: lax
+          files:
+            - "**/internal/modules/identity/domain/**"
+          deny:
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application
+              desc: el dominio no conoce los casos de uso
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/infrastructure
+              desc: el dominio no conoce la infraestructura
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/interfaces
+              desc: el dominio no conoce el transporte
+        identity-application-inward:
+          list-mode: lax
+          files:
+            - "**/internal/modules/identity/application/**"
+          deny:
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/infrastructure
+              desc: la aplicación depende de puertos, no de su implementación
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/interfaces
+              desc: la aplicación no conoce el transporte
     forbidigo:
       forbid:
         - pattern: ^(fmt\.Print.*|print|println)$
