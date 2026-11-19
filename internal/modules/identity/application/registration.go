@@ -39,7 +39,8 @@ type Service struct {
 	throttle AttemptThrottle
 }
 
-// Deps are the Service collaborators. Random defaults to crypto/rand.
+// Deps are the Service collaborators. Random defaults to crypto/rand, Clock to the system clock
+// and Logger to a discarding logger.
 type Deps struct {
 	Store  Store
 	Hasher PasswordHasher
@@ -56,6 +57,12 @@ type Deps struct {
 func NewService(d Deps) *Service {
 	if d.Random == nil {
 		d.Random = rand.Reader
+	}
+	if d.Clock == nil {
+		d.Clock = clock.System{}
+	}
+	if d.Logger == nil {
+		d.Logger = slog.New(slog.DiscardHandler)
 	}
 	if d.Throttle == nil {
 		d.Throttle = noThrottle{}
@@ -110,6 +117,10 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) error {
 		existing, err := tx.UserByEmail(ctx, email)
 		switch {
 		case err == nil:
+			e := s.newAudit(ctx, AuditRegistered, OutcomeFailure).actor(existing.ID()).meta("reason", reasonEmailTaken)
+			if err := tx.AppendAudit(ctx, *e); err != nil {
+				return err
+			}
 			return s.resendIfPending(ctx, tx, existing)
 		case !errors.Is(err, ErrNotFound):
 			return err
@@ -118,6 +129,9 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) error {
 			if errors.Is(err, ErrEmailTaken) { // concurrent registration of the same email
 				return nil
 			}
+			return err
+		}
+		if err := tx.AppendAudit(ctx, *s.newAudit(ctx, AuditRegistered, OutcomeSuccess).actor(user.ID())); err != nil {
 			return err
 		}
 		return tx.EnqueueVerificationEmail(ctx, user.ID())
@@ -158,7 +172,8 @@ func (s *Service) VerifyEmail(ctx context.Context, rawToken string) error {
 		return domain.ErrInvalidToken
 	}
 	now := s.clock.Now()
-	return s.store.WithinTx(ctx, func(tx Tx) error {
+	var notEligible uuid.UUID
+	err = s.store.WithinTx(ctx, func(tx Tx) error {
 		userID, err := tx.ConsumeEmailVerificationToken(ctx, tok.Hash(), now)
 		if errors.Is(err, ErrNotFound) {
 			return domain.ErrInvalidToken
@@ -171,10 +186,22 @@ func (s *Service) VerifyEmail(ctx context.Context, rawToken string) error {
 			return err
 		}
 		if err := u.VerifyEmail(now); err != nil {
+			notEligible = userID
 			return domain.ErrInvalidToken // suspended accounts cannot be activated by email
 		}
-		return tx.MarkEmailVerified(ctx, userID, now)
+		if err := tx.MarkEmailVerified(ctx, userID, now); err != nil {
+			return err
+		}
+		return tx.AppendAudit(ctx, *s.newAudit(ctx, AuditEmailVerified, OutcomeSuccess).actor(userID))
 	})
+	if errors.Is(err, domain.ErrInvalidToken) {
+		reason := reasonInvalidToken
+		if notEligible != uuid.Nil {
+			reason = reasonNotEligible
+		}
+		s.auditDetached(ctx, s.newAudit(ctx, AuditEmailVerified, OutcomeFailure).actor(notEligible).meta("reason", reason))
+	}
+	return err
 }
 
 // SendVerificationEmail issues a fresh verification token and emails it. It runs in the worker

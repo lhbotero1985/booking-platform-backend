@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/netip"
+	"strconv"
 	"time"
 	"unicode/utf8"
 
@@ -66,21 +67,43 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (LoginResult, error)
 	}
 	key := loginThrottleKey(email, in.IP)
 	if err := s.checkThrottle(key); err != nil {
+		s.auditDetached(ctx, s.newAudit(ctx, AuditLogin, OutcomeDenied).withIP(in.IP).
+			meta("reason", reasonThrottled).meta("email_fp", emailFingerprint(email)).meta("client_type", string(clientType)))
 		return LoginResult{}, err
 	}
-	res, err := s.login(ctx, in, email, clientType)
+	var out loginOutcome
+	res, err := s.login(ctx, in, email, clientType, &out)
 	switch {
 	case errors.Is(err, ErrInvalidCredentials):
 		s.throttle.Failure(key)
 	case err == nil, errors.Is(err, ErrEmailNotVerified): // correct password
 		s.throttle.Success(key)
 	}
+	if out.reason != "" { // failures; success is audited inside the session transaction
+		outcome := OutcomeFailure
+		if errors.Is(err, ErrEmailNotVerified) {
+			outcome = OutcomeDenied
+		}
+		e := s.newAudit(ctx, AuditLogin, outcome).withIP(in.IP).actor(out.userID).
+			meta("reason", out.reason).meta("client_type", string(clientType))
+		if out.userID == uuid.Nil {
+			e.meta("email_fp", emailFingerprint(email))
+		}
+		s.auditDetached(ctx, e)
+	}
 	return res, err
 }
 
-func (s *Service) login(ctx context.Context, in LoginInput, email domain.Email, clientType domain.ClientType) (LoginResult, error) {
+// loginOutcome tells Login what to audit for a failed attempt.
+type loginOutcome struct {
+	userID uuid.UUID
+	reason string
+}
+
+func (s *Service) login(ctx context.Context, in LoginInput, email domain.Email, clientType domain.ClientType, out *loginOutcome) (LoginResult, error) {
 	password, err := domain.PasswordForVerification(in.Password)
 	if err != nil {
+		out.reason = reasonWrongPassword
 		return LoginResult{}, ErrInvalidCredentials
 	}
 
@@ -100,20 +123,25 @@ func (s *Service) login(ctx context.Context, in LoginInput, email domain.Email, 
 	}
 	if user == nil {
 		s.hasher.VerifyDummy(ctx, password)
+		out.reason = reasonUnknownAccount
 		return LoginResult{}, ErrInvalidCredentials
 	}
+	out.userID = user.ID()
 
 	ok, needsRehash, err := s.hasher.Verify(ctx, password, user.PasswordHash())
 	if err != nil {
 		return LoginResult{}, fmt.Errorf("login: verify: %w", err)
 	}
 	if !ok {
+		out.reason = reasonWrongPassword
 		return LoginResult{}, ErrInvalidCredentials
 	}
 	switch err := user.CanAuthenticate(); {
 	case errors.Is(err, domain.ErrUserNotVerified):
+		out.reason = reasonEmailNotVerified
 		return LoginResult{}, ErrEmailNotVerified
 	case err != nil:
+		out.reason = reasonAccountSuspended
 		return LoginResult{}, ErrInvalidCredentials
 	}
 
@@ -137,7 +165,15 @@ func (s *Service) login(ctx context.Context, in LoginInput, email domain.Email, 
 				return err
 			}
 		}
-		return tx.CreateSession(ctx, session, tok.Hash(), in.IP, truncate(in.UserAgent, maxUserAgent))
+		if err := tx.CreateSession(ctx, session, tok.Hash(), in.IP, truncate(in.UserAgent, maxUserAgent)); err != nil {
+			return err
+		}
+		e := s.newAudit(ctx, AuditLogin, OutcomeSuccess).withIP(in.IP).actor(user.ID()).
+			resource("session", session.ID()).meta("client_type", string(clientType))
+		if newHash != "" {
+			e.meta("rehashed", "true")
+		}
+		return tx.AppendAudit(ctx, *e)
 	})
 	if err != nil {
 		return LoginResult{}, err
@@ -191,7 +227,10 @@ func (s *Service) Authenticate(ctx context.Context, rawToken string) (contract.P
 func (s *Service) Logout(ctx context.Context, p contract.Principal) error {
 	now := s.clock.Now()
 	return s.store.WithinTx(ctx, func(tx Tx) error {
-		return tx.RevokeSession(ctx, p.SessionID, p.UserID, now)
+		if err := tx.RevokeSession(ctx, p.SessionID, p.UserID, now); err != nil {
+			return err
+		}
+		return tx.AppendAudit(ctx, *s.newAudit(ctx, AuditLogout, OutcomeSuccess).actor(p.UserID).resource("session", p.SessionID))
 	})
 }
 
@@ -201,8 +240,11 @@ func (s *Service) LogoutAll(ctx context.Context, p contract.Principal) (int64, e
 	var n int64
 	err := s.store.WithinTx(ctx, func(tx Tx) error {
 		var err error
-		n, err = tx.RevokeAllUserSessions(ctx, p.UserID, now)
-		return err
+		if n, err = tx.RevokeAllUserSessions(ctx, p.UserID, now); err != nil {
+			return err
+		}
+		return tx.AppendAudit(ctx, *s.newAudit(ctx, AuditLogoutAll, OutcomeSuccess).actor(p.UserID).
+			resource("session", p.SessionID).meta("sessions_revoked", strconv.FormatInt(n, 10)))
 	})
 	return n, err
 }

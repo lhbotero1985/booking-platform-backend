@@ -5,15 +5,16 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
+
+	"github.com/lhbotero1985/booking-platform-backend/internal/platform/reqctx"
 )
 
 // HeaderRequestID carries the request correlation ID.
 const HeaderRequestID = "X-Request-ID"
 
-type requestIDKey struct{}
-
-// RequestID assigns a correlation ID to every request. A client-supplied X-Request-ID is
-// reused only if it is short and contains safe characters (it ends up in logs).
+// RequestID assigns a correlation ID to every request and records the client address in the
+// context (reqctx) for use cases that audit. A client-supplied X-Request-ID is reused only if
+// it is short and contains safe characters (it ends up in logs).
 func RequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := r.Header.Get(HeaderRequestID)
@@ -21,14 +22,17 @@ func RequestID(next http.Handler) http.Handler {
 			id = newRequestID()
 		}
 		w.Header().Set(HeaderRequestID, id)
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), requestIDKey{}, id)))
+		ctx := reqctx.WithRequestID(r.Context(), id)
+		if ip, ok := ClientIP(r); ok {
+			ctx = reqctx.WithClientIP(ctx, ip)
+		}
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
 // RequestIDFrom returns the request ID stored in ctx, or "".
 func RequestIDFrom(ctx context.Context) string {
-	id, _ := ctx.Value(requestIDKey{}).(string)
-	return id
+	return reqctx.RequestID(ctx)
 }
 
 func newRequestID() string {

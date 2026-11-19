@@ -33,6 +33,9 @@ type Store struct {
 	ResetEnqueued   []uuid.UUID
 	ChangedEnqueued []uuid.UUID
 	FailNext        error // if set, the next transaction fails with it
+	// Audit holds committed audit entries; FailAudit makes AppendAudit fail.
+	Audit     []application.AuditEntry
+	FailAudit error
 }
 
 type evToken struct {
@@ -82,6 +85,7 @@ func (s *Store) WithinTx(_ context.Context, fn func(tx application.Tx) error) er
 	s.Enqueued = append(s.Enqueued, tx.enqueued...)
 	s.ResetEnqueued = append(s.ResetEnqueued, tx.resetEnqueued...)
 	s.ChangedEnqueued = append(s.ChangedEnqueued, tx.changedEnqueued...)
+	s.Audit = append(s.Audit, tx.audit...)
 	return nil
 }
 
@@ -129,6 +133,7 @@ func (s *Store) StoredTokenHashes() []string {
 }
 
 type storeTx struct {
+	audit           []application.AuditEntry
 	s               *Store
 	enqueued        []uuid.UUID
 	resetEnqueued   []uuid.UUID
@@ -461,4 +466,33 @@ func (s *Store) RevokeMembership(userID, businessID uuid.UUID) {
 
 func (t *storeTx) ActiveMembershipsByUser(_ context.Context, userID uuid.UUID) ([]contract.Membership, error) {
 	return append([]contract.Membership{}, t.s.memberships[userID]...), nil
+}
+
+func (t *storeTx) AppendAudit(_ context.Context, e application.AuditEntry) error {
+	if t.s.FailAudit != nil {
+		return t.s.FailAudit
+	}
+	t.audit = append(t.audit, e)
+	return nil
+}
+
+// AuditActions returns "action:OUTCOME" for every committed entry, in order (test helper).
+func (s *Store) AuditActions() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]string, len(s.Audit))
+	for i, e := range s.Audit {
+		out[i] = e.Action + ":" + string(e.Outcome)
+	}
+	return out
+}
+
+// LastAudit returns the last committed entry (test helper).
+func (s *Store) LastAudit() application.AuditEntry {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.Audit) == 0 {
+		return application.AuditEntry{}
+	}
+	return s.Audit[len(s.Audit)-1]
 }

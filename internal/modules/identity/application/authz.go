@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strings"
 
@@ -23,13 +24,35 @@ func (s *Service) RequireBusinessRole(ctx context.Context, p contract.Principal,
 	if err != nil {
 		return "", err
 	}
-	return contract.CheckBusinessRole(ms, businessID, allowed...)
+	role, err := contract.CheckBusinessRole(ms, businessID, allowed...)
+	if err != nil {
+		reason := reasonInsufficientRole
+		if errors.Is(err, contract.ErrNotFound) {
+			reason = reasonNoMembership // includes cross-tenant probing (IDOR attempts)
+		}
+		s.auditDetached(ctx, s.newAudit(ctx, AuditAuthzDenied, OutcomeDenied).actor(p.UserID).business(businessID).
+			meta("reason", reason).meta("required_roles", joinRoles(allowed)))
+	}
+	return role, err
 }
 
 // RequirePlatformAdmin implements contract.Authorizer. Principal.IsPlatformAdmin is read from
 // the user row when the session is authenticated, i.e. also per request.
-func (s *Service) RequirePlatformAdmin(p contract.Principal) error {
-	return contract.CheckPlatformAdmin(p)
+func (s *Service) RequirePlatformAdmin(ctx context.Context, p contract.Principal) error {
+	err := contract.CheckPlatformAdmin(p)
+	if err != nil {
+		s.auditDetached(ctx, s.newAudit(ctx, AuditAuthzDenied, OutcomeDenied).actor(p.UserID).
+			meta("reason", reasonInsufficientRole).meta("required_roles", "PLATFORM_ADMIN"))
+	}
+	return err
+}
+
+func joinRoles(roles []contract.Role) string {
+	out := make([]string, len(roles))
+	for i, r := range roles {
+		out[i] = string(r)
+	}
+	return strings.Join(out, ",")
 }
 
 // MyMemberships lists the caller's active memberships, sorted by business ID for stable output.

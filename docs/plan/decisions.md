@@ -62,6 +62,11 @@ Decisiones relevantes no arquitectónicas (las arquitectónicas tienen ADR en `d
 | 2026-11-19 | Tablas acotadas: al llenarse se limpian inactivas y se expulsa una entrada aleatoria | Evitar DoS de memoria sin bloquear a usuarios nuevos | Aplicado (T2.7) |
 | 2026-11-19 | Backoff de login por hash(email)+IP, aplicado exista o no la cuenta, antes de Argon2 | Anti-enumeración y sin costo de CPU para el atacante bloqueado; sin bloqueo de cuenta (evita DoS a la víctima) | Aplicado (T2.7) |
 | 2026-11-19 | Límite estricto compartido entre todos los endpoints de credenciales y email | Un único presupuesto por cliente impide repartir el abuso entre rutas | Aplicado (T2.7) |
+| 2026-11-19 | Auditoría transaccional para eventos con cambio de datos; *best-effort* en transacción propia para fallos y denegaciones | Ningún cambio sin rastro, sin convertir la tabla de auditoría en dependencia de disponibilidad del login | Aplicado (T2.8) |
+| 2026-11-19 | `platform/reqctx` transporta request ID e IP del cliente hasta la capa de aplicación | Auditar sin acoplar los casos de uso a HTTP ni cambiar todas las firmas | Aplicado (T2.8) |
+| 2026-11-19 | Accesos permitidos no se auditan; solo denegaciones (`authz.denied`) | Volumen: cada petición autorizada generaría una fila | Aplicado (T2.8) |
+| 2026-11-19 | `contract.Authorizer.RequirePlatformAdmin` recibe `ctx` | Necesario para auditar la denegación; sin consumidores aún | Aplicado (T2.8) |
+| 2026-11-19 | `NewService` usa reloj del sistema y logger descartado si no se inyectan | Evitar pánicos en wiring parcial (pruebas, herramientas) | Aplicado (T2.8) |
 | 2026-11-18 | Imágenes en GHCR | Gratuito con GitHub, integrado con Actions | Propuesto |
 | 2026-11-18 | Búsqueda de negocios por ciudad en MVP (PostGIS listo para cercanía futura) | Simplicidad | Propuesto |
 | 2026-11-18 | Sin auto-cancelación de citas pendientes en MVP | Regla del prompt; requiere política aprobada | Propuesto |

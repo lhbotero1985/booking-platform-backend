@@ -54,7 +54,7 @@ type Authorizer interface {
 	// with an insufficient role.
 	RequireBusinessRole(ctx context.Context, p Principal, businessID uuid.UUID, allowed ...Role) (Role, error)
 	// RequirePlatformAdmin returns ErrForbidden unless the caller is a platform administrator.
-	RequirePlatformAdmin(p Principal) error
+	RequirePlatformAdmin(ctx context.Context, p Principal) error
 }
 
 // CheckBusinessRole is the pure policy behind Authorizer.RequireBusinessRole. Rules:

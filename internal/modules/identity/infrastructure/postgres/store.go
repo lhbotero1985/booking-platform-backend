@@ -4,6 +4,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -220,4 +221,26 @@ func (t *txStore) ActiveMembershipsByUser(ctx context.Context, userID uuid.UUID)
 		out = append(out, contract.Membership{BusinessID: r.BusinessID, Role: contract.Role(role)})
 	}
 	return out, nil
+}
+
+func (t *txStore) AppendAudit(ctx context.Context, e application.AuditEntry) error {
+	meta, err := json.Marshal(e.Metadata)
+	if err != nil {
+		return fmt.Errorf("audit metadata: %w", err)
+	}
+	if e.Metadata == nil {
+		meta = []byte("{}")
+	}
+	return t.q.InsertAuditEntry(ctx, sqlcgen.InsertAuditEntryParams{
+		ID: e.ID, OccurredAt: e.OccurredAt, ActorUserID: e.ActorUserID, BusinessID: e.BusinessID,
+		Action: e.Action, ResourceType: optional(e.ResourceType), ResourceID: optional(e.ResourceID),
+		Ip: e.IP, Outcome: string(e.Outcome), Metadata: meta,
+	})
+}
+
+func optional(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }

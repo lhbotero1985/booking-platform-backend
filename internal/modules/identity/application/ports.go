@@ -89,6 +89,10 @@ type Tx interface {
 
 	// ActiveMembershipsByUser returns the user's ACTIVE memberships (any order; empty if none).
 	ActiveMembershipsByUser(ctx context.Context, userID uuid.UUID) ([]contract.Membership, error)
+
+	// AppendAudit records a security event (audit_log). Written in the same transaction as the
+	// change it describes, it commits or rolls back with it.
+	AppendAudit(ctx context.Context, e AuditEntry) error
 }
 
 // Mailer delivers a plain-text email.

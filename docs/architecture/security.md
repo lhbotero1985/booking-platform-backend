@@ -106,7 +106,7 @@ servicio).
 | Webhooks | Verificación HMAC-SHA256 (`X-Hub-Signature-256`) sobre el cuerpo crudo con el App Secret de Meta, comparación en tiempo constante, rechazo si falla; deduplicación por ID de evento. |
 | Secretos | Variables de entorno inyectadas en el servidor; nunca en Git; `.env.example` sin valores; gitleaks en pre-commit y CI. |
 | Logs | Sin contraseñas, tokens, cuerpos de webhooks ni teléfonos completos (enmascarados `+57******4567`). |
-| Auditoría | Login/logout, fallos de login, cambios de contraseña, cambios de membresía/rol, cambios de configuración del negocio, suspensiones, acciones admin. |
+| Auditoría | Tabla `audit_log` (T2.8). Eventos: `auth.registered`, `auth.email_verified`, `auth.login` (SUCCESS / FAILURE / DENIED por backoff o email sin verificar), `auth.logout`, `auth.logout_all`, `auth.password_reset_requested`, `auth.password_reset`, `auth.password_changed`, `authz.denied` (403 y 404 entre negocios). Cambios de membresía/rol, configuración del negocio, suspensiones y acciones admin se agregan en sus fases. Los eventos que acompañan un cambio de datos se escriben **en la misma transacción** (sin cambio sin rastro); los demás, en transacción propia y *best-effort* (un fallo de auditoría se registra en logs y no bloquea la autenticación). Cada fila lleva `request_id`, IP, actor y `reason`; nunca contraseñas, tokens, emails (para cuentas inexistentes, huella SHA-256 truncada `email_fp`), nombres ni user agents. `occurred_at` usa el reloj de la aplicación. Retención y consulta: Fase 12 (P30). |
 | Errores | RFC 9457 sin stack traces ni mensajes internos hacia el cliente. |
 | Dependencias | govulncheck, Dependabot, Trivy (ver `devsecops.md`). |
 

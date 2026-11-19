@@ -45,4 +45,5 @@ la Fase 0, se adopta la propuesta.
 | P26 | ~~GitHub CLI~~ | ✅ `gh` 2.105.0 instalado y autenticado (lhbotero1985). |
 | P27 | Calibración final de Argon2id en el Droplet QA (objetivo 100–250 ms) | Medir en Fase 3 y fijar `ARGON2_ITERATIONS`; los hashes existentes se actualizan solos al iniciar sesión. |
 | P28 | Ataques distribuidos de contraseña (muchas IP contra una cuenta) | El backoff es por cuenta+IP para no permitir bloquear a la víctima. Propuesta Fase 12: límite global suave por cuenta con CAPTCHA o aviso por email, no bloqueo. |
+| P30 | Retención y acceso a `audit_log` | Propuesta Fase 12: 12 meses en línea, consulta solo PLATFORM_ADMIN (auditada), purga programada con River; revisar requisitos legales de protección de datos (Colombia, Ley 1581). |
 | P29 | Límites por IP detrás de NAT (p. ej. wifi de un salón) | 10/min en endpoints de credenciales es holgado para pocos dispositivos; revisar con datos reales de QA. Requiere IP real vía Caddy (Fase 3). |

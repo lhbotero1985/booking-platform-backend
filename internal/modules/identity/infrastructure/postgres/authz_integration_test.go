@@ -71,10 +71,10 @@ func TestAuthorizationOnPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	pBob, err := e.svc.Authenticate(ctx, res.Token.Reveal())
-	if err != nil || e.svc.RequirePlatformAdmin(pBob) != nil {
+	if err != nil || e.svc.RequirePlatformAdmin(ctx, pBob) != nil {
 		t.Errorf("admin principal: %+v %v", pBob, err)
 	}
-	if e.svc.RequirePlatformAdmin(pAna) == nil {
+	if e.svc.RequirePlatformAdmin(ctx, pAna) == nil {
 		t.Error("non-admin passed RequirePlatformAdmin")
 	}
 }

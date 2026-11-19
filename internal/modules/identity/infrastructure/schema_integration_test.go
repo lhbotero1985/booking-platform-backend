@@ -214,11 +214,11 @@ func TestOneActiveOwnerPerBusiness(t *testing.T) {
 
 func TestAuditEntryValidation(t *testing.T) {
 	ctx := t.Context()
-	ok := sqlcgen.InsertAuditEntryParams{ID: uuid.Must(uuid.NewV7()), Action: "auth.login", Outcome: "SUCCESS", Metadata: []byte(`{}`)}
+	ok := sqlcgen.InsertAuditEntryParams{ID: uuid.Must(uuid.NewV7()), OccurredAt: time.Now(), Action: "auth.login", Outcome: "SUCCESS", Metadata: []byte(`{}`)}
 	if err := q.InsertAuditEntry(ctx, ok); err != nil {
 		t.Fatal(err)
 	}
-	bad := sqlcgen.InsertAuditEntryParams{ID: uuid.Must(uuid.NewV7()), Action: "Auth Login; DROP", Outcome: "SUCCESS", Metadata: []byte(`{}`)}
+	bad := sqlcgen.InsertAuditEntryParams{ID: uuid.Must(uuid.NewV7()), OccurredAt: time.Now(), Action: "Auth Login; DROP", Outcome: "SUCCESS", Metadata: []byte(`{}`)}
 	if err := q.InsertAuditEntry(ctx, bad); db.SQLState(err) != db.CodeCheckViolation {
 		t.Fatalf("malformed action accepted: %v", err)
 	}

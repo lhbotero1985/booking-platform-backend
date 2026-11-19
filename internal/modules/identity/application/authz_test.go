@@ -65,10 +65,10 @@ func TestMyMembershipsSortedAndScopedToCaller(t *testing.T) {
 
 func TestRequirePlatformAdminUsesPrincipalFlag(t *testing.T) {
 	svc, _ := newAuthzService()
-	if err := svc.RequirePlatformAdmin(contract.Principal{UserID: uuid.New(), IsPlatformAdmin: true}); err != nil {
+	if err := svc.RequirePlatformAdmin(context.Background(), contract.Principal{UserID: uuid.New(), IsPlatformAdmin: true}); err != nil {
 		t.Errorf("admin: %v", err)
 	}
-	if err := svc.RequirePlatformAdmin(contract.Principal{UserID: uuid.New()}); !errors.Is(err, contract.ErrForbidden) {
+	if err := svc.RequirePlatformAdmin(context.Background(), contract.Principal{UserID: uuid.New()}); !errors.Is(err, contract.ErrForbidden) {
 		t.Errorf("non admin: %v", err)
 	}
 }

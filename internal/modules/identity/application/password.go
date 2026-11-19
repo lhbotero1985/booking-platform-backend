@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,13 +35,19 @@ func (s *Service) ForgotPassword(ctx context.Context, rawEmail string) error {
 	return s.store.WithinTx(ctx, func(tx Tx) error {
 		u, err := tx.UserByEmail(ctx, email)
 		if errors.Is(err, ErrNotFound) {
-			return nil
+			return tx.AppendAudit(ctx, *s.newAudit(ctx, AuditPasswordResetRequested, OutcomeFailure).
+				meta("reason", reasonUnknownAccount).meta("email_fp", emailFingerprint(email)))
 		}
 		if err != nil {
 			return err
 		}
 		if u.Status() != domain.UserActive {
-			return nil // pending accounts verify first; suspended ones cannot reset
+			// Pending accounts verify first; suspended ones cannot reset.
+			return tx.AppendAudit(ctx, *s.newAudit(ctx, AuditPasswordResetRequested, OutcomeFailure).
+				actor(u.ID()).meta("reason", reasonNotEligible))
+		}
+		if err := tx.AppendAudit(ctx, *s.newAudit(ctx, AuditPasswordResetRequested, OutcomeSuccess).actor(u.ID())); err != nil {
+			return err
 		}
 		return tx.EnqueuePasswordResetEmail(ctx, u.ID())
 	})
@@ -110,7 +117,7 @@ func (s *Service) ResetPassword(ctx context.Context, in ResetPasswordInput) erro
 		return fmt.Errorf("reset password: hash: %w", err)
 	}
 	now := s.clock.Now()
-	var userID uuid.UUID
+	var userID, notEligible uuid.UUID
 	var revoked int64
 	err = s.store.WithinTx(ctx, func(tx Tx) error {
 		id, err := tx.ConsumePasswordResetToken(ctx, tok.Hash(), now)
@@ -125,6 +132,7 @@ func (s *Service) ResetPassword(ctx context.Context, in ResetPasswordInput) erro
 			return err
 		}
 		if u.Status() != domain.UserActive {
+			notEligible = id
 			return domain.ErrInvalidToken
 		}
 		if err := tx.UpdatePasswordHash(ctx, id, hash); err != nil {
@@ -137,8 +145,19 @@ func (s *Service) ResetPassword(ctx context.Context, in ResetPasswordInput) erro
 			return err
 		}
 		userID = id
+		if err := tx.AppendAudit(ctx, *s.newAudit(ctx, AuditPasswordReset, OutcomeSuccess).actor(id).
+			meta("sessions_revoked", strconv.FormatInt(revoked, 10))); err != nil {
+			return err
+		}
 		return tx.EnqueuePasswordChangedEmail(ctx, id)
 	})
+	if errors.Is(err, domain.ErrInvalidToken) {
+		reason := reasonInvalidToken
+		if notEligible != uuid.Nil {
+			reason = reasonNotEligible
+		}
+		s.auditDetached(ctx, s.newAudit(ctx, AuditPasswordReset, OutcomeFailure).actor(notEligible).meta("reason", reason))
+	}
 	if err != nil {
 		return err
 	}
@@ -173,6 +192,7 @@ func (s *Service) ChangePassword(ctx context.Context, p contract.Principal, in C
 
 	key := changePasswordThrottleKey(p.UserID)
 	if err := s.checkThrottle(key); err != nil {
+		s.auditDetached(ctx, s.newAudit(ctx, AuditPasswordChanged, OutcomeDenied).actor(p.UserID).meta("reason", reasonThrottled))
 		return err
 	}
 	u, err := s.Me(ctx, p)
@@ -185,6 +205,7 @@ func (s *Service) ChangePassword(ctx context.Context, p contract.Principal, in C
 	}
 	if !ok {
 		s.throttle.Failure(key)
+		s.auditDetached(ctx, s.newAudit(ctx, AuditPasswordChanged, OutcomeFailure).actor(p.UserID).meta("reason", reasonWrongPassword))
 		return &ValidationError{Fields: []FieldError{{"currentPassword", CodeInvalidCurrentPassword}}}
 	}
 	s.throttle.Success(key)
@@ -202,6 +223,10 @@ func (s *Service) ChangePassword(ctx context.Context, p contract.Principal, in C
 			return err
 		}
 		if err := tx.InvalidatePasswordResetTokens(ctx, p.UserID, now); err != nil {
+			return err
+		}
+		if err := tx.AppendAudit(ctx, *s.newAudit(ctx, AuditPasswordChanged, OutcomeSuccess).actor(p.UserID).
+			resource("session", p.SessionID).meta("other_sessions_revoked", strconv.FormatInt(revoked, 10))); err != nil {
 			return err
 		}
 		return tx.EnqueuePasswordChangedEmail(ctx, p.UserID)
