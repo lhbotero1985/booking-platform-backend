@@ -5,7 +5,7 @@ Orden obligatorio. **No se avanza de fase sin aprobación explícita del usuario
 | Fase | Nombre | Alcance | Estado |
 |---|---|---|---|
 | 0 | Arquitectura | Diseño, ADR, plan | ✅ Aprobada 2026-11-18 |
-| 1 | Cimientos técnicos | Proyecto Go, Docker, PG, SQLC, Goose, River, OpenAPI, CI | 🟡 En curso |
+| 1 | Cimientos técnicos | Proyecto Go, Docker, PG, SQLC, Goose, River, OpenAPI, CI | 🟡 Completa, pendiente de aprobación (`phase-1-closure.md`) |
 | 2 | Autenticación y autorización | Usuarios, sesiones, Argon2id, RBAC, auditoría | ⏳ |
 | 3 | DigitalOcean QA | Droplet QA, HTTPS, backups, deploy QA (requiere autorización de costos) | ⏳ |
 | 4 | Geografía y negocios | Países/divisiones/ciudades, negocios, aislamiento | ⏳ |
@@ -39,10 +39,26 @@ Orden obligatorio. **No se avanza de fase sin aprobación explícita del usuario
 | T1.5 ✅ | SQLC configurado + verificación `sqlc diff` en CI | Código generado al día |
 | T1.6 ✅ | River: migraciones, cliente, `cmd/worker`, job de mantenimiento de ejemplo | Integración: job encolado con `InsertTx` y procesado |
 | T1.7 ✅ | OpenAPI 3.1 base (`/healthz`, `/readyz`, esquema Problem) + validación de respuestas en tests | Spec válido (lint) y respuestas conformes |
-| T1.8 | GitHub Actions `ci.yml` + `security.yml` (build, unit, race, integración, golangci-lint/gosec, govulncheck, gitleaks, trivy) con acciones fijadas por SHA | Pipeline verde en el primer PR |
-| T1.9 | Seguridad básica + cierre de fase: documentación, test-results | Checklist de fase completo |
+| T1.8 ✅ | GitHub Actions `ci.yml` + `security.yml` (build, unit, race, integración, golangci-lint/gosec, govulncheck, gitleaks, trivy) con acciones fijadas por SHA | Pipeline verde en el primer PR |
+| T1.9 ✅ | Seguridad básica + cierre de fase: documentación, test-results | Checklist de fase completo |
 
-Las fases 2–13 se desglosarán en tareas al iniciar cada una.
+## Fase 2 — Autenticación y autorización (tareas propuestas, se confirman al aprobar la Fase 1)
+
+Módulo `internal/modules/identity` (ADR-0006, ADR-0007, `docs/architecture/security.md`).
+
+| ID | Tarea | Criterio de aceptación principal |
+|---|---|---|
+| T2.1 | Esqueleto del módulo `identity` (domain / application / infrastructure / interfaces / contract) + migración 00003 (`users`, `sessions`, `password_reset_tokens`, `memberships`, `audit_log`) + consultas SQLC | Migración up/down/up; reglas depguard del módulo; `sqlc diff` limpio |
+| T2.2 | Dominio: `Email`, política de contraseña, `User`; hasher Argon2id (PHC, calibrado, rehash) | Unitarias de VO e invariantes; Argon2id ≈100–250 ms medido |
+| T2.3 | Registro, login, tokens opacos hasheados, logout y logout-all + OpenAPI | Contrato; login con email inexistente con tiempo constante; token nunca guardado en claro |
+| T2.4 | Middleware de autenticación (Bearer y cookie `__Host-session` + CSRF), expiración por inactividad y absoluta, `last_seen` con throttling | Matriz 401: sin token, malformado, expirado, revocado, usuario suspendido |
+| T2.5 | Recuperación de contraseña (token de un solo uso, puerto de email con adaptador fake; proveedor P13) | Respuesta siempre 202; token expira y no se reutiliza; revoca sesiones |
+| T2.6 | RBAC: roles, membresías, políticas por caso de uso, patrón 404 entre negocios | Matriz rol × acción; 403 mismo negocio, 404 otro negocio |
+| T2.7 | Rate limiting (login, registro, recuperación) y backoff ante fuerza bruta | Pruebas de límites y de backoff |
+| T2.8 | Auditoría básica (login, fallos, cambios de contraseña/membresía) | Eventos auditados sin datos sensibles |
+| T2.9 | Suite de seguridad de la fase + cierre | `tests/security` ampliada; checklist de fase |
+
+Las fases 3–13 se desglosarán en tareas al iniciar cada una.
 
 ## Riesgos identificados
 

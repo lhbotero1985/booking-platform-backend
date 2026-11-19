@@ -14,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -89,20 +88,11 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		logger.Warn("database not reachable at startup", slog.String("error", err.Error()))
 	}
 
-	srv := &http.Server{
-		Addr: cfg.HTTP.Addr,
-		Handler: app.NewHTTPHandler(cfg, logger, app.Deps{Readiness: []app.Check{
-			{Name: "database", Fn: pool.Ping},
-			{Name: "migrations", Fn: migrator.Check},
-		}}),
-		ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout,
-		ReadTimeout:       cfg.HTTP.ReadTimeout,
-		WriteTimeout:      cfg.HTTP.WriteTimeout,
-		IdleTimeout:       cfg.HTTP.IdleTimeout,
-		MaxHeaderBytes:    1 << 16,
-		ErrorLog:          slog.NewLogLogger(logger.Handler(), slog.LevelWarn),
-		BaseContext:       func(net.Listener) context.Context { return ctx },
-	}
+	handler := app.NewHTTPHandler(cfg, logger, app.Deps{Readiness: []app.Check{
+		{Name: "database", Fn: pool.Ping},
+		{Name: "migrations", Fn: migrator.Check},
+	}})
+	srv := app.NewHTTPServer(ctx, cfg, logger, handler)
 
 	serveErr := make(chan error, 1)
 	go func() {
