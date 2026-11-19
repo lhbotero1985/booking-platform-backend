@@ -228,3 +228,26 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Benchmark Argon2id, 64 MiB, p=2 (equipo de desarrollo, 16 CPU) | t=3: 71 ms · t=4: 88 ms · t=5: 108 ms · t=6: 129 ms | 67 MB/op. Default t=3; calibración final en el Droplet QA (Fase 3) vía `ARGON2_ITERATIONS` |
 | `golangci-lint run` | ✅ 0 issues | 1ª: revive (comentarios en accesores), gosec G115 en prueba → corregidos |
 | `govulncheck ./...` | ✅ No vulnerabilities found | 1er intento falló por DNS |
+
+## 2026-11-19 · Fase 2 · T2.2 — CI
+
+| Comando | Resultado |
+|---|---|
+| PR #12 — ci + security | ✅ 6/6; squash merge `ebc7f98` |
+
+## 2026-11-19 · Fase 2 · T2.3 — Registro y verificación de email
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| Unitarias dominio | ✅ 100 % | `VerifyEmail` (idempotente, rechaza suspendidos), `Token` (forma, hash ≠ raw, prefijo de tipo, nunca impreso) |
+| Unitarias aplicación (10 casos) | ✅ 76.4 % | Pendiente + job (sin envío inline); validación por campo; **sin enumeración** (mismo resultado, hash en ambos caminos, reenvío solo si pendiente); flujo completo; un solo uso; rotación invalida el token anterior; expiración 24 h; basura rechazada; suspendido no verifica; fallo SMTP reintentable; rollback |
+| Handlers HTTP | ✅ 88.6 % | 202 idéntico para email nuevo/existente; 400 con `errors[]`; 415 para formularios; campo `isPlatformAdmin` rechazado (mass assignment); 500 sin internals; contraseña y token ausentes de logs |
+| `httpx.DecodeJSON` exige `application/json` | ✅ | 6 Content-Type no JSON → 415 |
+| Mailer SMTP | ✅ | Mensaje RFC 5322 UTF-8 QP; inyección de cabeceras (CRLF en asunto) rechazada |
+| Config SMTP / PUBLIC_APP_URL | ✅ 98.9 % | QA/PROD exigen TLS y https; usuario sin contraseña rechazado |
+| Contrato OpenAPI (peticiones y respuestas) | ✅ | register 202/400/415, resend 202, verify 200/400 |
+| Integración PostgreSQL (`postgres` store) | ✅ 3 pruebas | Job encolado en la misma transacción; reenvío coalescido (1 job); args del job sin token; BD guarda solo el hash; verificación activa la cuenta; reuso y expiración rechazados; registro duplicado silencioso |
+| E2E Docker Compose + Mailpit | ✅ | register 202 ×2 (idénticos) → 1 email en Mailpit (asunto en español, `bp_ev_`, 49 chars) → `PENDING_VERIFICATION` → verify 200 → `ACTIVE` + `email_verified_at`; reuso 400 `INVALID_TOKEN`; job `completed` en 1 intento; token y contraseña **0** veces en logs de api y worker |
+| gitleaks: regla `bp_(s\|ev\|pr)_` | ✅ | Detecta un token falso de prueba (archivo temporal); repo sin fugas |
+| `task test:integration` | ✅ 19 paquetes | |
+| `golangci-lint` / govulncheck / `sqlc diff` | ✅ | govulncheck 1er intento falló por DNS |

@@ -63,12 +63,13 @@ type User struct {
 	passwordHash    PasswordHash
 	status          UserStatus
 	isPlatformAdmin bool
+	emailVerifiedAt *time.Time
 	createdAt       time.Time
 	updatedAt       time.Time
 }
 
-// NewUser registers a new account. Self-registered users start ACTIVE (email verification is
-// not part of the MVP; the PENDING_VERIFICATION state is reserved for it).
+// NewUser registers a new account. It starts PENDING_VERIFICATION: the email must be verified
+// before the first login (decision of 2026-11-19).
 func NewUser(id uuid.UUID, email Email, fullName string, hash PasswordHash, now time.Time) (*User, error) {
 	name, err := normalizeFullName(fullName)
 	if err != nil {
@@ -82,19 +83,39 @@ func NewUser(id uuid.UUID, email Email, fullName string, hash PasswordHash, now 
 	}
 	return &User{
 		id: id, email: email, fullName: name, passwordHash: hash,
-		status: UserActive, createdAt: now, updatedAt: now,
+		status: UserPendingVerification, createdAt: now, updatedAt: now,
 	}, nil
 }
 
 // RehydrateUser rebuilds a User from storage (no policy checks; storage CHECKs apply).
 func RehydrateUser(id uuid.UUID, email Email, fullName string, hash PasswordHash, status UserStatus,
-	isPlatformAdmin bool, createdAt, updatedAt time.Time,
+	isPlatformAdmin bool, emailVerifiedAt *time.Time, createdAt, updatedAt time.Time,
 ) *User {
 	return &User{
 		id: id, email: email, fullName: fullName, passwordHash: hash, status: status,
-		isPlatformAdmin: isPlatformAdmin, createdAt: createdAt, updatedAt: updatedAt,
+		isPlatformAdmin: isPlatformAdmin, emailVerifiedAt: emailVerifiedAt, createdAt: createdAt, updatedAt: updatedAt,
 	}
 }
+
+// VerifyEmail confirms ownership of the email and activates a pending account. It is
+// idempotent for already active accounts and refused for suspended ones.
+func (u *User) VerifyEmail(now time.Time) error {
+	switch u.status {
+	case UserSuspended:
+		return ErrUserSuspended
+	case UserActive:
+		return nil
+	case UserPendingVerification:
+	}
+	u.status = UserActive
+	t := now
+	u.emailVerifiedAt = &t
+	u.updatedAt = now
+	return nil
+}
+
+// EmailVerifiedAt returns when the email was verified, or nil.
+func (u *User) EmailVerifiedAt() *time.Time { return u.emailVerifiedAt }
 
 func normalizeFullName(s string) (string, error) {
 	name := strings.Join(strings.Fields(s), " ")

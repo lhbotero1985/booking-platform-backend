@@ -24,9 +24,15 @@ type Check struct {
 	Fn   func(ctx context.Context) error
 }
 
+// RouteRegistrar is implemented by each module's HTTP adapter.
+type RouteRegistrar interface {
+	Routes(rt *httpx.Router)
+}
+
 // Deps are the runtime dependencies the HTTP layer needs.
 type Deps struct {
 	Readiness []Check
+	Modules   []RouteRegistrar
 }
 
 // NewHTTPHandler builds the complete API handler with its middleware chain.
@@ -34,6 +40,9 @@ func NewHTTPHandler(cfg config.Config, logger *slog.Logger, deps Deps) http.Hand
 	rt := httpx.NewRouter()
 	rt.HandleFunc("GET /healthz", healthz)
 	rt.Handle("GET /readyz", readyz(logger, deps.Readiness))
+	for _, m := range deps.Modules {
+		m.Routes(rt)
+	}
 
 	return httpx.Chain(rt,
 		httpx.RequestID,

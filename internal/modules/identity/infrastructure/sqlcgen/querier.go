@@ -11,6 +11,9 @@ import (
 )
 
 type Querier interface {
+	// Atomically marks a valid token as used and returns its user (single use).
+	ConsumeEmailVerificationToken(ctx context.Context, arg ConsumeEmailVerificationTokenParams) (uuid.UUID, error)
+	CreateEmailVerificationToken(ctx context.Context, arg CreateEmailVerificationTokenParams) error
 	CreateMembership(ctx context.Context, arg CreateMembershipParams) (Membership, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
@@ -21,9 +24,12 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	InsertAuditEntry(ctx context.Context, arg InsertAuditEntryParams) error
+	// Issuing a new token invalidates the previous unused ones.
+	InvalidateEmailVerificationTokens(ctx context.Context, arg InvalidateEmailVerificationTokensParams) error
 	// Loaded per request for authorization (no cached claims, ADR-0007).
 	ListActiveMembershipsByUser(ctx context.Context, userID uuid.UUID) ([]ListActiveMembershipsByUserRow, error)
 	ListActiveUserSessions(ctx context.Context, arg ListActiveUserSessionsParams) ([]ListActiveUserSessionsRow, error)
+	MarkUserEmailVerified(ctx context.Context, arg MarkUserEmailVerifiedParams) error
 	RevokeAllUserSessions(ctx context.Context, arg RevokeAllUserSessionsParams) (int64, error)
 	RevokeSession(ctx context.Context, arg RevokeSessionParams) (int64, error)
 	// Sliding idle expiry, never beyond the absolute expiry.

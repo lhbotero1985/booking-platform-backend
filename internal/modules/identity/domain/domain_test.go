@@ -130,7 +130,7 @@ func TestNewUserInvariants(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if u.FullName() != "Ana María Pérez" || u.Status() != UserActive || u.IsPlatformAdmin() ||
+	if u.FullName() != "Ana María Pérez" || u.Status() != UserPendingVerification || u.EmailVerifiedAt() != nil || u.IsPlatformAdmin() ||
 		u.ID() != id || u.Email() != email || !u.CreatedAt().Equal(now) || !u.UpdatedAt().Equal(now) || u.PasswordHash() != "$argon2id$x" {
 		t.Errorf("unexpected user: %+v", u)
 	}
@@ -158,10 +158,19 @@ func TestUserLifecycle(t *testing.T) {
 	email, _ := ParseEmail("ana@example.com")
 	u, _ := NewUser(uuid.Must(uuid.NewV7()), email, "Ana", "h1", now)
 
-	if err := u.CanAuthenticate(); err != nil {
-		t.Fatalf("active user cannot authenticate: %v", err)
+	if err := u.CanAuthenticate(); !errors.Is(err, ErrUserNotVerified) {
+		t.Fatalf("unverified user must not authenticate: %v", err)
 	}
 	later := now.Add(time.Hour)
+	if err := u.VerifyEmail(later); err != nil || u.Status() != UserActive || u.EmailVerifiedAt() == nil || !u.EmailVerifiedAt().Equal(later) {
+		t.Fatalf("VerifyEmail: %v (status %s)", err, u.Status())
+	}
+	if err := u.VerifyEmail(later.Add(time.Hour)); err != nil || !u.EmailVerifiedAt().Equal(later) {
+		t.Fatalf("VerifyEmail must be idempotent and keep the first instant: %v", err)
+	}
+	if err := u.CanAuthenticate(); err != nil {
+		t.Fatalf("verified user cannot authenticate: %v", err)
+	}
 	if err := u.ChangePasswordHash("h2", later); err != nil || u.PasswordHash() != "h2" || !u.UpdatedAt().Equal(later) {
 		t.Errorf("ChangePasswordHash failed: %v", err)
 	}
@@ -172,12 +181,15 @@ func TestUserLifecycle(t *testing.T) {
 	if err := u.CanAuthenticate(); !errors.Is(err, ErrUserSuspended) {
 		t.Errorf("suspended user: %v", err)
 	}
+	if err := u.VerifyEmail(later); !errors.Is(err, ErrUserSuspended) {
+		t.Errorf("suspended user verified: %v", err)
+	}
 	u.Reactivate(later)
 	if err := u.CanAuthenticate(); err != nil {
 		t.Errorf("reactivated user: %v", err)
 	}
 
-	pending := RehydrateUser(u.ID(), email, "Ana", "h", UserPendingVerification, true, now, now)
+	pending := RehydrateUser(u.ID(), email, "Ana", "h", UserPendingVerification, true, nil, now, now)
 	if err := pending.CanAuthenticate(); !errors.Is(err, ErrUserNotVerified) || !pending.IsPlatformAdmin() {
 		t.Errorf("pending user: %v", err)
 	}
@@ -202,6 +214,49 @@ func TestParseStatusAndRole(t *testing.T) {
 	for _, s := range []string{"", "owner", "ADMIN", "CUSTOMER"} {
 		if _, err := ParseRole(s); !errors.Is(err, ErrInvalidRole) {
 			t.Errorf("ParseRole(%q) accepted", s)
+		}
+	}
+}
+
+func TestTokens(t *testing.T) {
+	entropy := bytes.Repeat([]byte{0xAB}, TokenEntropyBytes)
+	tok, err := NewToken(TokenPrefixEmailVerification, entropy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := tok.Reveal()
+	if !strings.HasPrefix(raw, "bp_ev_") || len(raw) != len("bp_ev_")+43 {
+		t.Fatalf("raw token %q has wrong shape", raw)
+	}
+	if len(tok.Hash()) != 32 || bytes.Equal(tok.Hash(), []byte(raw)) {
+		t.Fatal("Hash must be a 32-byte SHA-256 distinct from the raw token")
+	}
+
+	parsed, err := ParseToken(TokenPrefixEmailVerification, raw)
+	if err != nil || !bytes.Equal(parsed.Hash(), tok.Hash()) {
+		t.Fatalf("ParseToken round trip: %v", err)
+	}
+	for _, bad := range []string{
+		"", raw[:len(raw)-1], raw + "A", "bp_s_" + raw[len("bp_ev_"):], // wrong kind
+		"bp_ev_" + strings.Repeat("!", 43),
+	} {
+		if _, err := ParseToken(TokenPrefixEmailVerification, bad); !errors.Is(err, ErrInvalidToken) {
+			t.Errorf("ParseToken(%q) accepted", bad)
+		}
+	}
+	if _, err := NewToken(TokenPrefixSession, entropy[:16]); err == nil {
+		t.Error("short entropy accepted")
+	}
+	if _, err := NewToken("", entropy); err == nil {
+		t.Error("empty prefix accepted")
+	}
+
+	var logBuf bytes.Buffer
+	slog.New(slog.NewJSONHandler(&logBuf, nil)).Info("x", slog.Any("token", tok))
+	js, _ := json.Marshal(struct{ T Token }{tok})
+	for _, out := range []string{fmt.Sprintf("%v %+v %#v %s", tok, tok, tok, tok), logBuf.String(), string(js)} {
+		if strings.Contains(out, raw[6:]) {
+			t.Errorf("token leaked: %s", out)
 		}
 	}
 }

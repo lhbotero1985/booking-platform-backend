@@ -68,6 +68,8 @@ func TestLoadOverrides(t *testing.T) {
 		"DATABASE_MIGRATOR_URL":    "postgresql://migrator:x@db:5432/booking",
 		"DB_MAX_CONNS":             "25",
 		"DB_CONNECT_TIMEOUT":       "2s",
+		"SMTP_TLS":                 "starttls",
+		"PUBLIC_APP_URL":           "https://qa.example.com",
 	}))
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
@@ -176,6 +178,34 @@ func TestArgon2Config(t *testing.T) {
 	} {
 		if _, err := Load(envFrom(map[string]string{"APP_ENV": "test", key: val})); err == nil || !strings.Contains(err.Error(), key) {
 			t.Errorf("%s=%s accepted (err %v)", key, val, err)
+		}
+	}
+}
+
+func TestSMTPAndPublicURLConfig(t *testing.T) {
+	cfg, err := Load(envFrom(map[string]string{"APP_ENV": "development"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.SMTP.Port != 1025 || cfg.SMTP.TLSMode != "none" || cfg.PublicAppURL != "http://localhost:3000" {
+		t.Errorf("dev defaults = %+v %q", cfg.SMTP, cfg.PublicAppURL)
+	}
+	if _, err := Load(envFrom(map[string]string{
+		"APP_ENV": "qa", "SMTP_TLS": "starttls", "PUBLIC_APP_URL": "https://qa.example.com",
+	})); err != nil {
+		t.Errorf("valid QA config rejected: %v", err)
+	}
+	for name, env := range map[string]map[string]string{
+		"qa without TLS":     {"APP_ENV": "qa", "PUBLIC_APP_URL": "https://qa.example.com"},
+		"prod http app url":  {"APP_ENV": "production", "SMTP_TLS": "tls", "PUBLIC_APP_URL": "http://app.example.com"},
+		"unknown TLS":        {"APP_ENV": "test", "SMTP_TLS": "ssl"},
+		"user without pass":  {"APP_ENV": "test", "SMTP_USERNAME": "u"},
+		"relative app url":   {"APP_ENV": "test", "PUBLIC_APP_URL": "/app"},
+		"app url with query": {"APP_ENV": "test", "PUBLIC_APP_URL": "https://a.com/?x=1"},
+		"port out of range":  {"APP_ENV": "test", "SMTP_PORT": "70000"},
+	} {
+		if _, err := Load(envFrom(env)); err == nil {
+			t.Errorf("%s: accepted", name)
 		}
 	}
 }

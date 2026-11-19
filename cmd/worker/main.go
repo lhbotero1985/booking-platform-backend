@@ -17,6 +17,8 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/riverqueue/river"
 
+	"github.com/lhbotero1985/booking-platform-backend/internal/app"
+	identityworker "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/infrastructure/worker"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/buildinfo"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/config"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/db"
@@ -67,8 +69,22 @@ func run() error {
 		return err
 	}
 
+	// Use cases enqueue follow-up jobs transactionally through an insert-only client (the worker
+	// client cannot exist yet: it needs the registered workers).
+	inserter, err := jobs.NewInsertClient(pool, logger)
+	if err != nil {
+		return err
+	}
+	identitySvc, err := app.NewIdentityService(cfg, pool, inserter, logger)
+	if err != nil {
+		return err
+	}
+
 	workers := river.NewWorkers()
 	if err := jobs.RegisterPlatformWorkers(workers, logger); err != nil {
+		return err
+	}
+	if err := identityworker.Register(workers, identitySvc); err != nil {
 		return err
 	}
 	client, err := jobs.NewWorkerClient(pool, logger, workers, river.Config{})
