@@ -250,3 +250,22 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
   `docs/plan/phase-1-closure.md`, `docs/plan/roadmap.md` (desglose Fase 2), `test-results.md`.
 - **Resultado:** Fase 1 completa; **pendiente de aprobación del usuario** para cerrarla e
   iniciar la Fase 2.
+
+## 2026-11-19 · Cierre de la Fase 1
+
+- PR #10 (T1.9) → `qa`: 6/6 checks ✅, squash merge `1caba7d`.
+- **Fase 1 aprobada por el usuario.** Inicio de la Fase 2 autorizado.
+
+## 2026-11-19 · Fase 2 · T2.1 — Esqueleto del módulo identity
+
+- **Estado:** ✅ Completada en `feature/t2.1-identity-skeleton` (commit y push con autorización
+  permanente; PR y merge pendientes de autorización).
+- **Archivos:** `db/migrations/00003_identity.sql`, `db/queries/identity/*.sql`, `sqlc.yaml`
+  (entrada identity), `internal/modules/identity/{domain,application,interfaces/http,contract}/doc.go`,
+  `internal/modules/identity/infrastructure/sqlcgen` (generado),
+  `internal/modules/identity/infrastructure/schema_integration_test.go`, `.golangci.yml`
+  (reglas application-layer, identity-module-boundary, identity-domain-inward,
+  identity-application-inward), docs.
+- **Decisiones:** expiración evaluada con el `now` de la aplicación (reloj inyectable) y no con
+  `now()` de PostgreSQL; FK de `business_id` diferida a la Fase 4; CHECKs de defensa en
+  profundidad (hash PHC argon2id, SHA-256 de tokens, E.164, formato de acción de auditoría).

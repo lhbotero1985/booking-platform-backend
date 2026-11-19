@@ -35,6 +35,9 @@ Decisiones relevantes no arquitectónicas (las arquitectónicas tienen ADR en `d
 | 2026-11-19 | `task test:integration` fija `DOCKER_HOST` al endpoint del contexto Docker activo | Evita la detección intermitente de testcontainers en Windows | Aplicado |
 | 2026-11-19 | Escáneres (gitleaks, Trivy) como imágenes Docker fijadas por digest en CI, no como acciones | Menor superficie de cadena de suministro | Aplicado |
 | 2026-11-19 | Acciones de GitHub fijadas por SHA, versiones con ≥ 2 semanas de publicadas | Cadena de suministro | Aplicado |
+| 2026-11-19 | Expiración de sesiones evaluada con el `now` de la aplicación en las consultas | Reloj inyectable y pruebas deterministas (ADR-0005) | Aplicado |
+| 2026-11-19 | FK `business_id` de memberships/audit_log diferida a la Fase 4 | La tabla businesses aún no existe | Pendiente (Fase 4) |
+| 2026-11-19 | Reglas depguard por módulo (frontera y dirección de dependencias) | Clean Architecture verificable en CI (ADR-0002) | Aplicado |
 | 2026-11-18 | Imágenes en GHCR | Gratuito con GitHub, integrado con Actions | Propuesto |
 | 2026-11-18 | Búsqueda de negocios por ciudad en MVP (PostGIS listo para cercanía futura) | Simplicidad | Propuesto |
 | 2026-11-18 | Sin auto-cancelación de citas pendientes en MVP | Regla del prompt; requiere política aprobada | Propuesto |

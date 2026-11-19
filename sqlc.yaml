@@ -41,3 +41,18 @@ sql:
         # Only generate structs used by this package's queries (the schema also contains
         # River's tables and, later, other modules' tables).
         omit_unused_structs: true
+
+  # Identity & Access module (ADR-0006/0007).
+  - name: identity
+    engine: postgresql
+    schema: db/migrations
+    queries: db/queries/identity
+    gen:
+      go:
+        package: sqlcgen
+        out: internal/modules/identity/infrastructure/sqlcgen
+        sql_package: pgx/v5
+        emit_interface: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        omit_unused_structs: true

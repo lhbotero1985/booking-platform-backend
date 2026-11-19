@@ -189,3 +189,23 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `task check` (unitarias + lint + build + vet) | ✅ | |
 | `govulncheck ./...` | ✅ No vulnerabilities found | 1er intento falló por DNS |
 | `task test:integration` | ⚠️ No verificable localmente | Docker Desktop detenido (`open //./pipe/dockerDesktopLinuxEngine`); se valida en el CI del PR |
+
+## 2026-11-19 · Fase 1 · T1.9 — validación final
+
+| Comando | Resultado |
+|---|---|
+| `task test:integration` (Docker Desktop reactivado) | ✅ 10 paquetes ok |
+| gitleaks v8.30.1 (historial) | ✅ no leaks found |
+| PR #10 — ci (test/race, integración, lint) + security (gitleaks, govulncheck, trivy) | ✅ 6/6; squash merge `1caba7d` |
+
+## 2026-11-19 · Fase 2 · T2.1 — Esqueleto del módulo identity
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| `sqlc generate` / `sqlc diff` | ✅ | Paquete `identity/infrastructure/sqlcgen` (users, sessions, memberships, audit) |
+| `go vet -tags=integration ./...` / `golangci-lint run` | ✅ 0 issues | |
+| depguard con 4 violaciones intencionales | ✅ 4/4 detectadas | domain→net/http (`domain-purity`), domain→application (`identity-domain-inward`), application→pgx (`application-layer`), identity→otro módulo (`identity-module-boundary`); import válido interfaces→application no marcado. Archivos temporales eliminados |
+| Integración identity (PostgreSQL real) | ✅ 7 pruebas | email citext único; CHECKs (status, E.164, hash PHC argon2id, nombre); token SHA-256 (32 bytes); sesión activa respeta expiración por inactividad y revocación; `TouchSession` no supera la expiración absoluta; cascada usuario→sesiones; un OWNER activo por negocio; membresía única; rol inválido; formato de acción de auditoría |
+| `TestUpDownUp` con 00003 | ✅ | |
+| `task test:integration` | ✅ 11 paquetes ok | |
+| `govulncheck ./...` | ✅ No vulnerabilities found | 1er intento falló por DNS |
