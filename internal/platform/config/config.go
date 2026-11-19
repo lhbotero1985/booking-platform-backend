@@ -287,8 +287,10 @@ func (p *parser) validateSMTP(env Env, s SMTP) {
 	default:
 		p.fail("SMTP_TLS", fmt.Sprintf("unsupported value %q (none, starttls, tls)", s.TLSMode))
 	}
-	if env.IsDeployed() && s.TLSMode == "none" {
-		p.fail("SMTP_TLS", fmt.Sprintf("must be starttls or tls in %s", env))
+	// QA delivers to Mailpit on the private compose network (no real email leaves QA, decision of
+	// 2026-11-19); production must reach a real provider over TLS.
+	if env == EnvProduction && s.TLSMode == "none" {
+		p.fail("SMTP_TLS", "must be starttls or tls in production")
 	}
 	if (s.Username == "") != (s.Password == "") {
 		p.fail("SMTP_USERNAME", "SMTP_USERNAME and SMTP_PASSWORD must be set together")

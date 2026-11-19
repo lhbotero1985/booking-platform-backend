@@ -195,8 +195,14 @@ func TestSMTPAndPublicURLConfig(t *testing.T) {
 	})); err != nil {
 		t.Errorf("valid QA config rejected: %v", err)
 	}
+	// QA uses Mailpit on the internal network without TLS.
+	if _, err := Load(envFrom(map[string]string{
+		"APP_ENV": "qa", "SMTP_HOST": "mailpit", "SMTP_TLS": "none", "PUBLIC_APP_URL": "https://qa.example.com",
+	})); err != nil {
+		t.Errorf("QA with Mailpit rejected: %v", err)
+	}
 	for name, env := range map[string]map[string]string{
-		"qa without TLS":     {"APP_ENV": "qa", "PUBLIC_APP_URL": "https://qa.example.com"},
+		"prod without TLS":   {"APP_ENV": "production", "PUBLIC_APP_URL": "https://app.example.com"},
 		"prod http app url":  {"APP_ENV": "production", "SMTP_TLS": "tls", "PUBLIC_APP_URL": "http://app.example.com"},
 		"unknown TLS":        {"APP_ENV": "test", "SMTP_TLS": "ssl"},
 		"user without pass":  {"APP_ENV": "test", "SMTP_USERNAME": "u"},
