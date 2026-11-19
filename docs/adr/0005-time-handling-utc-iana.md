@@ -1,6 +1,6 @@
 # ADR-0005: Manejo de tiempo: UTC + zona IANA
 
-- Estado: Propuesto · Fecha: 2026-11-18
+- Estado: Aceptado (aprobación Fase 0, 2026-11-18) · Fecha: 2026-11-18
 
 ## Decisión
 - Instantes en `timestamptz`, manipulados en UTC.

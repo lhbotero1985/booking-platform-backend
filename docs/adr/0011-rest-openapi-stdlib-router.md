@@ -1,6 +1,6 @@
 # ADR-0011: REST spec-first OpenAPI 3.1 con router stdlib
 
-- Estado: Propuesto · Fecha: 2026-11-18
+- Estado: Aceptado (aprobación Fase 0, 2026-11-18) · Fecha: 2026-11-18
 
 ## Decisión
 - Contrato en `api/openapi.yaml` (OpenAPI 3.1), escrito antes que los handlers.

@@ -1,6 +1,6 @@
 # ADR-0014: Monorepo para toda la plataforma
 
-- Estado: **Aceptado** (decisión del usuario, 2026-11-18) · Fecha: 2026-11-18
+- Estado: **Reemplazado por ADR-0016** (2026-11-18) · Fecha: 2026-11-18
 
 ## Contexto
 El workspace `booking-platform/` contiene backend, frontends, infraestructura y docs. Los cuatro

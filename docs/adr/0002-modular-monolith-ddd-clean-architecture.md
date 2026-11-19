@@ -1,6 +1,6 @@
 # ADR-0002: Monolito modular Go con DDD y Clean Architecture
 
-- Estado: Propuesto · Fecha: 2026-11-18
+- Estado: Aceptado (aprobación Fase 0, 2026-11-18) · Fecha: 2026-11-18
 
 ## Contexto
 Equipo pequeño, dominio en descubrimiento, operación crítica (reservar) que exige transacciones

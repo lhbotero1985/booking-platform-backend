@@ -1,6 +1,6 @@
 # ADR-0015: Identificadores UUIDv7 y dinero en unidades menores
 
-- Estado: Propuesto · Fecha: 2026-11-18
+- Estado: Aceptado (aprobación Fase 0, 2026-11-18) · Fecha: 2026-11-18
 
 ## Decisión
 - IDs `uuid` versión 7 generados en la aplicación (`google/uuid`): no enumerables, ordenables

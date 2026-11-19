@@ -1,6 +1,6 @@
 # ADR-0004: Prevención de doble reserva
 
-- Estado: Propuesto · Fecha: 2026-11-18
+- Estado: Aceptado (aprobación Fase 0, 2026-11-18) · Fecha: 2026-11-18
 
 ## Contexto
 Requisito crítico: dos citas activas nunca pueden ocupar el mismo intervalo de un profesional,

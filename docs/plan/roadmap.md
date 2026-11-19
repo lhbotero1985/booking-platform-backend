@@ -4,8 +4,8 @@ Orden obligatorio. **No se avanza de fase sin aprobación explícita del usuario
 
 | Fase | Nombre | Alcance | Estado |
 |---|---|---|---|
-| 0 | Arquitectura | Diseño, ADR, plan | 🟡 Entregada, esperando aprobación |
-| 1 | Cimientos técnicos | Proyecto Go, Docker, PG, SQLC, Goose, River, OpenAPI, CI | ⏳ |
+| 0 | Arquitectura | Diseño, ADR, plan | ✅ Aprobada 2026-11-18 |
+| 1 | Cimientos técnicos | Proyecto Go, Docker, PG, SQLC, Goose, River, OpenAPI, CI | 🟡 En curso |
 | 2 | Autenticación y autorización | Usuarios, sesiones, Argon2id, RBAC, auditoría | ⏳ |
 | 3 | DigitalOcean QA | Droplet QA, HTTPS, backups, deploy QA (requiere autorización de costos) | ⏳ |
 | 4 | Geografía y negocios | Países/divisiones/ciudades, negocios, aislamiento | ⏳ |
@@ -26,7 +26,7 @@ Orden obligatorio. **No se avanza de fase sin aprobación explícita del usuario
 | T0.1 | Diagnóstico del repositorio | ✅ |
 | T0.2 | Inicialización Git y base DevSecOps (sin código funcional) | ✅ |
 | T0.3 | Documentación de arquitectura, ADR, estrategia de pruebas, plan | ✅ |
-| T0.4 | Revisión con el usuario, respuestas a `pending-questions.md`, ADR → Aceptado | ⏳ |
+| T0.4 | Revisión con el usuario, respuestas a `pending-questions.md`, ADR → Aceptado | ✅ |
 
 ## Fase 1 — Cimientos técnicos (tareas propuestas)
 

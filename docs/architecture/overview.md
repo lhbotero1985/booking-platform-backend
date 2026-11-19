@@ -125,10 +125,9 @@ Notas:
   `db/queries/` para agrupar todo lo de SQLC/Goose. Cambio menor, a confirmar.
 - Las pruebas unitarias van junto al código (`*_test.go`); `tests/` es solo para suites
   transversales.
-- La infraestructura QA/PROD (Caddy, compose de servidor, scripts) vive en
-  `booking-platform/infrastructure/` (mismo monorepo, fuera de este proyecto), a partir de la
-  Fase 3 y con autorización.
-- `.github/` y la configuración Git/DevSecOps están en la raíz del monorepo (ADR-0014).
+- La infraestructura QA/PROD (Caddy, compose de servidor, scripts) se propone dentro de este
+  repositorio en `deploy/qa/` y `deploy/prod/`, porque despliega el backend y así queda
+  versionada (ADR-0016; se confirma en Fase 3).
 
 ## 6. Componentes transversales (`internal/platform`)
 

@@ -1,6 +1,6 @@
 # ADR-0009: WhatsApp Cloud API con número central
 
-- Estado: Propuesto · Fecha: 2026-11-18
+- Estado: Aceptado (aprobación Fase 0, 2026-11-18) · Fecha: 2026-11-18
 
 ## Decisión
 Meta WhatsApp Business Platform vía Cloud API, con un número central de la plataforma. Cada

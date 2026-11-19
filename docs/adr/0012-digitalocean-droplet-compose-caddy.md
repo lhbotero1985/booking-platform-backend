@@ -1,6 +1,6 @@
 # ADR-0012: DigitalOcean Droplet + Docker Compose + Caddy
 
-- Estado: Propuesto · Fecha: 2026-11-18
+- Estado: Aceptado (aprobación Fase 0, 2026-11-18) · Fecha: 2026-11-18
 
 ## Decisión
 Un Droplet Ubuntu LTS exclusivo por ambiente (QA en Fase 3, PROD en Fase 13) con Docker

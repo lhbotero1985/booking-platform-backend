@@ -1,6 +1,6 @@
 # ADR-0006: Autenticación con tokens opacos y Argon2id
 
-- Estado: Propuesto · Fecha: 2026-11-18
+- Estado: Aceptado (aprobación Fase 0, 2026-11-18) · Fecha: 2026-11-18
 
 ## Decisión
 - Contraseñas con Argon2id (formato PHC, parámetros calibrados ≥ OWASP).

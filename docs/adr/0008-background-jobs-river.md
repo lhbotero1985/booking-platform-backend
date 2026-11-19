@@ -1,6 +1,6 @@
 # ADR-0008: Jobs en segundo plano con River (outbox transaccional)
 
-- Estado: Propuesto · Fecha: 2026-11-18
+- Estado: Aceptado (aprobación Fase 0, 2026-11-18) · Fecha: 2026-11-18
 
 ## Decisión
 River sobre la misma base PostgreSQL. Los jobs se insertan con `InsertTx` en la misma

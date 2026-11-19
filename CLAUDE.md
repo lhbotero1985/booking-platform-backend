@@ -13,11 +13,11 @@ centros de uñas y negocios similares. Prioridades del MVP, en orden:
 
 ## Repositorio
 
-Monorepo Git **privado** con raíz en `booking-platform/` (ADR-0014). Este proyecto vive en
-`booking-platform-backend/`. Archivos transversales en la raíz: `.github/`, `.gitignore`,
-`.gitattributes`, `.editorconfig`, `.gitleaks.toml`, `.pre-commit-config.yaml`, `SECURITY.md`,
-`README.md`, `booking-platform.code-workspace`. Los comandos `git` se ejecutan desde la raíz
-(o con `git -C ..`).
+Repositorio Git **privado e independiente**: `booking-platform-backend/` es la raíz del repo
+(ADR-0016). El frontend tendrá su propio repositorio (`booking-platform-frontend`). La carpeta
+`booking-platform/` es solo el workspace local (contiene `README.md` y
+`booking-platform.code-workspace`, que no se versionan en ningún repo). Toda la configuración
+Git/DevSecOps (`.github/`, `.gitleaks.toml`, etc.) vive en este repositorio.
 
 ## Estado actual
 
@@ -71,7 +71,6 @@ REST + OpenAPI 3.1 · Docker / Docker Compose · GitHub Actions · DigitalOcean 
    sin autorización. Commits locales: solo cuando el usuario lo autorice para la tarea.
 10. No almacenar secretos en Git (gitleaks en pre-commit y CI). No usar datos reales fuera de PROD.
 11. No modificar archivos fuera de `booking-platform-backend` sin autorización explícita.
-    Excepción: los archivos transversales del monorepo listados en "Repositorio".
 
 ## Ubicación de la documentación
 

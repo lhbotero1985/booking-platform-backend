@@ -1,6 +1,6 @@
 # ADR-0001: Registrar decisiones con ADR
 
-- Estado: Propuesto · Fecha: 2026-11-18
+- Estado: Aceptado (aprobación Fase 0, 2026-11-18) · Fecha: 2026-11-18
 
 ## Contexto
 El proyecto se desarrollará por fases a lo largo de semanas, con sesiones de Claude Code que

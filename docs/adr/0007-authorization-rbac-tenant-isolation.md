@@ -1,6 +1,6 @@
 # ADR-0007: Autorización RBAC y aislamiento multiempresa
 
-- Estado: Propuesto · Fecha: 2026-11-18
+- Estado: Aceptado (aprobación Fase 0, 2026-11-18) · Fecha: 2026-11-18
 
 ## Decisión
 - Roles: `PLATFORM_ADMIN` (global), `OWNER`, `MANAGER`, `PROFESSIONAL` (por membresía en

@@ -1,6 +1,6 @@
 # ADR-0003: PostgreSQL + PostGIS con pgx, SQLC y Goose
 
-- Estado: Propuesto · Fecha: 2026-11-18
+- Estado: Aceptado (aprobación Fase 0, 2026-11-18) · Fecha: 2026-11-18
 
 ## Decisión
 - PostgreSQL (estable vigente, mínimo 16) con `postgis`, `btree_gist`, `citext`.

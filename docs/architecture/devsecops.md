@@ -69,9 +69,8 @@ Archivos previstos: `.github/workflows/ci.yml`, `security.yml` (programado seman
 
 ## 5. Lo que existe hoy (Fase 0)
 
-Todos en la **raíz del monorepo** `booking-platform/` (ADR-0014). Los workflows del backend
-usarán `paths: ['booking-platform-backend/**', '.github/workflows/backend-*.yml']` y
-`working-directory: booking-platform-backend`.
+Todos en la raíz de este repositorio (`booking-platform-backend`, ADR-0016). El repositorio
+frontend tendrá su propia configuración equivalente.
 
 | Archivo | Propósito |
 |---|---|
@@ -86,9 +85,9 @@ usarán `paths: ['booking-platform-backend/**', '.github/workflows/backend-*.yml
 ## 6. Publicación en GitHub (cuando el usuario lo autorice)
 
 ```bash
-# Desde booking-platform/. Requiere: repo PRIVADO vacío (sin README) creado en GitHub
+# Desde booking-platform-backend/. Requiere: repo PRIVADO vacío (sin README) creado en GitHub
 # y autorización explícita para el push.
-git remote add origin git@github.com:<owner>/booking-platform.git
+git remote add origin git@github.com:<owner>/booking-platform-backend.git
 git push -u origin main
 ```
 

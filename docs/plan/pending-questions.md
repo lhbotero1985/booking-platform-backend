@@ -7,11 +7,12 @@ la Fase 0, se adopta la propuesta.
 
 | # | Pregunta | Propuesta por defecto |
 |---|---|---|
-| P1 | ~~¿Polyrepo o monorepo?~~ | ✅ **Respondida 2026-11-18: monorepo** (ADR-0014). |
-| P2 | ~~¿Privado o público?~~ | ✅ **Respondida: privado.** Pendiente: ¿cuenta personal u organización? ¿plan Free o Pro/Team? (afecta protección de ramas). URL del repo vacío para el push. |
+| P1 | ~~¿Polyrepo o monorepo?~~ | ✅ **Respondida 2026-11-18:** workspace local único, dos repos en GitHub (backend y frontend) — ADR-0016. |
+| P2 | ~~¿Privado o público?~~ | ✅ **Respondida: privado.** Pendiente: usuario/organización de GitHub (define la ruta del módulo Go), plan Free o Pro/Team (protección de ramas), URL del repo vacío y autorización para el push. |
+| P22 | ¿La infraestructura QA/PROD va en el repo backend (`deploy/`)? | Sí (ADR-0016); confirmar en Fase 3. |
 | P3 | ~~¿Instalar Go?~~ | ✅ **Respondida: autorizado.** |
 | P4 | ¿Actualizar Git local (2.30.1, de 2021)? | Sí, recomendado. |
-| P21 | Aprobación explícita de la Fase 0 ("Fase 0 aprobada") | Necesaria para iniciar T1.1 (código). |
+| P21 | ~~Aprobación de la Fase 0~~ | ✅ Aprobada 2026-11-18. |
 
 ## Bloqueantes para Fases 4–7 (pueden responderse más tarde)
 
@@ -32,4 +33,4 @@ la Fase 0, se adopta la propuesta.
 | P17 | ¿Meta Business Manager verificado disponible? | Iniciar trámite antes de Fase 7. |
 | P18 | PROD: PostgreSQL en Droplet o DO Managed PostgreSQL | Decidir en Fase 13; recomendación: Managed. |
 | P19 | ¿Commits firmados obligatorios? | Recomendado (SSH signing), no bloqueante. |
-| P20 | ~~¿`booking-platform.code-workspace` en la raíz?~~ | ✅ Creado como consecuencia de P1. |
+| P20 | ~~¿`booking-platform.code-workspace` en la raíz?~~ | ✅ Creado en la raíz del workspace, sin versionar. |
