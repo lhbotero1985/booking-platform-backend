@@ -24,8 +24,12 @@ type Store struct {
 	users    map[uuid.UUID]*domain.User
 	tokens   map[string]*evToken
 	sessions map[string]*sessRec
+	resets   map[string]*evToken
 	Enqueued []uuid.UUID // verification emails scheduled (after commit)
-	FailNext error       // if set, the next transaction fails with it
+	// ResetEnqueued and ChangedEnqueued record password reset / password changed emails.
+	ResetEnqueued   []uuid.UUID
+	ChangedEnqueued []uuid.UUID
+	FailNext        error // if set, the next transaction fails with it
 }
 
 type evToken struct {
@@ -36,7 +40,7 @@ type evToken struct {
 
 // NewStore returns an empty store.
 func NewStore() *Store {
-	return &Store{users: map[uuid.UUID]*domain.User{}, tokens: map[string]*evToken{}, sessions: map[string]*sessRec{}}
+	return &Store{users: map[uuid.UUID]*domain.User{}, tokens: map[string]*evToken{}, sessions: map[string]*sessRec{}, resets: map[string]*evToken{}}
 }
 
 // WithinTx implements application.Store.
@@ -62,12 +66,19 @@ func (s *Store) WithinTx(_ context.Context, fn func(tx application.Tx) error) er
 		cp := *v
 		snapSessions[k] = &cp
 	}
+	snapResets := make(map[string]*evToken, len(s.resets))
+	for k, v := range s.resets {
+		cp := *v
+		snapResets[k] = &cp
+	}
 	tx := &storeTx{s: s}
 	if err := fn(tx); err != nil {
-		s.users, s.tokens, s.sessions = snapUsers, snapTokens, snapSessions
+		s.users, s.tokens, s.sessions, s.resets = snapUsers, snapTokens, snapSessions, snapResets
 		return err
 	}
 	s.Enqueued = append(s.Enqueued, tx.enqueued...)
+	s.ResetEnqueued = append(s.ResetEnqueued, tx.resetEnqueued...)
+	s.ChangedEnqueued = append(s.ChangedEnqueued, tx.changedEnqueued...)
 	return nil
 }
 
@@ -115,8 +126,10 @@ func (s *Store) StoredTokenHashes() []string {
 }
 
 type storeTx struct {
-	s        *Store
-	enqueued []uuid.UUID
+	s               *Store
+	enqueued        []uuid.UUID
+	resetEnqueued   []uuid.UUID
+	changedEnqueued []uuid.UUID
 }
 
 func (t *storeTx) CreateUser(_ context.Context, u *domain.User) error {
@@ -361,4 +374,64 @@ func (t *storeTx) RevokeAllUserSessions(_ context.Context, userID uuid.UUID, now
 		}
 	}
 	return n, nil
+}
+
+// ActiveResetTokenCount returns unused password reset tokens for userID.
+func (s *Store) ActiveResetTokenCount(userID uuid.UUID) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for _, t := range s.resets {
+		if t.userID == userID && t.usedAt == nil {
+			n++
+		}
+	}
+	return n
+}
+
+func (t *storeTx) RevokeOtherUserSessions(_ context.Context, userID, keep uuid.UUID, now time.Time) (int64, error) {
+	var n int64
+	for _, r := range t.s.sessions {
+		if r.session.UserID() == userID && r.session.ID() != keep && r.revokedAt == nil {
+			ts := now
+			r.revokedAt = &ts
+			n++
+		}
+	}
+	return n, nil
+}
+
+func (t *storeTx) InvalidatePasswordResetTokens(_ context.Context, id uuid.UUID, now time.Time) error {
+	for _, tok := range t.s.resets {
+		if tok.userID == id && tok.usedAt == nil {
+			n := now
+			tok.usedAt = &n
+		}
+	}
+	return nil
+}
+
+func (t *storeTx) CreatePasswordResetToken(_ context.Context, hash []byte, id uuid.UUID, _, expiresAt time.Time) error {
+	t.s.resets[hex.EncodeToString(hash)] = &evToken{userID: id, expiresAt: expiresAt}
+	return nil
+}
+
+func (t *storeTx) ConsumePasswordResetToken(_ context.Context, hash []byte, now time.Time) (uuid.UUID, error) {
+	tok, ok := t.s.resets[hex.EncodeToString(hash)]
+	if !ok || tok.usedAt != nil || !tok.expiresAt.After(now) {
+		return uuid.Nil, application.ErrNotFound
+	}
+	n := now
+	tok.usedAt = &n
+	return tok.userID, nil
+}
+
+func (t *storeTx) EnqueuePasswordResetEmail(_ context.Context, id uuid.UUID) error {
+	t.resetEnqueued = append(t.resetEnqueued, id)
+	return nil
+}
+
+func (t *storeTx) EnqueuePasswordChangedEmail(_ context.Context, id uuid.UUID) error {
+	t.changedEnqueued = append(t.changedEnqueued, id)
+	return nil
 }

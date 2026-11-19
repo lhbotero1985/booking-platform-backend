@@ -164,3 +164,32 @@ func TestContractSessionEndpoints(t *testing.T) {
 	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/auth/logout-all", "", tok, http.StatusOK)
 	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/auth/logout", "", tok, http.StatusUnauthorized)
 }
+
+func TestContractPasswordEndpoints(t *testing.T) {
+	c := loadContract(t)
+	e := newIdentityServer(t)
+	const js = "application/json"
+	reg := `{"email":"ana@example.com","password":"una clave suficientemente larga","fullName":"Ana Pérez"}`
+	c.call(t, e.srv, "/api/v1/auth/register", reg, js, http.StatusAccepted, true)
+	if err := e.svc.SendVerificationEmail(context.Background(), e.store.Enqueued[0]); err != nil {
+		t.Fatal(err)
+	}
+	vraw, _ := url.QueryUnescape(regexp.MustCompile(`token=([^\s]+)`).FindStringSubmatch(e.mailer.Last().Body)[1])
+	c.call(t, e.srv, "/api/v1/auth/verify-email", `{"token":"`+vraw+`"}`, js, http.StatusOK, true)
+
+	c.call(t, e.srv, "/api/v1/auth/password/forgot", `{"email":"ana@example.com"}`, js, http.StatusAccepted, true)
+	// `format: email` is an annotation in JSON Schema 2020-12 (not asserted by the validator);
+	// the backend still rejects it with 400.
+	c.call(t, e.srv, "/api/v1/auth/password/forgot", `{"email":"nope"}`, js, http.StatusBadRequest, true)
+	if err := e.svc.SendPasswordResetEmail(context.Background(), e.store.ResetEnqueued[0]); err != nil {
+		t.Fatal(err)
+	}
+	rraw, _ := url.QueryUnescape(regexp.MustCompile(`reset-password\?token=([^\s]+)`).FindStringSubmatch(e.mailer.Last().Body)[1])
+	c.call(t, e.srv, "/api/v1/auth/password/reset", `{"token":"`+rraw+`","newPassword":"corta"}`, js, http.StatusBadRequest, false)
+	c.call(t, e.srv, "/api/v1/auth/password/reset", `{"token":"`+rraw+`","newPassword":"otra frase nueva bastante larga"}`, js, http.StatusOK, true)
+
+	body := c.call(t, e.srv, "/api/v1/auth/login", `{"email":"ana@example.com","password":"otra frase nueva bastante larga","clientType":"MOBILE"}`, js, http.StatusOK, true)
+	tok := regexp.MustCompile(`"token":"([^"]+)"`).FindStringSubmatch(body)[1]
+	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/me/password", `{"currentPassword":"mal","newPassword":"una tercera clave larguisima"}`, tok, http.StatusBadRequest)
+	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/me/password", `{"currentPassword":"otra frase nueva bastante larga","newPassword":"una tercera clave larguisima"}`, tok, http.StatusNoContent)
+}
