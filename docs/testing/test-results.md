@@ -25,3 +25,17 @@ No existen pruebas de código: la Fase 0 no contiene código funcional.
 | `golangci-lint version` | ✅ 2.15.0 |
 | `task --version` | ✅ 3.54.0 |
 | gitleaks | ⚠️ Sigue sin ejecutarse (Docker Desktop apagado) |
+
+## 2026-11-18 · Fase 1 · T1.1
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| `golangci-lint config verify` | ✅ exit 0 | |
+| `task build` | ✅ | `bin/api.exe`, `bin/worker.exe` con versión inyectada (`999de2e-dirty`) |
+| `go vet ./...` | ✅ | |
+| `golangci-lint run` | ✅ 0 issues | |
+| `go test -count=1 ./...` | ✅ ok `internal/platform/buildinfo` (2 pruebas) | `cmd/*` sin pruebas (solo arranque) |
+| `govulncheck ./...` | ✅ No vulnerabilities found | |
+| `bin/api.exe` | ✅ exit 0 | Log JSON con versión, commit y Go |
+| depguard con import `net/http` en `internal/modules/probe/domain` | ✅ Detectado (`domain-purity`) | Archivo temporal eliminado |
+| `go test -race` | ⚠️ No ejecutado | Sin gcc/cgo en Windows; se cubrirá en CI (T1.8) |

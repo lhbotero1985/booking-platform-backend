@@ -1,28 +1,36 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T0.3 — Documentación de arquitectura de la Fase 0 (2026-11-18).
+T1.1 — Toolchain y esqueleto del proyecto (2026-11-18).
 
-## Próxima tarea: T0.4 — Revisión y aprobación de la Fase 0
+## Próxima tarea: T1.2 — Plataforma HTTP base
 
-- **Objetivo:** que el usuario revise la arquitectura, responda `pending-questions.md` y apruebe
-  (o pida cambios). Al aprobar, los ADR pasan de `Propuesto` a `Aceptado`.
-- **Archivos:** `docs/plan/pending-questions.md`, `docs/plan/decisions.md`, `docs/adr/*`,
-  `docs/plan/roadmap.md`, `docs/plan/progress.md`.
-- **Dependencias:** respuestas del usuario.
-- **Bloqueos:** ninguno técnico.
+- **Objetivo:** servidor HTTP funcional con configuración validada, logging estructurado,
+  errores RFC 9457 y middleware base. Sin base de datos todavía.
+- **Archivos:**
+  - `internal/platform/config/` — carga y validación de variables de entorno (`APP_ENV`,
+    `HTTP_ADDR`, `LOG_LEVEL`, `CORS_ALLOWED_ORIGINS`, timeouts).
+  - `internal/platform/logging/` — `slog` JSON, nivel configurable, redacción de campos sensibles.
+  - `internal/platform/httpx/` — router stdlib, `problem.go` (RFC 9457), middleware:
+    request-id, recover, access log, límite de body (1 MiB), CORS por lista blanca, cabeceras de
+    seguridad.
+  - `cmd/api/main.go` — servidor con timeouts (`ReadHeaderTimeout`, etc.) y apagado ordenado
+    (SIGINT/SIGTERM).
+  - `GET /healthz` (sin BD; `/readyz` llega en T1.4).
+- **Dependencias:** ninguna externa nueva prevista (stdlib).
+- **Pruebas:** unitarias de config (válida/inválida), cada middleware (`httptest`), problem+json,
+  recover sin filtrar stack trace, CORS con origen permitido/denegado, body excesivo → 413.
+- **Comandos de validación:** `task check`.
 - **Criterios de aceptación:**
-  - Preguntas bloqueantes (P1–P6) respondidas o con valor por defecto aceptado.
-  - Aprobación explícita: "Fase 0 aprobada".
+  - Config inválida o faltante → el proceso termina con error claro al iniciar.
+  - `GET /healthz` → 200 JSON; ruta inexistente → 404 `application/problem+json`.
+  - Pánico en handler → 500 problem+json sin detalles internos; queda en el log con request-id.
+  - Lint, vet, vuln y pruebas en verde.
+- **Bloqueos:** ninguno.
 
-## Después de la aprobación: T1.1 — Toolchain y esqueleto del proyecto
+## Pendientes del usuario (no bloquean T1.2)
 
-- **Toolchain:** ✅ instalado (Go 1.27.4, golangci-lint, govulncheck, sqlc, goose, task).
-  Falta `pre-commit` (Python) y tener Docker Desktop en ejecución.
-- **Repositorio:** monorepo en `booking-platform/`; el `go.mod` va en `booking-platform-backend/`.
-- **Archivos:** `go.mod`, `Taskfile.yml`, `cmd/api/main.go`, `cmd/worker/main.go`,
-  `internal/platform/...` (vacío mínimo), `.golangci.yml`.
-- **Comandos de validación:** `go build ./...`, `go vet ./...`, `golangci-lint run`,
-  `govulncheck ./...`, `go test ./...`.
-- **Criterios de aceptación:** compila; lint y vet sin errores; estructura coincide con
-  `docs/architecture/overview.md` §5.
+- Usuario u organización de GitHub (para la ruta del módulo Go) y URL del repo privado vacío
+  `booking-platform-backend` + autorización de push.
+- Iniciar Docker Desktop (requerido en T1.3/T1.4 y para gitleaks).
+- Autorizar instalación de `pre-commit` (Python) — opcional.

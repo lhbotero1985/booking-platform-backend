@@ -1,0 +1,63 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: standard # errcheck, govet, ineffassign, staticcheck, unused
+  enable:
+    - gosec          # SAST
+    - bodyclose
+    - noctx
+    - rowserrcheck
+    - sqlclosecheck
+    - errorlint
+    - errname
+    - nilerr
+    - exhaustive
+    - gocritic
+    - misspell
+    - unconvert
+    - revive
+    - depguard
+    - forbidigo
+  settings:
+    depguard:
+      rules:
+        # El dominio es puro: sin infraestructura, HTTP ni base de datos (ADR-0002).
+        domain-purity:
+          list-mode: lax
+          files:
+            - "**/internal/modules/*/domain/**"
+          deny:
+            - pkg: net/http
+              desc: el dominio no depende de HTTP
+            - pkg: database/sql
+              desc: el dominio no depende de la base de datos
+            - pkg: github.com/jackc/pgx
+              desc: el dominio no depende de la base de datos
+            - pkg: github.com/riverqueue/river
+              desc: el dominio no depende de River
+            - pkg: booking-platform-backend/internal/platform
+              desc: el dominio no depende de la plataforma técnica
+    forbidigo:
+      forbid:
+        - pattern: ^(fmt\.Print.*|print|println)$
+          msg: usar log/slog
+    exhaustive:
+      default-signifies-exhaustive: true
+    misspell:
+      locale: US
+  exclusions:
+    presets:
+      - std-error-handling
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - booking-platform-backend

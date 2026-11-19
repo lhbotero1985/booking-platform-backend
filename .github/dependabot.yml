@@ -7,4 +7,11 @@ updates:
     groups:
       actions:
         patterns: ["*"]
-  # Fase 1: añadir ecosistemas "gomod" (/) y "docker" (/deploy/docker) cuando existan.
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      go-deps:
+        patterns: ["*"]
+  # T1.3: añadir ecosistema "docker" (/deploy/docker) cuando exista el Dockerfile.

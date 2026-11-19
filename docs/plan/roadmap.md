@@ -32,7 +32,7 @@ Orden obligatorio. **No se avanza de fase sin aprobación explícita del usuario
 
 | ID | Tarea | Criterio de aceptación principal |
 |---|---|---|
-| T1.1 | Toolchain local + `go.mod` + esqueleto de carpetas + `Taskfile.yml` | `go build ./...` y `task lint` pasan en Windows y en CI |
+| T1.1 ✅ | Toolchain local + `go.mod` + esqueleto de carpetas + `Taskfile.yml` | `go build ./...` y `task lint` pasan en Windows y en CI |
 | T1.2 | `platform`: config, logging `slog`, errores RFC 9457, router y middleware base (request-id, recover, logging, límites de body, CORS) | Pruebas unitarias de middleware; config inválida falla al iniciar |
 | T1.3 | Docker: Dockerfile multi-stage no-root + `docker-compose.dev.yml` (postgis) + `.env.example` | `task up` levanta API y BD; Trivy config sin HIGH/CRITICAL |
 | T1.4 | BD: pgxpool, Goose embebido, migración 00001 (extensiones, roles), `api migrate`, `/healthz`, `/readyz` | Integración: migraciones up/down/up en PG real; `/readyz` 503 sin BD |

@@ -1,0 +1,77 @@
+# https://taskfile.dev — multiplataforma (Windows / Linux / CI)
+version: "3"
+
+vars:
+  MODULE: booking-platform-backend
+  VERSION:
+    sh: git describe --tags --always --dirty 2>/dev/null || echo dev
+  COMMIT:
+    sh: git rev-parse --short HEAD 2>/dev/null || echo unknown
+  LDFLAGS: -s -w -X {{.MODULE}}/internal/platform/buildinfo.version={{.VERSION}} -X {{.MODULE}}/internal/platform/buildinfo.commit={{.COMMIT}}
+
+tasks:
+  default:
+    cmds:
+      - task --list
+
+  build:
+    desc: Compila api y worker en ./bin
+    cmds:
+      - go build -trimpath -ldflags "{{.LDFLAGS}}" -o bin/ ./cmd/...
+
+  fmt:
+    desc: Formatea el código (gofmt + goimports vía golangci-lint)
+    cmds:
+      - golangci-lint fmt
+
+  vet:
+    desc: go vet
+    cmds:
+      - go vet ./...
+
+  lint:
+    desc: golangci-lint (incluye gosec y reglas de arquitectura)
+    cmds:
+      - golangci-lint run
+
+  test:
+    desc: Pruebas unitarias
+    cmds:
+      - go test -count=1 ./...
+
+  test:race:
+    desc: Pruebas con detector de carreras (requiere cgo; en Windows sin gcc solo corre en CI)
+    env:
+      CGO_ENABLED: "1"
+    cmds:
+      - go test -race -count=1 ./...
+
+  test:cover:
+    desc: Pruebas con cobertura
+    cmds:
+      - go test -count=1 -coverprofile=coverage.out ./...
+      - go tool cover -func=coverage.out
+
+  vuln:
+    desc: Vulnerabilidades alcanzables en dependencias y stdlib
+    cmds:
+      - govulncheck ./...
+
+  secrets:
+    desc: Escaneo de secretos con gitleaks (requiere Docker en ejecución)
+    cmds:
+      - docker run --rm -v "{{.ROOT_DIR}}:/repo" ghcr.io/gitleaks/gitleaks:v8.24.0 git /repo --config /repo/.gitleaks.toml --redact
+
+  tidy:
+    desc: go mod tidy
+    cmds:
+      - go mod tidy
+
+  check:
+    desc: Verificación completa local (build, vet, lint, test, vuln)
+    cmds:
+      - task: build
+      - task: vet
+      - task: lint
+      - task: test
+      - task: vuln

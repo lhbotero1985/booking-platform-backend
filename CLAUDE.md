@@ -116,7 +116,20 @@ REST + OpenAPI 3.1 · Docker / Docker Compose · GitHub Actions · DigitalOcean 
 **Después:** RESULTADO · ARCHIVOS · PRUEBAS (comandos y resultados reales) · RIESGOS ·
 DOCUMENTACIÓN · SIGUIENTE TAREA.
 
-## Comandos (disponibles a partir de la Fase 1)
+## Comandos
 
-Se documentarán aquí cuando existan (`task test`, `task test:integration`, `task lint`,
-`task vuln`, `task up`, …). Hoy el repositorio solo contiene documentación.
+Toolchain local: Go 1.27.4, golangci-lint 2.x, govulncheck, sqlc, goose, Task (go-task).
+Ruta del módulo Go (provisional): `booking-platform-backend`.
+
+| Comando | Qué hace |
+|---|---|
+| `task check` | build + vet + lint + test + vuln (ejecutar antes de cerrar cada tarea) |
+| `task build` | Compila `cmd/api` y `cmd/worker` en `bin/` con versión inyectada |
+| `task test` / `task test:cover` | Pruebas unitarias / con cobertura |
+| `task test:race` | Detector de carreras — requiere cgo; **en este Windows no hay gcc, corre en CI** |
+| `task lint` / `task fmt` | golangci-lint (gosec, depguard de arquitectura…) / formateo |
+| `task vuln` | govulncheck |
+| `task secrets` | gitleaks vía Docker (requiere Docker Desktop en ejecución) |
+
+Pendientes de tareas posteriores: `task up` (T1.3), `task test:integration` (T1.4),
+`task sqlc` (T1.5).

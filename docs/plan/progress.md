@@ -52,3 +52,26 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - **No instalado:** `pre-commit` (requiere Python; pendiente de autorización). Git sigue en 2.30.1.
 - **Problemas:** primer `go install` de govulncheck falló por DNS (`lookup proxy.golang.org`);
   el reintento funcionó. Nota: abrir una terminal nueva para que el PATH incluya Go.
+
+## 2026-11-18 · Fase 0 · T0.4 — Aprobación
+
+- **Estado:** ✅ Fase 0 aprobada por el usuario.
+- **Aclaración del usuario:** workspace local único, pero **dos repos en GitHub** (backend y
+  frontend). Se devolvió `.git` y la configuración DevSecOps a `booking-platform-backend/`
+  (historial conservado). ADR-0016 reemplaza a ADR-0014; ADR 0001–0015 aceptados.
+- `README.md` y `booking-platform.code-workspace` quedan en la raíz del workspace sin versionar.
+
+## 2026-11-18 · Fase 1 · T1.1 — Toolchain y esqueleto del proyecto
+
+- **Estado:** ✅ Completada
+- **Archivos:** `go.mod`, `Taskfile.yml`, `.golangci.yml`, `cmd/api/main.go`,
+  `cmd/worker/main.go`, `internal/platform/buildinfo/{buildinfo.go,buildinfo_test.go}`,
+  `.github/dependabot.yml` (gomod), `CLAUDE.md` (comandos).
+- **Decisiones:** módulo `booking-platform-backend` (provisional); golangci-lint v2 con gosec,
+  depguard (pureza del dominio), forbidigo (`fmt.Print` → slog) y goimports con prefijo local;
+  solo se crean carpetas con contenido.
+- **Pruebas:** `task check` completo en verde; regla depguard verificada con violación
+  intencional (archivo temporal eliminado). Ver `test-results.md`.
+- **Problemas:** `go test -race` no es ejecutable localmente (sin gcc/cgo en Windows); se
+  ejecutará en CI (T1.8). gitleaks sigue pendiente de Docker Desktop.
+- **Próximos pasos:** T1.2.
