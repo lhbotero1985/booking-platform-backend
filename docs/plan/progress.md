@@ -113,3 +113,10 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - **Problemas:** DNS intermitente en la máquina (Docker y Go); se mitiga con reintentos.
   Push a GitHub aún pendiente (lo debe ejecutar el usuario).
 - **Próximos pasos:** T1.4.
+
+## 2026-11-19 · Fase 1 · Primer push a GitHub
+
+- Regla `ask` para `Bash(git push *)` en `.claude/settings.local.json` (local, ignorado por Git):
+  cada push muestra una confirmación al usuario.
+- `git push -u origin main` ✅ — `main` publicado en GitHub con 7 commits (hasta T1.3).
+- Pendiente: revisar el resultado del workflow `security` (gitleaks) en GitHub Actions.
