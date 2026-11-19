@@ -34,3 +34,12 @@ la Fase 0, se adopta la propuesta.
 | P18 | PROD: PostgreSQL en Droplet o DO Managed PostgreSQL | Decidir en Fase 13; recomendación: Managed. |
 | P19 | ¿Commits firmados obligatorios? | Recomendado (SSH signing), no bloqueante. |
 | P20 | ~~¿`booking-platform.code-workspace` en la raíz?~~ | ✅ Creado en la raíz del workspace, sin versionar. |
+
+## Nuevas (2026-11-19, estrategia de ramas ADR-0017)
+
+| # | Pregunta | Propuesta por defecto |
+|---|---|---|
+| P23 | La protección de `main` y `qa` en repos **privados** requiere GitHub Pro (personal) o Team (organización). ¿Contratar Pro, hacer público el repo, o proteger solo por disciplina + CI hasta decidir? | Recomendado: GitHub Pro (costo bajo) — requiere tu decisión, es un recurso pago. |
+| P24 | ¿Autorizas crear la rama `qa` desde `main` (push) para que los PR de `feature/*` apunten a ella? | Sí; es requisito del flujo. |
+| P25 | ¿Renombrar la rama remota `feat/t1.4-database` a `feature/t1.4-database`? | Sí, para cumplir la convención (borra la rama remota antigua). |
+| P26 | ¿Instalar GitHub CLI (`gh`) para que Claude Code pueda crear PRs cuando lo autorices? (alternativa: MCP de GitHub en una sesión nueva) | Sí, `winget install GitHub.cli` + `gh auth login` por el usuario. |

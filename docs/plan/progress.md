@@ -140,3 +140,27 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - **Pruebas:** ver `test-results.md` (unitarias, integración con PG real, E2E compose).
 - **Problemas:** DNS intermitente en Docker y Go (reintentos).
 - **Próximos pasos:** PR de la rama a `main`; T1.5 (SQLC).
+
+## 2026-11-19 · Estrategia de ramas (ADR-0017)
+
+- **Estado:** ✅ Documentada (sin cambios en GitHub)
+- El usuario definió `main` / `qa` / `feature/*` / `hotfix/*`; reemplaza el flujo trunk-based de
+  ADR-0013. Archivos: `docs/adr/0017-branching-strategy-main-qa.md`, `docs/adr/README.md`,
+  `docs/adr/0013-…` (nota), `docs/architecture/devsecops.md` §1, `CLAUDE.md`, `decisions.md`,
+  `pending-questions.md` (P23–P26).
+- Nueva regla: ningún merge, commit, push, PR ni despliegue sin autorización explícita.
+- Pendiente de autorización: crear `qa` desde `main`, renombrar `feat/t1.4-database`,
+  protección de ramas (requiere GitHub Pro en repo privado), PR de T1.4 → `qa`.
+
+## 2026-11-19 · Fase 1 · T1.5 — SQLC
+
+- **Estado:** ✅ Implementada y probada en `feature/t1.5-sqlc` (creada desde `feat/t1.4-database`).
+  **Sin commit**: pendiente de autorización del usuario.
+- **Archivos:** `sqlc.yaml`, `db/queries/platform/extensions.sql`,
+  `internal/platform/db/platformq/` (generado), `internal/platform/db/db_integration_test.go`,
+  `Taskfile.yml` (`sqlc`, `sqlc:check`), `CLAUDE.md`.
+- **Decisiones:** esquema leído de las migraciones Goose; driver pgx/v5; overrides globales
+  uuid → google/uuid, timestamptz → time.Time (punteros si nullable); un paquete generado por
+  módulo.
+- **Pruebas:** ver `test-results.md`.
+- **Próximos pasos:** autorización de commit/push/PR; luego T1.6 (River).
