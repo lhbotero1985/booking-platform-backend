@@ -152,3 +152,12 @@ No existen pruebas de código: la Fase 0 no contiene código funcional.
 | `go test -tags=integration ./...` (sin DOCKER_HOST) | ⚠️ 1 fallo en 4 corridas | `failed to create Docker provider` (detección automática de testcontainers en Windows bajo concurrencia) |
 | `task test:integration` (DOCKER_HOST explícito del contexto Docker) × 6 | ✅ 6/6, 9 paquetes ok | Causa raíz corregida |
 | gitleaks | ✅ no leaks found | |
+
+## 2026-11-19 · Fase 1 · T1.8 — GitHub Actions (validación local previa)
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| `actionlint` 1.7.7 (incluye shellcheck) sobre `.github/workflows/*` | ✅ exit 0 | |
+| gitleaks v8.30.1 (digest fijado) sobre historial completo | ✅ no leaks found | Misma imagen que CI |
+| Trivy 0.76.2 `config /deploy` | ✅ 0 misconfigurations | Misma imagen que CI |
+| Trivy 0.76.2 `image` (build actual) | ✅ debian 0, `api` 0, `worker` 0 | HIGH/CRITICAL con fix |

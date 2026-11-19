@@ -70,8 +70,9 @@ REST + OpenAPI 3.1 · Docker / Docker Compose · GitHub Actions · DigitalOcean 
 6. No declarar terminada una tarea con errores críticos.
 7. Actualizar Markdown tras cada tarea (`progress.md`, `next-task.md`, decisiones, ADR).
 8. No modificar arquitectura aprobada sin consultar.
-9. No ejecutar comandos destructivos ni crear recursos pagos. **No realizar merges, commits,
-   push, creación de Pull Requests ni despliegues sin autorización explícita del usuario.**
+9. No ejecutar comandos destructivos ni crear recursos pagos. **No realizar merges,
+   creación de Pull Requests ni despliegues sin autorización explícita del usuario.** Commit y
+   push en ramas `feature/*` tienen autorización permanente del usuario (2026-11-19).
    No desarrollar sobre `main` ni `qa`.
 10. No almacenar secretos en Git (gitleaks en pre-commit y CI). No usar datos reales fuera de PROD.
 11. No modificar archivos fuera de `booking-platform-backend` sin autorización explícita.

@@ -71,7 +71,7 @@ flowchart LR
 Archivos previstos: `.github/workflows/ci.yml`, `security.yml` (programado semanal + PR),
 `release-image.yml`, `deploy-qa.yml`, `deploy-prod.yml`.
 
-## 5. Lo que existe hoy (Fase 0)
+## 5. Lo que existe hoy (T1.8)
 
 Todos en la raíz de este repositorio (`booking-platform-backend`, ADR-0016). El repositorio
 frontend tendrá su propia configuración equivalente.
@@ -81,10 +81,20 @@ frontend tendrá su propia configuración equivalente.
 | `.gitignore`, `.gitattributes`, `.editorconfig` | Evitar secretos/binarios versionados; LF consistente |
 | `.pre-commit-config.yaml` | Hook gitleaks local |
 | `.gitleaks.toml` | Configuración de gitleaks (reglas por defecto + token de sesión propio) |
-| `.github/workflows/secret-scan.yml` | gitleaks en cada push/PR |
-| `.github/dependabot.yml` | Actualizaciones de GitHub Actions |
+| `.github/workflows/ci.yml` | PR y push a `qa`/`main`: `test` (build, vet, `go mod verify`, unitarias con `-race`, cobertura), `integration` (testcontainers PostGIS, `-race`), `lint` (golangci-lint v2.15.0 con gosec/depguard, `sqlc vet` + `sqlc diff`) |
+| `.github/workflows/security.yml` | PR, push a `qa`/`main`, semanal y manual: `secrets` (gitleaks historial completo), `vuln` (govulncheck), `container` (Trivy config + build + Trivy imagen HIGH/CRITICAL) |
+| `.github/dependabot.yml` | Actualizaciones (Actions por SHA, gomod, docker, compose) contra `qa` |
 | `.github/pull_request_template.md` | Checklist de calidad y seguridad por PR |
 | `SECURITY.md` | Política de reporte de vulnerabilidades |
+
+Fijación de versiones:
+- Acciones por SHA de commit con la versión en comentario: checkout v7.0.1, setup-go v7.0.0
+  (v7.1.0 descartada por tener < 2 semanas), upload-artifact v7.0.2, golangci-lint-action v9.3.0.
+- Escáneres como imágenes Docker fijadas por digest (no como acciones): gitleaks v8.30.1,
+  Trivy 0.76.2. Las mismas versiones se usan localmente (`task secrets`, `task trivy`).
+- Herramientas Go fijadas: golangci-lint v2.15.0, sqlc v1.31.1, govulncheck v1.10.0.
+- Las imágenes referenciadas dentro de `run:` no las actualiza Dependabot: revisarlas en cada
+  cierre de fase.
 
 ## 6. Publicación en GitHub (cuando el usuario lo autorice)
 

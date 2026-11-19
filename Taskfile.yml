@@ -89,7 +89,7 @@ tasks:
   secrets:
     desc: Escaneo de secretos con gitleaks (requiere Docker en ejecución)
     cmds:
-      - docker run --rm -v "{{.ROOT_DIR}}:/repo" ghcr.io/gitleaks/gitleaks:v8.24.0 git /repo --config /repo/.gitleaks.toml --redact
+      - docker run --rm -v "{{.ROOT_DIR}}:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo --config /repo/.gitleaks.toml --redact
 
   # --- Docker / entorno DEV -------------------------------------------------
   docker:build:
@@ -129,7 +129,7 @@ tasks:
       - docker run --rm -v "{{.ROOT_DIR}}:/src" aquasec/trivy:{{.TRIVY_VERSION}} config --exit-code 1 --severity HIGH,CRITICAL /src/deploy
       - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:{{.TRIVY_VERSION}} image --exit-code 1 --ignore-unfixed --severity HIGH,CRITICAL --db-repository ghcr.io/aquasecurity/trivy-db:2 --java-db-repository ghcr.io/aquasecurity/trivy-java-db:1 booking-platform-backend:dev
     vars:
-      TRIVY_VERSION: 0.58.1
+      TRIVY_VERSION: 0.76.2
 
   tidy:
     desc: go mod tidy

@@ -215,3 +215,22 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
   declarados (bearer opaco, cookie `__Host-session`) para aplicarse desde la Fase 2.
 - **Pruebas:** ver `test-results.md`.
 - **Próximos pasos:** T1.8 (GitHub Actions CI).
+
+## 2026-11-19 · Integración de T1.7 y limpieza de ramas
+
+- PR #8 (T1.7) → `qa`: gitleaks ✅, squash merge `768a8d1`.
+- Ramas fusionadas borradas (local y remoto) tras verificar que su contenido coincide con el
+  squash en `qa`: `feature/t1.6-river`, `feature/t1.7-openapi`; local `feature/dependabot-qa`.
+- El usuario pidió no mostrar diálogos de confirmación para acciones ya autorizadas en el chat.
+  Claude no puede ampliar sus propios permisos (bloqueado); el usuario debe cambiar la regla
+  `ask` → `allow` con `/permissions`.
+
+## 2026-11-19 · Fase 1 · T1.8 — GitHub Actions
+
+- **Estado:** 🟡 Implementada y validada localmente en `feature/t1.8-ci`; PR abierto para
+  ejecutar el pipeline real (criterio de aceptación). Merge pendiente de autorización.
+- **Archivos:** `.github/workflows/ci.yml`, `.github/workflows/security.yml` (reemplaza
+  `secret-scan.yml`), `Taskfile.yml` y `.pre-commit-config.yaml` (gitleaks v8.30.1, Trivy 0.76.2),
+  `docs/architecture/devsecops.md` §5.
+- **Decisiones:** acciones fijadas por SHA; escáneres como imágenes por digest; versión de
+  setup-go con ≥ 2 semanas; `-race` también en integración; security semanal.
