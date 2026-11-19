@@ -52,7 +52,10 @@ REST + OpenAPI 3.1 · Docker / Docker Compose · GitHub Actions · DigitalOcean 
 - SQL: solo consultas parametrizadas vía SQLC. Toda consulta de datos de negocio filtra por
   `business_id`.
 - Commits: Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`, `test:`, `ci:`, `refactor:`).
-- Ramas: `main` protegida; trabajo en `feat/…`, `fix/…`, `docs/…`; PR obligatorio con CI verde.
+- Ramas (ADR-0017): `main` (producción) y `qa` (integración/QA) protegidas; desarrollo solo en
+  `feature/<tarea>` (nace de `qa`) y `hotfix/<tema>` (nace de `main`). Flujo:
+  `feature/*` → PR → `qa` → despliegue QA → validación → PR `qa` → `main` → PROD con el mismo
+  artefacto. Hotfix → `main` y back-merge a `qa`.
 
 ## Reglas obligatorias (resumen del prompt maestro)
 
@@ -67,8 +70,9 @@ REST + OpenAPI 3.1 · Docker / Docker Compose · GitHub Actions · DigitalOcean 
 6. No declarar terminada una tarea con errores críticos.
 7. Actualizar Markdown tras cada tarea (`progress.md`, `next-task.md`, decisiones, ADR).
 8. No modificar arquitectura aprobada sin consultar.
-9. No ejecutar comandos destructivos, no crear recursos pagos, no hacer **push** ni desplegar
-   sin autorización. Commits locales: solo cuando el usuario lo autorice para la tarea.
+9. No ejecutar comandos destructivos ni crear recursos pagos. **No realizar merges, commits,
+   push, creación de Pull Requests ni despliegues sin autorización explícita del usuario.**
+   No desarrollar sobre `main` ni `qa`.
 10. No almacenar secretos en Git (gitleaks en pre-commit y CI). No usar datos reales fuera de PROD.
 11. No modificar archivos fuera de `booking-platform-backend` sin autorización explícita.
 
@@ -137,10 +141,10 @@ Ruta del módulo Go: `github.com/lhbotero1985/booking-platform-backend`.
 | `task migrate -- up\|down\|status` | Migraciones Goose en el entorno DEV (contenedor `api migrate …`) |
 | `task test:integration` | Pruebas con PostgreSQL real (testcontainers, build tag `integration`; requiere Docker) |
 
-Pendiente de tareas posteriores: `task sqlc` (T1.5).
+| `task sqlc` / `task sqlc:check` | Genera código desde `db/queries` / verifica que esté al día (`sqlc vet` + `sqlc diff`) |
 
-Flujo Git: una rama `feat/<tarea>` por tarea → PR a `main`. QA es un ambiente que despliega
-desde `main`, no una rama. Cada `git push` requiere aprobación explícita del usuario.
+Flujo Git (ADR-0017): `feature/<tarea>` → PR a `qa` → validación en QA → PR `qa` → `main`.
+Cada `git push` requiere aprobación explícita del usuario (regla `ask`).
 
 Notas del entorno local:
 - PostgreSQL nativo de Windows ocupa el puerto 5432; por eso DEV usa 55432.

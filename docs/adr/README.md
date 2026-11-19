@@ -18,7 +18,8 @@ la fase.
 | [0010](0010-push-expo.md) | Push con Expo Push Notifications | Aceptado |
 | [0011](0011-rest-openapi-stdlib-router.md) | REST spec-first OpenAPI 3.1 con router stdlib | Aceptado |
 | [0012](0012-digitalocean-droplet-compose-caddy.md) | DigitalOcean Droplet + Docker Compose + Caddy | Aceptado |
-| [0013](0013-devsecops-git-workflow.md) | DevSecOps y flujo Git | Aceptado |
+| [0013](0013-devsecops-git-workflow.md) | DevSecOps y flujo Git | Aceptado (flujo Git reemplazado por 0017) |
 | [0014](0014-repository-layout.md) | Monorepo para toda la plataforma | Reemplazado por 0016 |
 | [0015](0015-identifiers-and-money.md) | Identificadores UUIDv7 y dinero en unidades menores | Aceptado |
 | [0016](0016-separate-backend-frontend-repositories.md) | Repositorios separados para backend y frontend | Aceptado |
+| [0017](0017-branching-strategy-main-qa.md) | Estrategia de ramas main / qa / feature / hotfix | Aceptado |

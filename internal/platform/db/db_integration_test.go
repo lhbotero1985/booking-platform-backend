@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/db"
+	"github.com/lhbotero1985/booking-platform-backend/internal/platform/db/platformq"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/migrate"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/pgtest"
 )
@@ -165,5 +166,26 @@ func TestUniqueViolationMapping(t *testing.T) {
 	_, err := pool.Exec(t.Context(), `INSERT INTO uniq_probe VALUES ('ana@example.COM')`)
 	if !db.IsUniqueViolation(err) {
 		t.Fatalf("err = %v, want unique violation", err)
+	}
+}
+
+// TestSQLCGeneratedQuery runs the sqlc-generated query against the migrated database,
+// proving the sqlc configuration (schema from Goose migrations, pgx/v5 driver) works end to end.
+func TestSQLCGeneratedQuery(t *testing.T) {
+	exts, err := platformq.New(pool).ListExtensions(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, e := range exts {
+		if e.Version == "" {
+			t.Errorf("extension %s has empty version", e.Name)
+		}
+		got[e.Name] = true
+	}
+	for _, want := range []string{"postgis", "btree_gist", "citext"} {
+		if !got[want] {
+			t.Errorf("ListExtensions() missing %s (got %v)", want, got)
+		}
 	}
 }

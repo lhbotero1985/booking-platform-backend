@@ -1,6 +1,7 @@
 # ADR-0013: DevSecOps y flujo Git
 
 - Estado: Aceptado (aprobación Fase 0, 2026-11-18) · Fecha: 2026-11-18
+- Nota (2026-11-19): el punto "Trunk-based con `main` protegida" fue reemplazado por ADR-0017.
 
 ## Decisión
 - Trunk-based con `main` protegida, PR obligatorio, squash merge, Conventional Commits.

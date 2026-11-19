@@ -39,6 +39,17 @@ tasks:
     cmds:
       - go test -count=1 ./...
 
+  sqlc:
+    desc: Genera código Go desde db/queries con SQLC
+    cmds:
+      - sqlc generate
+
+  sqlc:check:
+    desc: Verifica que el código SQLC generado esté al día y que las consultas sean válidas
+    cmds:
+      - sqlc vet
+      - sqlc diff
+
   test:integration:
     desc: Pruebas de integración contra PostgreSQL real (testcontainers; requiere Docker)
     cmds:

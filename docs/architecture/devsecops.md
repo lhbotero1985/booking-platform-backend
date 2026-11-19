@@ -4,17 +4,21 @@ Estado: **Propuesta — Fase 0.** ADR-0012 y ADR-0013. La base mínima (gitleaks
 plantilla de PR) se incorpora en Fase 0; el pipeline completo, en Fase 1; despliegue QA, en
 Fase 3; PROD, en Fase 13.
 
-## 1. Flujo Git
+## 1. Flujo Git (ADR-0017)
 
-- **Trunk-based**: `main` siempre desplegable a QA.
-- Ramas cortas: `feat/<tarea>`, `fix/…`, `docs/…`, `chore/…`, `ci/…`.
-- Conventional Commits; un PR por tarea del roadmap, referenciando su ID (`T1.3`).
-- Reglas de protección de `main` en GitHub (configurar al crear el repo):
-  - PR obligatorio, 1 aprobación (el propietario), resolución de conversaciones.
-  - Checks obligatorios: `ci / build-test`, `ci / lint`, `security / secrets`, `security / vuln`.
-  - Sin force-push ni borrado; historial lineal (squash merge).
-  - Commits firmados (recomendado, ❓).
-- Releases: tags SemVer `vX.Y.Z` → imagen inmutable; PROD despliega solo tags ya validados en QA.
+- Ramas permanentes: `main` (estable, producción) y `qa` (integración y validación en QA).
+- Ramas temporales: `feature/<tarea>` (nacen de `qa`) y `hotfix/<tema>` (nacen de `main`).
+- No se desarrolla sobre `main` ni `qa`. Todo entra por Pull Request con CI verde y
+  autorización explícita del usuario.
+- `feature/*` → PR → `qa` → imagen `vX.Y.Z-rc.N` → despliegue QA → validación → PR `qa` →
+  `main` → tag `vX.Y.Z` sobre el **mismo digest** → despliegue PROD (Fase 13).
+- Hotfix: `hotfix/*` → PR → `main` → back-merge obligatorio a `qa`.
+- Conventional Commits; un PR por tarea del roadmap, referenciando su ID (`T1.5`).
+- Protección de `main` y `qa`: PR obligatorio, checks obligatorios (`ci`, `security`), sin
+  push directo, sin force-push ni borrado. Requiere GitHub Pro/Team en repos privados (P23).
+- Commits firmados (recomendado, ❓).
+- Versiones desplegadas, pruebas y resultados se registran en `docs/operations/*` y
+  `docs/testing/test-results.md`.
 
 ## 2. Seguridad en cada etapa ("shift left")
 

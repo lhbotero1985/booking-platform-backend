@@ -1,0 +1,40 @@
+# SQLC: Go tipado desde SQL (ADR-0003). Regenerar con `task sqlc`; verificar con `task sqlc:check`.
+# El esquema se lee de las migraciones Goose (sqlc ignora las secciones Down).
+# Cada módulo añadirá su propia entrada en "sql": queries en db/queries/<modulo>/ y paquete
+# generado en internal/modules/<modulo>/infrastructure/sqlcgen, con las mismas opciones "gen.go".
+version: "2"
+
+# Mapeo de tipos común a todos los paquetes generados.
+overrides:
+  go:
+    overrides:
+      - db_type: uuid
+        go_type: github.com/google/uuid.UUID
+      - db_type: uuid
+        nullable: true
+        go_type:
+          import: github.com/google/uuid
+          type: UUID
+          pointer: true
+      - db_type: timestamptz
+        go_type: time.Time
+      - db_type: timestamptz
+        nullable: true
+        go_type:
+          type: time.Time
+          pointer: true
+
+sql:
+  # Consultas técnicas de plataforma (sin lógica de negocio).
+  - name: platform
+    engine: postgresql
+    schema: db/migrations
+    queries: db/queries/platform
+    gen:
+      go:
+        package: platformq
+        out: internal/platform/db/platformq
+        sql_package: pgx/v5
+        emit_interface: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
