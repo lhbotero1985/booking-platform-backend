@@ -39,6 +39,11 @@ tasks:
     cmds:
       - go test -count=1 ./...
 
+  openapi:lint:
+    desc: Valida api/openapi.yaml (esquema OpenAPI 3.1 + convenciones) y el contrato de las respuestas
+    cmds:
+      - go test -count=1 ./api/... ./internal/app/... -run 'TestSpec|TestContract' -v
+
   sqlc:
     desc: Genera código Go desde db/queries con SQLC
     cmds:
@@ -52,6 +57,14 @@ tasks:
 
   test:integration:
     desc: Pruebas de integración contra PostgreSQL real (testcontainers; requiere Docker)
+    vars:
+      # Endpoint of the active Docker context. Passing it explicitly avoids testcontainers'
+      # auto-detection, which intermittently fails on Docker Desktop for Windows when several
+      # packages start containers at once ("rootless Docker is not supported on Windows").
+      DOCKER_ENDPOINT:
+        sh: docker context inspect --format '{{"{{"}}.Endpoints.docker.Host{{"}}"}}'
+    env:
+      DOCKER_HOST: "{{.DOCKER_ENDPOINT}}"
     cmds:
       - go test -tags=integration -count=1 -timeout=10m ./...
 

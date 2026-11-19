@@ -1,0 +1,182 @@
+openapi: 3.1.0
+info:
+  title: Booking Platform API
+  version: 0.1.0
+  summary: Multi-tenant booking API for barbershops, beauty salons and similar businesses.
+  description: |
+    Contract-first REST API (ADR-0011). This document is the source of truth: handlers must
+    conform to it and contract tests validate real responses against it.
+
+    Conventions (docs/architecture/api-design.md):
+    - Errors use RFC 9457 `application/problem+json` with a stable `code` and the `requestId`.
+    - Instants are RFC 3339 in UTC; money is `{ amountMinor, currency }`.
+    - Every response carries `X-Request-ID`.
+    - Unknown paths answer 404 and unsupported methods 405 (with `Allow`), both as `Problem`;
+      they are generic and therefore not listed per operation.
+servers:
+  - url: http://localhost:8080
+    description: DEV (Docker Compose)
+
+tags:
+  - name: Operations
+    description: Liveness and readiness probes. Public, no authentication.
+
+paths:
+  /healthz:
+    get:
+      tags: [Operations]
+      operationId: getHealth
+      summary: Liveness probe
+      description: Reports that the process serves HTTP. Does not check dependencies.
+      security: []
+      responses:
+        "200":
+          description: The process is alive.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /readyz:
+    get:
+      tags: [Operations]
+      operationId: getReadiness
+      summary: Readiness probe
+      description: |
+        Reports whether the instance can receive traffic: the database answers and there are
+        no pending migrations. Each check is bounded by a 2 second timeout. The failing check is
+        named but its internal error is never exposed.
+      security: []
+      responses:
+        "200":
+          description: Ready to serve traffic.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadyResponse"
+        "503":
+          $ref: "#/components/responses/NotReady"
+
+components:
+  headers:
+    XRequestID:
+      description: Correlation ID of the request (client-supplied if valid, otherwise generated).
+      schema:
+        type: string
+        pattern: "^[A-Za-z0-9._-]{1,64}$"
+
+  schemas:
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status, version]
+      properties:
+        status:
+          const: ok
+        version:
+          type: string
+          description: Build version of the running binary.
+          examples: ["v0.1.0", "dev"]
+
+    ReadyResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          const: ready
+
+    Problem:
+      type: object
+      description: RFC 9457 problem details with project extensions.
+      required: [type, title, status, code]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          examples: ["about:blank"]
+        title:
+          type: string
+          examples: ["Not Found"]
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+          description: Human-readable explanation. Never contains internal error messages.
+        instance:
+          type: string
+          description: Request path that produced the problem.
+        code:
+          type: string
+          description: Stable machine-readable error code for clients.
+          pattern: "^[A-Z][A-Z0-9_]*$"
+          examples: ["NOT_FOUND", "SLOT_UNAVAILABLE", "INVALID_REQUEST"]
+        requestId:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldError"
+
+    FieldError:
+      type: object
+      additionalProperties: false
+      required: [field, message]
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+
+  responses:
+    NotFound:
+      description: The resource does not exist (also returned for resources of another business).
+      headers:
+        X-Request-ID:
+          $ref: "#/components/headers/XRequestID"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    MethodNotAllowed:
+      description: The path exists but does not support this method. `Allow` lists valid methods.
+      headers:
+        X-Request-ID:
+          $ref: "#/components/headers/XRequestID"
+        Allow:
+          schema:
+            type: string
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    NotReady:
+      description: A dependency is not ready (code `NOT_READY`).
+      headers:
+        X-Request-ID:
+          $ref: "#/components/headers/XRequestID"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+
+  securitySchemes:
+    # Declared now for the frontends; applied to operations from Phase 2 (ADR-0006).
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: Opaque session token (mobile apps).
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-session
+      description: HttpOnly session cookie (web portals), with CSRF protection on mutations.
