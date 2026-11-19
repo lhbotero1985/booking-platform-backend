@@ -14,4 +14,11 @@ updates:
     groups:
       go-deps:
         patterns: ["*"]
-  # T1.3: añadir ecosistema "docker" (/deploy/docker) cuando exista el Dockerfile.
+  - package-ecosystem: docker
+    directory: /deploy/docker
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker-compose
+    directory: /deploy/compose
+    schedule:
+      interval: weekly

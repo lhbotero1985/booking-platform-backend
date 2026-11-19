@@ -99,3 +99,17 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - **Pruebas:** ver `test-results.md` (lint 0, pruebas ok, cobertura ≥ 90 %, smoke real).
 - **Riesgos:** `-race` y SIGTERM pendientes de verificar en Linux (T1.3/T1.8).
 - **Próximos pasos:** T1.3 (Docker + Compose).
+
+## 2026-11-19 · Fase 1 · T1.3 — Docker y Docker Compose (DEV)
+
+- **Estado:** ✅ Completada
+- **Archivos:** `deploy/docker/Dockerfile`, `deploy/compose/docker-compose.dev.yml`, `.env.example`,
+  `.dockerignore`, `Taskfile.yml` (docker:build, up, down, logs, trivy), `.github/dependabot.yml`
+  (docker, docker-compose), `cmd/api` y `cmd/worker` (`time/tzdata` embebido), `CLAUDE.md`.
+- **Decisiones:** imagen final distroless/static nonroot; contenedor read-only, sin capabilities,
+  no-new-privileges, límites de memoria/pids; puertos solo en 127.0.0.1; PostGIS 17-3.5;
+  puerto DEV 55432 (5432 ocupado por PostgreSQL nativo); Trivy 0.58.1 con DB desde GHCR.
+- **Pruebas:** ver `test-results.md` (stack arriba, healthz, nonroot, SIGTERM limpio, Trivy 0 HIGH/CRITICAL).
+- **Problemas:** DNS intermitente en la máquina (Docker y Go); se mitiga con reintentos.
+  Push a GitHub aún pendiente (lo debe ejecutar el usuario).
+- **Próximos pasos:** T1.4.

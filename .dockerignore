@@ -1,0 +1,16 @@
+# Solo go.mod, go.sum, cmd/ e internal/ entran a la imagen (ver Dockerfile).
+.git
+.github
+.env
+.env.*
+bin
+dist
+docs
+deploy
+*.md
+*.out
+coverage.*
+.task
+.vscode
+.idea
+.claude

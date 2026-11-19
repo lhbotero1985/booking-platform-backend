@@ -130,6 +130,13 @@ Ruta del módulo Go: `github.com/lhbotero1985/booking-platform-backend`.
 | `task lint` / `task fmt` | golangci-lint (gosec, depguard de arquitectura…) / formateo |
 | `task vuln` | govulncheck |
 | `task secrets` | gitleaks vía Docker (requiere Docker Desktop en ejecución) |
+| `task up` / `task down` / `task logs` | Entorno DEV (PostGIS en `127.0.0.1:55432`, API en `127.0.0.1:8080`); requiere `.env` copiado de `.env.example` |
+| `task docker:build` | Imagen `booking-platform-backend:dev` (distroless, nonroot) |
+| `task trivy` | Trivy config + imagen (HIGH/CRITICAL) |
 
-Pendientes de tareas posteriores: `task up` (T1.3), `task test:integration` (T1.4),
-`task sqlc` (T1.5).
+Pendientes de tareas posteriores: `task test:integration` (T1.4), `task sqlc` (T1.5).
+
+Notas del entorno local:
+- PostgreSQL nativo de Windows ocupa el puerto 5432; por eso DEV usa 55432.
+- El DNS de esta máquina falla de forma intermitente (proxy.golang.org, vuln.go.dev, gcr.io);
+  si un `go install`, `govulncheck` o `docker pull` falla con "no such host", reintentar.

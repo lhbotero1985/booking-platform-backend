@@ -61,3 +61,20 @@ No existen pruebas de código: la Fase 0 no contiene código funcional.
 | Smoke: `GET /nope` | ✅ 404 `application/problem+json` | Access log JSON con request_id, sin query string |
 | `go test -race` | ⚠️ No ejecutado | Sin cgo en Windows; CI (T1.8) |
 | Apagado ordenado (SIGTERM) | ⚠️ No verificado en Windows | Se verificará en contenedor Linux (T1.3) |
+
+## 2026-11-19 · Fase 1 · T1.3 — Docker y Docker Compose (DEV)
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| `task up` (1er intento) | ❌ | DNS: `lookup gcr.io: no such host`; imágenes base descargadas con reintentos |
+| `task up` (2º intento) | ❌ | Puerto 5432 ocupado por PostgreSQL nativo (pid 8052); DEV movido a 55432 |
+| `task up` (3er intento) | ✅ exit 0 | postgres `healthy`, api `Started` |
+| `GET http://127.0.0.1:8080/healthz` | ✅ 200 `{"status":"ok",...}` | Desde el host contra el contenedor |
+| `docker inspect` api | ✅ `User=nonroot`, `ReadonlyRootfs=true`, `CapDrop=[ALL]`, `no-new-privileges` | |
+| Tamaño de imagen | ✅ 12.4 MB | distroless/static-debian12 |
+| PostGIS | ✅ PostgreSQL 17.5, PostGIS 3.5.2 | `create extension postgis` ok |
+| `docker compose stop api` (SIGTERM) | ✅ "api shutting down" → "api stopped cleanly", ExitCode 0 | Verifica apagado ordenado en Linux |
+| `trivy config /deploy` (HIGH,CRITICAL) | ✅ exit 0, sin hallazgos | Trivy 0.58.1 |
+| `trivy image booking-platform-backend:dev` | ✅ Total: 0 (HIGH: 0, CRITICAL: 0) | 1er intento falló al bajar la DB (IPv6 inalcanzable a mirror.gcr.io); se usa `ghcr.io/aquasecurity/trivy-db` |
+| `task check` | ✅ 0 issues, pruebas ok, sin vulnerabilidades | |
+| `gitleaks dir` | ✅ no leaks found | Incluye `.env` local (ignorado por Git) |

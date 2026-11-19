@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	_ "time/tzdata" // embedded IANA database: results must not depend on the host OS (ADR-0005)
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/app"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/buildinfo"
