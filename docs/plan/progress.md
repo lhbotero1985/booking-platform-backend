@@ -75,3 +75,27 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - **Problemas:** `go test -race` no es ejecutable localmente (sin gcc/cgo en Windows); se
   ejecutará en CI (T1.8). gitleaks sigue pendiente de Docker Desktop.
 - **Próximos pasos:** T1.2.
+
+## 2026-11-18 · Fase 1 · Ruta del módulo y push
+
+- Ruta del módulo cambiada a `github.com/lhbotero1985/booking-platform-backend`.
+- gitleaks ejecutado con Docker activo: historial y directorio sin fugas.
+- Remoto `origin` = `https://github.com/lhbotero1985/booking-platform-backend.git` (autorizado).
+- **Push pendiente:** el primer `git push` quedó esperando credenciales (Git Credential Manager)
+  y no completó; el reintento fue bloqueado por la política de permisos de Claude Code.
+  El usuario debe ejecutar el push manualmente (ver next-task.md).
+
+## 2026-11-18 · Fase 1 · T1.2 — Plataforma HTTP base
+
+- **Estado:** ✅ Completada
+- **Archivos:** `internal/platform/config/`, `internal/platform/logging/`,
+  `internal/platform/httpx/` (problem, requestid, middleware, json, router + pruebas),
+  `internal/app/http.go` (+ pruebas), `cmd/api/main.go` (servidor con timeouts y apagado ordenado).
+- **Implementación:** config por env con validación agregada (todos los errores a la vez);
+  slog JSON con redacción de claves sensibles; RFC 9457 con `code` y `requestId`; middleware
+  request-id, cabeceras de seguridad, access log (sin query string), recover (stack solo en log),
+  CORS por lista exacta (preflight denegado → 403), límite de body (413); router stdlib con
+  404/405 como problem+json; `GET /healthz`.
+- **Pruebas:** ver `test-results.md` (lint 0, pruebas ok, cobertura ≥ 90 %, smoke real).
+- **Riesgos:** `-race` y SIGTERM pendientes de verificar en Linux (T1.3/T1.8).
+- **Próximos pasos:** T1.3 (Docker + Compose).
