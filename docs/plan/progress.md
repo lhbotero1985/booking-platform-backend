@@ -269,3 +269,18 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - **Decisiones:** expiración evaluada con el `now` de la aplicación (reloj inyectable) y no con
   `now()` de PostgreSQL; FK de `business_id` diferida a la Fase 4; CHECKs de defensa en
   profundidad (hash PHC argon2id, SHA-256 de tokens, E.164, formato de acción de auditoría).
+
+## 2026-11-19 · Fase 2 · T2.1 integrada
+
+- PR #11 → `qa`: 6/6 ✅, squash merge `a305183`. Rama `feature/t1.9-phase1-closure` borrada.
+
+## 2026-11-19 · Fase 2 · T2.2 — Dominio de identidad y Argon2id
+
+- **Estado:** ✅ Completada en `feature/t2.2-identity-domain-argon2` (commit y push; PR y merge
+  pendientes de autorización).
+- **Archivos:** `identity/domain/{errors,email,password,user}.go` + pruebas y fuzzing,
+  `identity/application/ports.go` (`PasswordHasher`), `identity/infrastructure/argon2/` +
+  pruebas, fuzzing y benchmarks, `internal/platform/config` (`ARGON2_*`), `.env.example`.
+- **Decisiones:** `Password` no imprimible; límites de costo al decodificar hashes (anti-DoS);
+  semáforo de concurrencia; `VerifyDummy` para no revelar emails registrados por tiempo de
+  respuesta; política NIST sin reglas de composición; t=3 por defecto con calibración en QA.

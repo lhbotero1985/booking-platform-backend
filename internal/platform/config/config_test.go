@@ -159,3 +159,23 @@ func TestHTTPOriginAllowedInDevelopment(t *testing.T) {
 		t.Fatalf("Load() error = %v", err)
 	}
 }
+
+func TestArgon2Config(t *testing.T) {
+	cfg, err := Load(envFrom(map[string]string{"APP_ENV": "test"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Argon2.MemoryKiB != 64*1024 || cfg.Argon2.Iterations != 3 || cfg.Argon2.Parallelism != 2 || cfg.Argon2.MaxConcurrent != 4 {
+		t.Errorf("argon2 defaults = %+v", cfg.Argon2)
+	}
+	for key, val := range map[string]string{
+		"ARGON2_MEMORY_KIB":     "1024", // below OWASP minimum
+		"ARGON2_ITERATIONS":     "1",
+		"ARGON2_PARALLELISM":    "0",
+		"ARGON2_MAX_CONCURRENT": "1000",
+	} {
+		if _, err := Load(envFrom(map[string]string{"APP_ENV": "test", key: val})); err == nil || !strings.Contains(err.Error(), key) {
+			t.Errorf("%s=%s accepted (err %v)", key, val, err)
+		}
+	}
+}

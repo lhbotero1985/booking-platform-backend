@@ -49,7 +49,7 @@ Módulo `internal/modules/identity` (ADR-0006, ADR-0007, `docs/architecture/secu
 | ID | Tarea | Criterio de aceptación principal |
 |---|---|---|
 | T2.1 ✅ | Esqueleto del módulo `identity` (domain / application / infrastructure / interfaces / contract) + migración 00003 (`users`, `sessions`, `password_reset_tokens`, `memberships`, `audit_log`) + consultas SQLC | Migración up/down/up; reglas depguard del módulo; `sqlc diff` limpio |
-| T2.2 | Dominio: `Email`, política de contraseña, `User`; hasher Argon2id (PHC, calibrado, rehash) | Unitarias de VO e invariantes; Argon2id ≈100–250 ms medido |
+| T2.2 ✅ | Dominio: `Email`, política de contraseña, `User`; hasher Argon2id (PHC, calibrado, rehash) | Unitarias de VO e invariantes; Argon2id ≈100–250 ms medido |
 | T2.3 | Registro, login, tokens opacos hasheados, logout y logout-all + OpenAPI | Contrato; login con email inexistente con tiempo constante; token nunca guardado en claro |
 | T2.4 | Middleware de autenticación (Bearer y cookie `__Host-session` + CSRF), expiración por inactividad y absoluta, `last_seen` con throttling | Matriz 401: sin token, malformado, expirado, revocado, usuario suspendido |
 | T2.5 | Recuperación de contraseña (token de un solo uso, puerto de email con adaptador fake; proveedor P13) | Respuesta siempre 202; token expira y no se reutiliza; revoca sesiones |
