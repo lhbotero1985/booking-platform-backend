@@ -1,0 +1,79 @@
+# Security checks (ADR-0013). Runs on PRs and pushes to qa/main, weekly (new CVEs appear
+# without code changes) and on demand. Scanners run as Docker images pinned by digest instead of
+# third-party actions, to reduce supply-chain exposure.
+name: security
+
+on:
+  pull_request:
+  push:
+    branches: [qa, main]
+  schedule:
+    - cron: "17 6 * * 1" # Mondays 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+  TRIVY_IMAGE: aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
+
+jobs:
+  secrets:
+    name: secrets (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # full history
+          persist-credentials: false
+      - name: gitleaks (full git history)
+        run: |
+          docker run --rm -v "$PWD:/repo" "$GITLEAKS_IMAGE" \
+            git /repo --config /repo/.gitleaks.toml --redact --verbose
+
+  vuln:
+    name: dependencies (govulncheck)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.10.0
+      - name: govulncheck (reachable vulnerabilities in code and stdlib)
+        run: govulncheck ./...
+
+  container:
+    name: container (trivy config + image)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: trivy config (Dockerfile, compose)
+        run: |
+          docker run --rm -v "$PWD:/src" "$TRIVY_IMAGE" \
+            config --exit-code 1 --severity HIGH,CRITICAL /src/deploy
+      - name: build image
+        run: |
+          docker build -f deploy/docker/Dockerfile \
+            --build-arg VERSION="ci-${GITHUB_SHA::7}" --build-arg COMMIT="${GITHUB_SHA::7}" \
+            -t booking-platform-backend:ci .
+      - name: trivy image (HIGH/CRITICAL with a fix available fails the build)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY_IMAGE" \
+            image --exit-code 1 --ignore-unfixed --severity HIGH,CRITICAL \
+            --db-repository ghcr.io/aquasecurity/trivy-db:2 \
+            --java-db-repository ghcr.io/aquasecurity/trivy-java-db:1 \
+            booking-platform-backend:ci

@@ -33,6 +33,8 @@ Decisiones relevantes no arquitectónicas (las arquitectónicas tienen ADR en `d
 | 2026-11-19 | Validación OpenAPI (spec + contrato) con pb33f/libopenapi en pruebas Go | Soporta 3.1; sin dependencia de imágenes externas | Aplicado |
 | 2026-11-19 | 404/405 documentados como respuestas genéricas (no por operación) | Un 405 ocurre precisamente en métodos no definidos | Aplicado |
 | 2026-11-19 | `task test:integration` fija `DOCKER_HOST` al endpoint del contexto Docker activo | Evita la detección intermitente de testcontainers en Windows | Aplicado |
+| 2026-11-19 | Escáneres (gitleaks, Trivy) como imágenes Docker fijadas por digest en CI, no como acciones | Menor superficie de cadena de suministro | Aplicado |
+| 2026-11-19 | Acciones de GitHub fijadas por SHA, versiones con ≥ 2 semanas de publicadas | Cadena de suministro | Aplicado |
 | 2026-11-18 | Imágenes en GHCR | Gratuito con GitHub, integrado con Actions | Propuesto |
 | 2026-11-18 | Búsqueda de negocios por ciudad en MVP (PostGIS listo para cercanía futura) | Simplicidad | Propuesto |
 | 2026-11-18 | Sin auto-cancelación de citas pendientes en MVP | Regla del prompt; requiere política aprobada | Propuesto |
