@@ -3,17 +3,11 @@
 ## Última tarea completada
 T1.3 — Docker y Docker Compose DEV (2026-11-19).
 
-## Acción pendiente del usuario: primer push a GitHub
+## Repositorio remoto
 
-Claude Code no puede completar el push (requiere autenticación interactiva y la política de
-permisos lo bloquea). Ejecutar en una terminal:
-
-```powershell
-cd C:\Users\PC-1\Desktop\booking-platform\booking-platform-backend
-git push -u origin main
-```
-
-Después: verificar en la pestaña Actions que el workflow `security` (gitleaks) pase.
+`main` publicado en https://github.com/lhbotero1985/booking-platform-backend (2026-11-19).
+Cada `git push` requiere aprobación explícita del usuario (regla `ask` en
+`.claude/settings.local.json`). Pendiente: verificar que el workflow `security` pase en Actions.
 
 ## Próxima tarea: T1.4 — Base de datos, migraciones y readiness
 
