@@ -251,3 +251,24 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | gitleaks: regla `bp_(s\|ev\|pr)_` | ✅ | Detecta un token falso de prueba (archivo temporal); repo sin fugas |
 | `task test:integration` | ✅ 19 paquetes | |
 | `golangci-lint` / govulncheck / `sqlc diff` | ✅ | govulncheck 1er intento falló por DNS |
+
+## 2026-11-19 · Fase 2 · T2.3 — CI y ajuste QA
+
+| Comando | Resultado |
+|---|---|
+| Config: `SMTP_TLS=none` aceptado en QA (Mailpit), rechazado en PROD | ✅ |
+| PR #13 — ci + security | ✅ 6/6; squash merge `969d6eb` |
+
+## 2026-11-19 · Fase 2 · T2.4 — Login, sesiones y autenticación
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| Unitarias dominio (`Session`, políticas) | ✅ 100 % | Móvil 30 d/90 d, web 12 h/7 d, admin 1 h/12 h; touch con throttling de 5 min; idle nunca supera el absoluto |
+| Unitarias aplicación (10 casos de sesión) | ✅ 81.6 % | Login móvil/web/admin; email inexistente, contraseña incorrecta y cuenta suspendida → mismo error (+`VerifyDummy`); no verificada → `EMAIL_NOT_VERIFIED` solo con contraseña correcta; validación; rechazo de tokens vacíos/malformados/de otro tipo/desconocidos/expirados; sliding hasta el absoluto (1ª ejecución: error del propio test, 15×11 h < 7 días → corregido a 20); suspensión bloquea sesiones; logout solo la actual; logout-all todas |
+| Handlers HTTP (8 pruebas) | ✅ 86.5 % | Token móvil en body; web solo en cookie `__Host-session` (HttpOnly, Secure, SameSite=Lax, Path=/, sin Domain); `/me` sin hash; 401 idénticos (salvo requestId); matriz 401 (6 casos, sin fallback a cookie con esquema no Bearer); CSRF (sin Origin, ajeno, look-alike → 403; permitido → 204 y cookie borrada); logout-all `{"revoked":2}`; tokens fuera de logs |
+| Contrato OpenAPI | ✅ | login 200 (MOBILE/WEB)/401/403, `/me` 200/401, logout-all 200, logout 401 tras revocar |
+| `TestLoginTimingDoesNotRevealAccounts` (Argon2id real) | ✅ ratio 0.99–1.02 aislado | 1ª corrida con la suite en paralelo falló por medir series secuenciales bajo carga → muestras intercaladas (n=15, medianas); 4/4 corridas de la suite completa en verde |
+| Integración PostgreSQL (sesiones) | ✅ 5 pruebas | IP/UA guardados, token en claro no; throttling de `last_seen`; suspensión inmediata; logout-all; expiración por inactividad |
+| E2E Docker Compose (17 pasos) | ✅ | 202 → 403 `EMAIL_NOT_VERIFIED` → verify 200 → 401 `INVALID_CREDENTIALS` → login MOBILE 200 (48 chars) → `/me` 200 → sin token 401 → login WEB (cookie endurecida, sin token en body) → `/me` cookie 200 → CSRF 403 ×2 → logout 204 → 401 → logout-all `{"revoked":1}` → 401; secretos en logs: 0; BD: 0 activas / 2 |
+| `golangci-lint` | ✅ 0 issues | G101 falso positivo en `CodeInvalidCredentials` anotado |
+| govulncheck / `sqlc diff` / gitleaks | ✅ | |

@@ -303,3 +303,20 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
   (Mailpit, límites de memoria), `.env.example`, `.gitleaks.toml`.
 - **Hallazgo corregido:** límite de memoria de la API (256 MiB) = Argon2 64 MiB × 4 concurrentes →
   riesgo de OOM; API a 512 MiB y `ARGON2_MAX_CONCURRENT=2` en DEV.
+
+## 2026-11-19 · Fase 2 · T2.3 integrada
+
+- Decisión del usuario: **QA simula los correos con Mailpit** (TLS SMTP obligatorio solo en
+  PROD; UI de Mailpit en QA solo por túnel SSH). PR #13 → `qa`: 6/6 ✅, merge `969d6eb`.
+  Rama `feature/t2.2-identity-domain-argon2` borrada.
+
+## 2026-11-19 · Fase 2 · T2.4 — Login, sesiones y middleware de autenticación
+
+- **Estado:** ✅ Completada en `feature/t2.4-login-sessions` (commit y push; PR y merge
+  pendientes de autorización).
+- **Archivos:** `identity/domain/session.go`, `identity/contract/principal.go`,
+  `identity/application/session.go` (+ puertos, `apptest`), `identity/infrastructure/postgres`
+  (sesiones), `identity/interfaces/http/auth.go` (login, logout, logout-all, `/me`,
+  `RequireAuth` con CSRF por Origin), OpenAPI, `tests/security/auth_timing_test.go`,
+  `.env.example` (`CORS_ALLOWED_ORIGINS` DEV).
+- **Pendiente para Fase 3:** IP real detrás de Caddy (X-Forwarded-For solo desde el proxy).

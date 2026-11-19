@@ -47,6 +47,10 @@ Decisiones relevantes no arquitectónicas (las arquitectónicas tienen ADR en `d
 | 2026-11-19 | La UI de Mailpit en QA no se expone públicamente (solo túnel SSH) | Muestra todos los correos, incluidos tokens de verificación | Pendiente (Fase 3) |
 | 2026-11-19 | Endpoints JSON exigen `Content-Type: application/json` (415) | Bloquea POST de formularios entre sitios | Aplicado |
 | 2026-11-19 | Dimensionar memoria ≥ ARGON2_MAX_CONCURRENT × ARGON2_MEMORY_KIB + margen | Evitar OOM por hashing concurrente | Aplicado |
+| 2026-11-19 | Web: token solo en cookie `__Host-session` (HttpOnly, Secure, SameSite=Lax); móvil: Bearer en body | Token inaccesible a JS en web; apps nativas sin cookies | Aplicado |
+| 2026-11-19 | CSRF: peticiones con cookie que cambian estado exigen `Origin` en la lista blanca | Defensa en profundidad sobre SameSite=Lax | Aplicado |
+| 2026-11-19 | `EMAIL_NOT_VERIFIED` solo tras contraseña correcta; resto de fallos de login idénticos | No revelar cuentas ni su estado | Aplicado |
+| 2026-11-19 | IP del cliente = par TCP; X-Forwarded-For se confiará solo desde Caddy (Fase 3) | Evitar suplantación de IP | Pendiente (Fase 3) |
 | 2026-11-18 | Imágenes en GHCR | Gratuito con GitHub, integrado con Actions | Propuesto |
 | 2026-11-18 | Búsqueda de negocios por ciudad en MVP (PostGIS listo para cercanía futura) | Simplicidad | Propuesto |
 | 2026-11-18 | Sin auto-cancelación de citas pendientes en MVP | Regla del prompt; requiere política aprobada | Propuesto |

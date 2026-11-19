@@ -39,7 +39,7 @@ func newFixture() fixture {
 		Config: application.Config{PublicAppURL: "https://app.example.test"}, Logger: logger,
 	})
 	rt := httpx.NewRouter()
-	httpapi.New(f.svc, logger).Routes(rt)
+	httpapi.New(f.svc, logger, httpapi.Options{AllowedOrigins: []string{allowedOrigin}}).Routes(rt)
 	f.h = httpx.Chain(rt, httpx.RequestID, httpx.Recover(logger), httpx.LimitBody(1<<20))
 	return f
 }
@@ -58,6 +58,8 @@ func (f fixture) post(t *testing.T, path, body string) resp {
 	f.h.ServeHTTP(rec, r)
 	return resp{rec.Code, rec.Header().Get("Content-Type"), rec.Body.String()}
 }
+
+const allowedOrigin = "https://business.example.test"
 
 const regBody = `{"email":"ana@example.com","password":"una clave suficientemente larga","fullName":"Ana Pérez"}`
 

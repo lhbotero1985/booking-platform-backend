@@ -5,9 +5,11 @@ package postgres_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"net/netip"
 	"net/url"
 	"os"
 	"regexp"
@@ -199,5 +201,109 @@ func TestExpiredTokenRejectedOnPostgres(t *testing.T) {
 	}
 	if _, status, _ := userRow(t, email); status != "PENDING_VERIFICATION" {
 		t.Fatalf("status = %s", status)
+	}
+}
+
+// activeUser registers and verifies a fresh account and returns its email.
+func (e env) activeUser(t *testing.T) string {
+	t.Helper()
+	ctx := t.Context()
+	email := uniqueEmail()
+	if err := e.svc.Register(ctx, application.RegisterInput{Email: email, Password: "una clave suficientemente larga", FullName: "Ana"}); err != nil {
+		t.Fatal(err)
+	}
+	id, _, _ := userRow(t, email)
+	if err := e.svc.SendVerificationEmail(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := url.QueryUnescape(tokenRe.FindStringSubmatch(e.mailer.Last().Body)[1])
+	if err := e.svc.VerifyEmail(ctx, raw); err != nil {
+		t.Fatal(err)
+	}
+	return email
+}
+
+func TestSessionsOnPostgres(t *testing.T) {
+	ctx := t.Context()
+	e := newEnv(t)
+	email := e.activeUser(t)
+	ip := netip.MustParseAddr("203.0.113.7")
+
+	res, err := e.svc.Login(ctx, application.LoginInput{Email: email, Password: "una clave suficientemente larga", ClientType: "WEB", IP: &ip, UserAgent: "Mozilla/5.0 test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := res.Token.Reveal()
+
+	var storedIP netip.Addr
+	var ua string
+	var lastSeen time.Time
+	err = pool.QueryRow(ctx, `SELECT ip, user_agent, last_seen_at FROM sessions WHERE token_hash = $1`, res.Token.Hash()).Scan(&storedIP, &ua, &lastSeen)
+	if err != nil || storedIP != ip || ua != "Mozilla/5.0 test" {
+		t.Fatalf("session row: ip %v ua %q err %v", storedIP, ua, err)
+	}
+	var rawStored int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM sessions WHERE token_hash = $1`, []byte(raw)).Scan(&rawStored); err != nil || rawStored != 0 {
+		t.Fatal("raw session token stored")
+	}
+
+	p, err := e.svc.Authenticate(ctx, raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Throttled touch: no write within 5 minutes, write after.
+	e.clock.Advance(time.Minute)
+	if _, err := e.svc.Authenticate(ctx, raw); err != nil {
+		t.Fatal(err)
+	}
+	var seen2 time.Time
+	_ = pool.QueryRow(ctx, `SELECT last_seen_at FROM sessions WHERE id = $1`, p.SessionID).Scan(&seen2)
+	if !seen2.Equal(lastSeen) {
+		t.Fatalf("last_seen written within the throttle window: %v -> %v", lastSeen, seen2)
+	}
+	e.clock.Advance(10 * time.Minute)
+	if _, err := e.svc.Authenticate(ctx, raw); err != nil {
+		t.Fatal(err)
+	}
+	_ = pool.QueryRow(ctx, `SELECT last_seen_at FROM sessions WHERE id = $1`, p.SessionID).Scan(&seen2)
+	if !seen2.Equal(e.clock.Now()) {
+		t.Fatalf("last_seen not updated after the throttle window: %v vs %v", seen2, e.clock.Now())
+	}
+
+	// Suspension blocks the session immediately.
+	if _, err := pool.Exec(ctx, `UPDATE users SET status='SUSPENDED' WHERE email=$1`, email); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.svc.Authenticate(ctx, raw); !errors.Is(err, application.ErrUnauthenticated) {
+		t.Fatalf("suspended user authenticated: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE users SET status='ACTIVE' WHERE email=$1`, email); err != nil {
+		t.Fatal(err)
+	}
+
+	// Logout-all revokes every session.
+	other, _ := e.svc.Login(ctx, application.LoginInput{Email: email, Password: "una clave suficientemente larga", ClientType: "MOBILE"})
+	n, err := e.svc.LogoutAll(ctx, p)
+	if err != nil || n != 2 {
+		t.Fatalf("LogoutAll = %d, %v", n, err)
+	}
+	for _, tok := range []string{raw, other.Token.Reveal()} {
+		if _, err := e.svc.Authenticate(ctx, tok); !errors.Is(err, application.ErrUnauthenticated) {
+			t.Fatal("session survived logout-all")
+		}
+	}
+}
+
+func TestSessionExpiryOnPostgres(t *testing.T) {
+	ctx := t.Context()
+	e := newEnv(t)
+	email := e.activeUser(t)
+	res, err := e.svc.Login(ctx, application.LoginInput{Email: email, Password: "una clave suficientemente larga", ClientType: "WEB"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.clock.Advance(12*time.Hour + time.Second) // web idle expiry
+	if _, err := e.svc.Authenticate(ctx, res.Token.Reveal()); !errors.Is(err, application.ErrUnauthenticated) {
+		t.Fatalf("idle-expired session accepted: %v", err)
 	}
 }
