@@ -17,9 +17,9 @@ T0.3 — Documentación de arquitectura de la Fase 0 (2026-11-18).
 
 ## Después de la aprobación: T1.1 — Toolchain y esqueleto del proyecto
 
-- **Requisito previo del usuario:** instalar Go (versión estable vigente) o autorizar su
-  instalación; autorizar instalación de `golangci-lint`, `govulncheck`, `sqlc`, `goose`, `task`
-  y `pre-commit` (o usar sus imágenes Docker).
+- **Toolchain:** ✅ instalado (Go 1.27.4, golangci-lint, govulncheck, sqlc, goose, task).
+  Falta `pre-commit` (Python) y tener Docker Desktop en ejecución.
+- **Repositorio:** monorepo en `booking-platform/`; el `go.mod` va en `booking-platform-backend/`.
 - **Archivos:** `go.mod`, `Taskfile.yml`, `cmd/api/main.go`, `cmd/worker/main.go`,
   `internal/platform/...` (vacío mínimo), `.golangci.yml`.
 - **Comandos de validación:** `go build ./...`, `go vet ./...`, `golangci-lint run`,

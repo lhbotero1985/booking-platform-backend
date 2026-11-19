@@ -16,6 +16,6 @@ Incluir: descripción, pasos de reproducción, impacto estimado y versión/commi
 
 ## Prácticas aplicadas (DevSecOps)
 
-Ver [docs/architecture/devsecops.md](docs/architecture/devsecops.md): escaneo de secretos
+Ver [devsecops.md](booking-platform-backend/docs/architecture/devsecops.md): escaneo de secretos
 (gitleaks), SAST (gosec vía golangci-lint), análisis de dependencias (govulncheck, Dependabot),
 escaneo de imágenes (Trivy), SBOM, principio de mínimo privilegio en CI y ramas protegidas.

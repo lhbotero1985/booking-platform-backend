@@ -69,6 +69,10 @@ Archivos previstos: `.github/workflows/ci.yml`, `security.yml` (programado seman
 
 ## 5. Lo que existe hoy (Fase 0)
 
+Todos en la **raíz del monorepo** `booking-platform/` (ADR-0014). Los workflows del backend
+usarán `paths: ['booking-platform-backend/**', '.github/workflows/backend-*.yml']` y
+`working-directory: booking-platform-backend`.
+
 | Archivo | Propósito |
 |---|---|
 | `.gitignore`, `.gitattributes`, `.editorconfig` | Evitar secretos/binarios versionados; LF consistente |
@@ -82,10 +86,17 @@ Archivos previstos: `.github/workflows/ci.yml`, `security.yml` (programado seman
 ## 6. Publicación en GitHub (cuando el usuario lo autorice)
 
 ```bash
-# Requiere: repo vacío creado en GitHub (privado recomendado) y autorización explícita.
-git remote add origin git@github.com:<owner>/booking-platform-backend.git
+# Desde booking-platform/. Requiere: repo PRIVADO vacío (sin README) creado en GitHub
+# y autorización explícita para el push.
+git remote add origin git@github.com:<owner>/booking-platform.git
 git push -u origin main
 ```
 
-Después del primer push: activar branch protection, secret scanning + push protection,
-Dependabot alerts, private vulnerability reporting, y crear los Environments `qa` y `prod`.
+Después del primer push: activar branch protection (o rulesets), Dependabot alerts y security
+updates, private vulnerability reporting, y crear los Environments `qa` y `prod`.
+
+Nota sobre repositorio **privado**: en cuentas sin GitHub Advanced Security / Secret Protection,
+CodeQL y el secret scanning nativo con push protection no están disponibles (verificar el plan
+vigente). Por eso gitleaks (pre-commit + CI), gosec y govulncheck son los controles obligatorios.
+La protección de ramas en repos privados requiere plan GitHub Pro/Team; si no se tiene, se
+aplica por disciplina y por los checks del CI (❓ confirmar plan de la cuenta).

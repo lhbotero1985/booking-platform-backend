@@ -7,10 +7,11 @@ la Fase 0, se adopta la propuesta.
 
 | # | Pregunta | Propuesta por defecto |
 |---|---|---|
-| P1 | ¿Repositorio solo backend (polyrepo) o monorepo en `booking-platform/`? (ADR-0014) | Monorepo si se quiere compartir OpenAPI sin publicar artefactos; polyrepo si se prefieren permisos/CI separados. **Recomendación: monorepo** — se puede migrar este historial sin perder commits. Requiere autorización para trabajar en la raíz. |
-| P2 | ¿Repositorio GitHub privado o público? ¿Cuenta personal u organización? | Privado. (CodeQL y secret scanning avanzado en privados requieren GitHub Advanced Security; gitleaks cubre secretos en ambos casos.) |
-| P3 | ¿Instalo Go y las herramientas en esta máquina (winget/scoop) o lo haces tú? | Lo instalas tú o autorizas `winget install GoLang.Go`; el resto vía `go install`. |
+| P1 | ~~¿Polyrepo o monorepo?~~ | ✅ **Respondida 2026-11-18: monorepo** (ADR-0014). |
+| P2 | ~~¿Privado o público?~~ | ✅ **Respondida: privado.** Pendiente: ¿cuenta personal u organización? ¿plan Free o Pro/Team? (afecta protección de ramas). URL del repo vacío para el push. |
+| P3 | ~~¿Instalar Go?~~ | ✅ **Respondida: autorizado.** |
 | P4 | ¿Actualizar Git local (2.30.1, de 2021)? | Sí, recomendado. |
+| P21 | Aprobación explícita de la Fase 0 ("Fase 0 aprobada") | Necesaria para iniciar T1.1 (código). |
 
 ## Bloqueantes para Fases 4–7 (pueden responderse más tarde)
 
@@ -31,4 +32,4 @@ la Fase 0, se adopta la propuesta.
 | P17 | ¿Meta Business Manager verificado disponible? | Iniciar trámite antes de Fase 7. |
 | P18 | PROD: PostgreSQL en Droplet o DO Managed PostgreSQL | Decidir en Fase 13; recomendación: Managed. |
 | P19 | ¿Commits firmados obligatorios? | Recomendado (SSH signing), no bloqueante. |
-| P20 | ¿Archivo `booking-platform.code-workspace` en la raíz? | Crearlo cuando se autorice tocar la raíz (ligado a P1). |
+| P20 | ~~¿`booking-platform.code-workspace` en la raíz?~~ | ✅ Creado como consecuencia de P1. |

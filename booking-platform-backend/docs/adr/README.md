@@ -19,5 +19,5 @@ la aprobación del usuario.
 | [0011](0011-rest-openapi-stdlib-router.md) | REST spec-first OpenAPI 3.1 con router stdlib | Propuesto |
 | [0012](0012-digitalocean-droplet-compose-caddy.md) | DigitalOcean Droplet + Docker Compose + Caddy | Propuesto |
 | [0013](0013-devsecops-git-workflow.md) | DevSecOps y flujo Git | Propuesto |
-| [0014](0014-repository-layout.md) | Repositorio Git independiente para el backend | Propuesto |
+| [0014](0014-repository-layout.md) | Monorepo para toda la plataforma | **Aceptado** |
 | [0015](0015-identifiers-and-money.md) | Identificadores UUIDv7 y dinero en unidades menores | Propuesto |

@@ -36,3 +36,19 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
   `docs/adr/*` (15 ADR + índice), `docs/plan/*`, `docs/testing/*`, `docs/operations/*`.
 - **Pruebas:** no aplica (sin código).
 - **Próximos pasos:** T0.4 — revisión del usuario y respuesta a preguntas pendientes.
+
+## 2026-11-18 · Fase 0 · T0.4 — Respuestas del usuario (parcial)
+
+- **Estado:** 🟡 En curso (falta aprobación explícita de la Fase 0)
+- **Respuestas:** P1 monorepo · P2 privado · P3 instalación autorizada.
+- **Acciones:**
+  - `.git` movido de `booking-platform-backend/` a `booking-platform/` (historial conservado).
+  - Archivos transversales movidos a la raíz: `.github/`, `.gitignore` (ampliado para Node/Expo/
+    Terraform), `.gitattributes`, `.editorconfig`, `.gitleaks.toml`, `.pre-commit-config.yaml`,
+    `SECURITY.md`. Nuevos: `README.md` raíz, `booking-platform.code-workspace`.
+  - ADR-0014 reescrito y **Aceptado** (monorepo).
+  - Herramientas instaladas: Go 1.27.4 (winget), golangci-lint 2.15.0 (winget), Task 3.54.0
+    (winget), govulncheck v1.10.0, goose v3.30.1, sqlc v1.31.1 (`go install`).
+- **No instalado:** `pre-commit` (requiere Python; pendiente de autorización). Git sigue en 2.30.1.
+- **Problemas:** primer `go install` de govulncheck falló por DNS (`lookup proxy.golang.org`);
+  el reintento funcionó. Nota: abrir una terminal nueva para que el PATH incluya Go.

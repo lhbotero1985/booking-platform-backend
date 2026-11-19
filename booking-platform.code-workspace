@@ -1,0 +1,15 @@
+{
+  "folders": [
+    { "name": "root", "path": "." },
+    { "name": "backend", "path": "booking-platform-backend" },
+    { "name": "frontend", "path": "booking-platform-frontend" }
+  ],
+  "settings": {
+    "files.eol": "\n",
+    "editor.formatOnSave": true,
+    "[go]": { "editor.defaultFormatter": "golang.go" }
+  },
+  "extensions": {
+    "recommendations": ["golang.go", "editorconfig.editorconfig", "redhat.vscode-yaml"]
+  }
+}

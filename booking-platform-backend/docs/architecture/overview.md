@@ -126,8 +126,9 @@ Notas:
 - Las pruebas unitarias van junto al código (`*_test.go`); `tests/` es solo para suites
   transversales.
 - La infraestructura QA/PROD (Caddy, compose de servidor, scripts) vive en
-  `booking-platform/infrastructure/` (fuera de este repositorio), a partir de la Fase 3 y con
-  autorización.
+  `booking-platform/infrastructure/` (mismo monorepo, fuera de este proyecto), a partir de la
+  Fase 3 y con autorización.
+- `.github/` y la configuración Git/DevSecOps están en la raíz del monorepo (ADR-0014).
 
 ## 6. Componentes transversales (`internal/platform`)
 

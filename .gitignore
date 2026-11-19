@@ -1,3 +1,5 @@
+# Monorepo booking-platform. Las reglas aplican a todos los proyectos.
+
 # --- Secretos y configuración local (NUNCA versionar) ---
 .env
 .env.*
@@ -6,14 +8,16 @@
 *.key
 *.p12
 *.pfx
+*.jks
+*.keystore
 secrets/
 *.age
 !*.age.example
 
-# --- Binarios y build ---
-/bin/
-/dist/
-/build/
+# --- Go (backend) ---
+booking-platform-backend/bin/
+booking-platform-backend/dist/
+booking-platform-backend/vendor/
 *.exe
 *.exe~
 *.dll
@@ -22,22 +26,35 @@ secrets/
 *.test
 *.out
 coverage.*
-/tmp/
-
-# --- Go ---
-/vendor/
 go.work
 go.work.sum
 
+# --- Node / Next.js / Expo (frontend) ---
+node_modules/
+.next/
+out/
+.expo/
+.expo-shared/
+web-build/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+.turbo/
+
+# --- Infraestructura ---
+*.tfstate
+*.tfstate.*
+.terraform/
+
 # --- Herramientas ---
 .task/
-.golangci-cache/
+tmp/
 
-# --- Datos locales / volúmenes ---
-/data/
+# --- Datos locales / volúmenes / backups ---
+data/
 *.dump
 *.sql.gz
-/backups/
+backups/
 
 # --- IDE / SO ---
 .idea/
