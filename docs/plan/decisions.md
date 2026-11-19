@@ -30,6 +30,9 @@ Decisiones relevantes no arquitectónicas (las arquitectónicas tienen ADR en `d
 | 2026-11-19 | El worker no arranca con migraciones pendientes | Evita errores en tablas inexistentes; el orquestador lo reinicia | Aplicado |
 | 2026-11-19 | `omit_unused_structs` en sqlc | El esquema compartido no debe generar modelos ajenos en cada paquete | Aplicado |
 | 2026-11-19 | Reintentos al arrancar contenedores de prueba | testcontainers en Windows falla intermitentemente al crear el provider | Aplicado |
+| 2026-11-19 | Validación OpenAPI (spec + contrato) con pb33f/libopenapi en pruebas Go | Soporta 3.1; sin dependencia de imágenes externas | Aplicado |
+| 2026-11-19 | 404/405 documentados como respuestas genéricas (no por operación) | Un 405 ocurre precisamente en métodos no definidos | Aplicado |
+| 2026-11-19 | `task test:integration` fija `DOCKER_HOST` al endpoint del contexto Docker activo | Evita la detección intermitente de testcontainers en Windows | Aplicado |
 | 2026-11-18 | Imágenes en GHCR | Gratuito con GitHub, integrado con Actions | Propuesto |
 | 2026-11-18 | Búsqueda de negocios por ciudad en MVP (PostGIS listo para cercanía futura) | Simplicidad | Propuesto |
 | 2026-11-18 | Sin auto-cancelación de citas pendientes en MVP | Regla del prompt; requiere política aprobada | Propuesto |

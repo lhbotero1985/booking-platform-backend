@@ -135,3 +135,20 @@ No existen pruebas de código: la Fase 0 no contiene código funcional.
 | E2E: SIGTERM al worker | ✅ `worker shutting down` → `worker stopped cleanly`, exit 0 | |
 | Contraseña de BD en logs (api + worker) | ✅ no aparece | |
 | gitleaks | ✅ no leaks found | |
+
+## 2026-11-19 · Fase 1 · T1.7 — Contrato OpenAPI 3.1
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| `TestSpecIsValidOpenAPI31` | ✅ | Spec 3.1.0 válido contra el esquema OpenAPI (libopenapi v0.43.1 / validator v0.16.3) |
+| `TestSpecConventions` | ✅ | operationId único, tags, errores 4xx/5xx con `application/problem+json` |
+| `TestContractOperations` (1ª) | ❌ → ✅ | `POST /healthz 405` no se puede declarar en la operación GET → 404/405 pasan a ser respuestas genéricas documentadas en `info.description` |
+| `TestContractOperations` | ✅ | `GET /healthz` 200, `GET /readyz` 200 y 503 conformes (status, headers, content-type, body) |
+| `TestContractGenericErrorsAreProblems` | ✅ | 404 y 405 (POST /healthz, DELETE /readyz) son `Problem` válidos con `application/problem+json` |
+| `TestContractDetectsViolations` | ✅ | Verificación negativa: body inválido en /healthz y Problem inválido son rechazados |
+| `task openapi:lint` | ✅ exit 0 | |
+| `golangci-lint run` | ✅ 0 issues | |
+| `govulncheck ./...` | ✅ No vulnerabilities found | 1er intento falló por DNS |
+| `go test -tags=integration ./...` (sin DOCKER_HOST) | ⚠️ 1 fallo en 4 corridas | `failed to create Docker provider` (detección automática de testcontainers en Windows bajo concurrencia) |
+| `task test:integration` (DOCKER_HOST explícito del contexto Docker) × 6 | ✅ 6/6, 9 paquetes ok | Causa raíz corregida |
+| gitleaks | ✅ no leaks found | |

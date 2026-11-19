@@ -195,3 +195,23 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - **Pruebas:** ver `test-results.md`.
 - **Pendiente de autorización:** commit/push/PR de T1.6; merge del PR #6 (Dependabot).
 - **Próximos pasos:** T1.7 (OpenAPI 3.1).
+
+## 2026-11-19 · Integración de T1.6 y PR #6
+
+- PR #6 (Dependabot → `qa`) squash merge `1eaf3af`.
+- T1.6: commit, rebase sobre `qa` (conflictos solo de docs, conservadas ambas partes), PR #7,
+  gitleaks ✅, squash merge `e90d6a3`. El clasificador de permisos bloqueó `--delete-branch`;
+  la rama `feature/t1.6-river` quedó en local y remoto (borrado pendiente de confirmación).
+
+## 2026-11-19 · Fase 1 · T1.7 — Contrato OpenAPI 3.1
+
+- **Estado:** ✅ Implementada y probada en `feature/t1.7-openapi` (desde `qa`). **Sin commit**:
+  pendiente de autorización.
+- **Archivos:** `api/openapi.yaml`, `api/spec.go` (embed), `api/spec_test.go`,
+  `internal/app/contract_test.go`, `Taskfile.yml` (`openapi:lint`; `test:integration` con
+  `DOCKER_HOST` explícito), `go.mod`/`go.sum` (libopenapi, libopenapi-validator).
+- **Decisiones:** validación del spec y del contrato en Go (sin imagen Docker extra); 404/405
+  como respuestas genéricas `Problem` no listadas por operación; esquemas de seguridad
+  declarados (bearer opaco, cookie `__Host-session`) para aplicarse desde la Fase 2.
+- **Pruebas:** ver `test-results.md`.
+- **Próximos pasos:** T1.8 (GitHub Actions CI).
