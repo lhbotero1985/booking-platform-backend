@@ -334,3 +334,20 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `task check` | ✅ | lint 0 issues, govulncheck sin vulnerabilidades |
 | `task test:integration` | ✅ | Todos los paquetes ok |
 | E2E Docker Compose | ✅ | 12 logins desde una IP → 10×401 + 2×429 (`Retry-After`, `RATE_LIMITED`); 25 `/healthz` → 200; tras recarga, misma cuenta 7 intentos → 5×401 + 2×429 (backoff); contraseñas en logs: 0 |
+
+## 2026-11-19 · Fase 2 · T2.7 — CI
+
+| Comando | Resultado |
+|---|---|
+| PR #19 — ci + security | ✅ 6/6 (unit+race 3m59s, integración 3m41s, lint 3m24s, Trivy 51s, govulncheck, gitleaks); squash merge `9129419` |
+
+## 2026-11-19 · Fase 2 · T2.8 — Auditoría básica
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| Unitarias aplicación (`audit_test.go`) | ✅ 7 pruebas | Registro (éxito / `email_taken`), verificación (token inválido / éxito); login: éxito con sesión, `wrong_password`, `unknown_account` (sin actor, `email_fp` de 16 hex), `email_not_verified` (DENIED), `account_suspended`, `throttled`; cambio, olvido, restablecimiento, logout y logout-all con contadores; `authz.denied` (`insufficient_role`, `no_membership`, PLATFORM_ADMIN) y acceso permitido sin fila; **atomicidad** (fallo de auditoría → login falla y no se crea sesión; login fallido igual responde 401); **sin secretos** (contraseñas, tokens, emails, nombre, user agent) en todo un flujo |
+| `reqctx` / HTTP | ✅ | Ida y vuelta del contexto; el `X-Request-ID` del cliente y la IP llegan a la fila de auditoría |
+| Pruebas existentes | ✅ | Primera corrida: pánico en `newAuthzService` (sin reloj ni logger) → `NewService` con valores por defecto |
+| Integración PostgreSQL | ✅ 2 pruebas | 4 filas reales (login FAILURE/SUCCESS, `authz.denied`, logout) con IP IPv6 `inet`, `occurred_at` = reloj de la aplicación, recurso `session`, JSON de metadatos; restricción CHECK temporal (`NOT VALID`) que rechaza la fila → el login hace rollback y no deja sesión |
+| `task check` / `sqlc:check` / `test:integration` | ✅ | lint 0 issues, sin vulnerabilidades |
+| E2E Docker Compose + Mailpit | ✅ | 1.er `task up` falló de forma transitoria (exit 17) y el reintento levantó todo. 6 filas: registered, email_verified, login FAILURE (`wrong_password`, `request_id` del cliente), login SUCCESS, password_changed, logout; filas con email, contraseña o token: 0 |

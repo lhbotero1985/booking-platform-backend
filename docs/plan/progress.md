@@ -376,3 +376,21 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
   compartido por los endpoints de credenciales y email; backoff de login desde el 5.º fallo
   (1 s → 15 min); 429 `RATE_LIMITED` con `Retry-After`, idéntico exista o no la cuenta.
 - **Abiertos:** P28 (ataques distribuidos), P29 (NAT); IP real detrás de Caddy en la Fase 3.
+
+## 2026-11-19 · Fase 2 · T2.7 integrada
+
+- PR #19 → `qa`: 6/6 ✅, squash merge `9129419`. La rama `feature/t2.7-rate-limiting` sigue
+  existiendo (borrado pendiente de autorización).
+
+## 2026-11-19 · Fase 2 · T2.8 — Auditoría básica
+
+- **Estado:** ✅ Completada en `feature/t2.8-audit` (commit y push; PR y merge pendientes de
+  autorización).
+- **Archivos:** `internal/platform/reqctx` (nuevo), `httpx/requestid.go` (request ID e IP en
+  `reqctx`), `db/queries/identity/memberships_audit.sql` (`occurred_at` desde la aplicación) +
+  sqlc, `identity/application/audit.go` (eventos, resultados, motivos, constructor,
+  `auditDetached`, `emailFingerprint`), casos de uso instrumentados (`registration.go`,
+  `session.go`, `password.go`, `authz.go`), puerto `Tx.AppendAudit`, `postgres` y `apptest`,
+  `contract.Authorizer.RequirePlatformAdmin(ctx, p)`, pruebas, `security.md`.
+- **Notas:** en DEV la IP auditada es la puerta de enlace de Docker; la IP real llega con Caddy
+  (Fase 3). Retención/consulta en la Fase 12 (P30).

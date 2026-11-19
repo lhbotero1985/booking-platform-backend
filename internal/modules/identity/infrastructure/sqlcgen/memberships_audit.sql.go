@@ -8,6 +8,7 @@ package sqlcgen
 import (
 	"context"
 	"net/netip"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -46,8 +47,8 @@ func (q *Queries) CreateMembership(ctx context.Context, arg CreateMembershipPara
 }
 
 const insertAuditEntry = `-- name: InsertAuditEntry :exec
-INSERT INTO audit_log (id, actor_user_id, business_id, action, resource_type, resource_id, ip, outcome, metadata)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO audit_log (id, occurred_at, actor_user_id, business_id, action, resource_type, resource_id, ip, outcome, metadata)
+VALUES ($1, $10::timestamptz, $2, $3, $4, $5, $6, $7, $8, $9)
 `
 
 type InsertAuditEntryParams struct {
@@ -60,8 +61,10 @@ type InsertAuditEntryParams struct {
 	Ip           *netip.Addr
 	Outcome      string
 	Metadata     []byte
+	OccurredAt   time.Time
 }
 
+// occurred_at comes from the application clock (ADR-0005), not from now().
 func (q *Queries) InsertAuditEntry(ctx context.Context, arg InsertAuditEntryParams) error {
 	_, err := q.db.Exec(ctx, insertAuditEntry,
 		arg.ID,
@@ -73,6 +76,7 @@ func (q *Queries) InsertAuditEntry(ctx context.Context, arg InsertAuditEntryPara
 		arg.Ip,
 		arg.Outcome,
 		arg.Metadata,
+		arg.OccurredAt,
 	)
 	return err
 }

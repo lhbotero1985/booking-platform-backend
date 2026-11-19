@@ -26,6 +26,7 @@ type Querier interface {
 	// citext: comparison is case-insensitive.
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
+	// occurred_at comes from the application clock (ADR-0005), not from now().
 	InsertAuditEntry(ctx context.Context, arg InsertAuditEntryParams) error
 	// Issuing a new token invalidates the previous unused ones.
 	InvalidateEmailVerificationTokens(ctx context.Context, arg InvalidateEmailVerificationTokensParams) error
