@@ -57,6 +57,11 @@ Decisiones relevantes no arquitectónicas (las arquitectónicas tienen ADR en `d
 | 2026-11-19 | `PLATFORM_ADMIN` sin rol implícito en negocios | Mínimo privilegio; las acciones de soporte serán casos de uso de administración auditados | Aplicado (T2.6) |
 | 2026-11-19 | Sentinelas `authz.ErrForbidden`/`ErrNotFound` en `internal/platform/authz` y mapeo único `httpx.WriteAuthzProblem` | Todos los módulos responden 403/404 igual sin importarse entre sí | Aplicado (T2.6) |
 | 2026-11-19 | Rol desconocido leído de la BD → error (falla cerrado), no se ignora | Defensa ante deriva entre esquema y código | Aplicado (T2.6) |
+| 2026-11-19 | Rate limiting propio en memoria (token bucket + backoff), sin dependencias nuevas | Una instancia en el MVP; código pequeño y probado con reloj inyectado | Aplicado (T2.7) |
+| 2026-11-19 | Clave de cliente: IPv4 completa o prefijo IPv6 /64 | Un usuario controla un /64 completo; por dirección sería trivial rotar | Aplicado (T2.7) |
+| 2026-11-19 | Tablas acotadas: al llenarse se limpian inactivas y se expulsa una entrada aleatoria | Evitar DoS de memoria sin bloquear a usuarios nuevos | Aplicado (T2.7) |
+| 2026-11-19 | Backoff de login por hash(email)+IP, aplicado exista o no la cuenta, antes de Argon2 | Anti-enumeración y sin costo de CPU para el atacante bloqueado; sin bloqueo de cuenta (evita DoS a la víctima) | Aplicado (T2.7) |
+| 2026-11-19 | Límite estricto compartido entre todos los endpoints de credenciales y email | Un único presupuesto por cliente impide repartir el abuso entre rutas | Aplicado (T2.7) |
 | 2026-11-18 | Imágenes en GHCR | Gratuito con GitHub, integrado con Actions | Propuesto |
 | 2026-11-18 | Búsqueda de negocios por ciudad en MVP (PostGIS listo para cercanía futura) | Simplicidad | Propuesto |
 | 2026-11-18 | Sin auto-cancelación de citas pendientes en MVP | Regla del prompt; requiere política aprobada | Propuesto |

@@ -68,6 +68,24 @@ type Argon2 struct {
 	MaxConcurrent int
 }
 
+// RateLimit configures the in-memory limits (security.md §3). Limits are per client key (IPv4
+// address or IPv6 /64) except the login backoff, which is per email+client.
+type RateLimit struct {
+	// APIPerMinute / APIBurst: general limit for every route except health probes.
+	APIPerMinute int
+	APIBurst     int
+	// AuthPerMinute / AuthBurst: strict limit shared by login, register, email verification and
+	// password endpoints.
+	AuthPerMinute int
+	AuthBurst     int
+	// MaxKeys bounds each in-memory table (memory DoS protection).
+	MaxKeys int
+	// LoginBackoffThreshold consecutive failures start the backoff (1 s, doubling) capped at
+	// LoginBackoffMax.
+	LoginBackoffThreshold int
+	LoginBackoffMax       time.Duration
+}
+
 // SMTP configures transactional email. QA/PROD must use TLS (starttls or tls).
 type SMTP struct {
 	Host     string
@@ -80,13 +98,14 @@ type SMTP struct {
 
 // Config is the full process configuration.
 type Config struct {
-	Env      Env
-	LogLevel slog.Level
-	HTTP     HTTP
-	Database Database
-	Worker   Worker
-	Argon2   Argon2
-	SMTP     SMTP
+	Env       Env
+	LogLevel  slog.Level
+	HTTP      HTTP
+	Database  Database
+	Worker    Worker
+	Argon2    Argon2
+	SMTP      SMTP
+	RateLimit RateLimit
 	// PublicAppURL is the base URL of the client app used in email links (/verify-email, …).
 	PublicAppURL string
 }
@@ -132,6 +151,15 @@ func Load(getenv func(string) string) (Config, error) {
 			Password: p.str("SMTP_PASSWORD", ""),
 			TLSMode:  p.str("SMTP_TLS", "none"),
 		},
+		RateLimit: RateLimit{
+			APIPerMinute:          int(p.intRange("RATE_LIMIT_API_PER_MINUTE", 300, 10, 100_000)),
+			APIBurst:              int(p.intRange("RATE_LIMIT_API_BURST", 100, 1, 100_000)),
+			AuthPerMinute:         int(p.intRange("RATE_LIMIT_AUTH_PER_MINUTE", 10, 1, 1_000)),
+			AuthBurst:             int(p.intRange("RATE_LIMIT_AUTH_BURST", 10, 1, 1_000)),
+			MaxKeys:               int(p.intRange("RATE_LIMIT_MAX_KEYS", 100_000, 1_000, 10_000_000)),
+			LoginBackoffThreshold: int(p.intRange("LOGIN_BACKOFF_THRESHOLD", 5, 1, 100)),
+			LoginBackoffMax:       p.duration("LOGIN_BACKOFF_MAX", 15*time.Minute),
+		},
 		PublicAppURL: p.str("PUBLIC_APP_URL", "http://localhost:3000"),
 	}
 	if cfg.Database.MigratorURL == "" {
@@ -141,6 +169,9 @@ func Load(getenv func(string) string) (Config, error) {
 	p.validateOrigins(cfg.Env, cfg.HTTP.CORSAllowedOrigins)
 	p.validateSMTP(cfg.Env, cfg.SMTP)
 	p.validatePublicURL(cfg.Env, cfg.PublicAppURL)
+	if m := cfg.RateLimit.LoginBackoffMax; m < time.Second || m > 24*time.Hour {
+		p.fail("LOGIN_BACKOFF_MAX", "must be between 1s and 24h")
+	}
 	if cfg.HTTP.MaxBodyBytes <= 0 {
 		p.fail("HTTP_MAX_BODY_BYTES", "must be greater than zero")
 	}

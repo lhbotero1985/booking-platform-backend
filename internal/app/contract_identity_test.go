@@ -21,6 +21,8 @@ import (
 	identityhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/interfaces/http"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/config"
+	"github.com/lhbotero1985/booking-platform-backend/internal/platform/httpx"
+	"github.com/lhbotero1985/booking-platform-backend/internal/platform/ratelimit"
 )
 
 type identityEnv struct {
@@ -30,7 +32,10 @@ type identityEnv struct {
 	mailer *apptest.Mailer
 }
 
-func newIdentityServer(t *testing.T) identityEnv {
+func newIdentityServer(t *testing.T) identityEnv { return newIdentityServerWith(t, nil, nil) }
+
+// newIdentityServerWith wires an optional strict auth limiter and login throttle.
+func newIdentityServerWith(t *testing.T, limiter httpx.Allower, throttle application.AttemptThrottle) identityEnv {
 	t.Helper()
 	cfg, err := config.Load(func(k string) string {
 		return map[string]string{"APP_ENV": "test", "DATABASE_URL": "postgres://u:p@localhost:5432/test"}[k]
@@ -44,8 +49,11 @@ func newIdentityServer(t *testing.T) identityEnv {
 		Store: e.store, Hasher: &apptest.Hasher{}, Mailer: e.mailer,
 		Clock: clock.NewFixed(time.Date(2026, 11, 19, 12, 0, 0, 0, time.UTC)), Random: &apptest.FixedRandom{},
 		Config: application.Config{PublicAppURL: "https://app.example.test"}, Logger: logger,
+		Throttle: throttle,
 	})
-	e.srv = httptest.NewServer(NewHTTPHandler(cfg, logger, Deps{Modules: []RouteRegistrar{identityhttp.New(e.svc, logger, identityhttp.Options{AllowedOrigins: []string{"https://business.example.test"}})}}))
+	e.srv = httptest.NewServer(NewHTTPHandler(cfg, logger, Deps{Modules: []RouteRegistrar{identityhttp.New(e.svc, logger, identityhttp.Options{
+		AllowedOrigins: []string{"https://business.example.test"}, AuthLimiter: limiter,
+	})}}))
 	t.Cleanup(e.srv.Close)
 	return e
 }
@@ -199,4 +207,23 @@ func TestContractPasswordEndpoints(t *testing.T) {
 	tok := regexp.MustCompile(`"token":"([^"]+)"`).FindStringSubmatch(body)[1]
 	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/me/password", `{"currentPassword":"mal","newPassword":"una tercera clave larguisima"}`, tok, http.StatusBadRequest)
 	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/me/password", `{"currentPassword":"otra frase nueva bastante larga","newPassword":"una tercera clave larguisima"}`, tok, http.StatusNoContent)
+}
+
+func TestContractRateLimited(t *testing.T) {
+	c := loadContract(t)
+	const js = "application/json"
+	fixed := clock.NewFixed(time.Date(2026, 11, 19, 12, 0, 0, 0, time.UTC))
+
+	// Login backoff: 429 after the threshold, for an unknown account too.
+	e := newIdentityServerWith(t, nil, ratelimit.NewBackoff(fixed, ratelimit.BackoffConfig{Threshold: 2, Base: time.Minute, Max: time.Hour, MaxKeys: 10}))
+	bad := `{"email":"nadie@example.com","password":"clave equivocada 123","clientType":"MOBILE"}`
+	c.call(t, e.srv, "/api/v1/auth/login", bad, js, http.StatusUnauthorized, true)
+	c.call(t, e.srv, "/api/v1/auth/login", bad, js, http.StatusUnauthorized, true)
+	c.call(t, e.srv, "/api/v1/auth/login", bad, js, http.StatusTooManyRequests, true)
+
+	// Strict per-client limit on the email endpoints.
+	e = newIdentityServerWith(t, ratelimit.NewLimiter(fixed, ratelimit.LimiterConfig{PerMinute: 1, Burst: 1, MaxKeys: 10}), nil)
+	c.call(t, e.srv, "/api/v1/auth/password/forgot", `{"email":"ana@example.com"}`, js, http.StatusAccepted, true)
+	c.call(t, e.srv, "/api/v1/auth/password/forgot", `{"email":"ana@example.com"}`, js, http.StatusTooManyRequests, true)
+	c.call(t, e.srv, "/api/v1/auth/register", `{"email":"ana@example.com","password":"una clave suficientemente larga","fullName":"Ana"}`, js, http.StatusTooManyRequests, true)
 }

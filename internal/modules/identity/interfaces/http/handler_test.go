@@ -31,16 +31,20 @@ type fixture struct {
 	api    *httpapi.Handler
 }
 
-func newFixture() fixture {
+func newFixture() fixture { return newFixtureWith(nil, nil) }
+
+// newFixtureWith builds the fixture with an optional auth limiter and login throttle.
+func newFixtureWith(limiter httpx.Allower, throttle application.AttemptThrottle) fixture {
 	f := fixture{store: apptest.NewStore(), mailer: &apptest.Mailer{}, logs: &bytes.Buffer{}}
 	logger := logging.New(f.logs, slog.LevelDebug)
 	f.svc = application.NewService(application.Deps{
 		Store: f.store, Hasher: &apptest.Hasher{}, Mailer: f.mailer,
 		Clock: clock.NewFixed(time.Date(2026, 11, 19, 12, 0, 0, 0, time.UTC)), Random: &apptest.FixedRandom{},
 		Config: application.Config{PublicAppURL: "https://app.example.test"}, Logger: logger,
+		Throttle: throttle,
 	})
 	rt := httpx.NewRouter()
-	f.api = httpapi.New(f.svc, logger, httpapi.Options{AllowedOrigins: []string{allowedOrigin}})
+	f.api = httpapi.New(f.svc, logger, httpapi.Options{AllowedOrigins: []string{allowedOrigin}, AuthLimiter: limiter})
 	f.api.Routes(rt)
 	f.h = httpx.Chain(rt, httpx.RequestID, httpx.Recover(logger), httpx.LimitBody(1<<20))
 	return f

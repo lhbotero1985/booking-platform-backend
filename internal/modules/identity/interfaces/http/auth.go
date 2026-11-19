@@ -3,7 +3,6 @@ package httpapi
 import (
 	"errors"
 	"log/slog"
-	"net"
 	"net/http"
 	"net/netip"
 	"strings"
@@ -180,17 +179,11 @@ func clearSessionCookie(w http.ResponseWriter) {
 	})
 }
 
-// clientIP returns the TCP peer address. Behind the reverse proxy (Phase 3) the trusted
-// X-Forwarded-For handling will be added there, never trusting client-supplied headers here.
+// clientIP returns the TCP peer address (see httpx.ClientIP).
 func clientIP(r *http.Request) *netip.Addr {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
+	ip, ok := httpx.ClientIP(r)
+	if !ok {
 		return nil
 	}
-	ip, err := netip.ParseAddr(host)
-	if err != nil {
-		return nil
-	}
-	ip = ip.Unmap()
 	return &ip
 }

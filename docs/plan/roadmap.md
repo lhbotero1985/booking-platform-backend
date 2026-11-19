@@ -54,7 +54,7 @@ Módulo `internal/modules/identity` (ADR-0006, ADR-0007, `docs/architecture/secu
 | T2.4 ✅ | Login (solo cuentas verificadas, `VerifyDummy`, rehash) + sesiones con token opaco + middleware de autenticación (Bearer y cookie `__Host-session` + CSRF) + logout, logout-all, `/me` | Matriz 401: sin token, malformado, expirado, revocado, no verificado, suspendido; tiempo comparable para email inexistente |
 | T2.5 ✅ | Recuperación de contraseña (token `bp_pr_` de un solo uso, reutiliza mailer SMTP y jobs) | Respuesta siempre 202; token expira y no se reutiliza; revoca sesiones |
 | T2.6 ✅ | RBAC: roles, membresías, políticas por caso de uso, patrón 404 entre negocios | Matriz rol × acción; 403 mismo negocio, 404 otro negocio |
-| T2.7 | Rate limiting (login, registro, recuperación) y backoff ante fuerza bruta | Pruebas de límites y de backoff |
+| T2.7 ✅ | Rate limiting (login, registro, recuperación) y backoff ante fuerza bruta | Pruebas de límites y de backoff |
 | T2.8 | Auditoría básica (login, fallos, cambios de contraseña/membresía) | Eventos auditados sin datos sensibles |
 | T2.9 | Suite de seguridad de la fase + cierre | `tests/security` ampliada; checklist de fase |
 

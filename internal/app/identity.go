@@ -15,7 +15,7 @@ import (
 
 // NewIdentityService wires the identity use cases with their production adapters. inserter
 // enqueues jobs in the same transaction as the data (River client).
-func NewIdentityService(cfg config.Config, pool *pgxpool.Pool, inserter postgres.JobInserter, logger *slog.Logger) (*application.Service, error) {
+func NewIdentityService(cfg config.Config, pool *pgxpool.Pool, inserter postgres.JobInserter, logger *slog.Logger, throttle application.AttemptThrottle) (*application.Service, error) {
 	hasher, err := argon2.New(argon2.Params{
 		MemoryKiB:   cfg.Argon2.MemoryKiB,
 		Iterations:  cfg.Argon2.Iterations,
@@ -32,11 +32,12 @@ func NewIdentityService(cfg config.Config, pool *pgxpool.Pool, inserter postgres
 		return nil, err
 	}
 	return application.NewService(application.Deps{
-		Store:  postgres.NewStore(pool, inserter),
-		Hasher: hasher,
-		Mailer: mailer,
-		Clock:  clock.System{},
-		Config: application.Config{PublicAppURL: cfg.PublicAppURL},
-		Logger: logger,
+		Store:    postgres.NewStore(pool, inserter),
+		Hasher:   hasher,
+		Mailer:   mailer,
+		Clock:    clock.System{},
+		Config:   application.Config{PublicAppURL: cfg.PublicAppURL},
+		Logger:   logger,
+		Throttle: throttle,
 	}), nil
 }

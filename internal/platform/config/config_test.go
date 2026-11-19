@@ -215,3 +215,30 @@ func TestSMTPAndPublicURLConfig(t *testing.T) {
 		}
 	}
 }
+
+func TestRateLimitConfig(t *testing.T) {
+	cfg, err := Load(envFrom(map[string]string{"APP_ENV": "test"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := RateLimit{APIPerMinute: 300, APIBurst: 100, AuthPerMinute: 10, AuthBurst: 10, MaxKeys: 100_000, LoginBackoffThreshold: 5, LoginBackoffMax: 15 * time.Minute}
+	if cfg.RateLimit != want {
+		t.Errorf("defaults = %+v", cfg.RateLimit)
+	}
+	cfg, err = Load(envFrom(map[string]string{"APP_ENV": "test", "RATE_LIMIT_AUTH_PER_MINUTE": "20", "LOGIN_BACKOFF_MAX": "1h"}))
+	if err != nil || cfg.RateLimit.AuthPerMinute != 20 || cfg.RateLimit.LoginBackoffMax != time.Hour {
+		t.Errorf("overrides = %+v, %v", cfg.RateLimit, err)
+	}
+	for key, val := range map[string]string{
+		"RATE_LIMIT_API_PER_MINUTE":  "0",
+		"RATE_LIMIT_AUTH_PER_MINUTE": "100000",
+		"RATE_LIMIT_AUTH_BURST":      "0",
+		"RATE_LIMIT_MAX_KEYS":        "10",
+		"LOGIN_BACKOFF_THRESHOLD":    "0",
+		"LOGIN_BACKOFF_MAX":          "100ms",
+	} {
+		if _, err := Load(envFrom(map[string]string{"APP_ENV": "test", key: val})); err == nil || !strings.Contains(err.Error(), key) {
+			t.Errorf("%s=%s accepted (err %v)", key, val, err)
+		}
+	}
+}

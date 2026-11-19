@@ -312,3 +312,25 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `task check` | ✅ | lint 0 issues (2 comentarios revive corregidos); govulncheck: 1.er intento falló por DNS (`vuln.go.dev`), reintento sin vulnerabilidades |
 | `task sqlc:check` / `openapi:lint` | ✅ | |
 | E2E Docker Compose + Mailpit (6 pasos) | ✅ | 401 sin auth → verify 200 → `{"items":[]}` → membresía MANAGER insertada → listada → revocada → `{"items":[]}`; token en logs: 0 |
+
+## 2026-11-19 · Fase 2 · T2.6 — CI
+
+| Comando | Resultado |
+|---|---|
+| PR #18 — ci + security | ✅ 6/6 (unit+race 4m46s, integración 2m37s, lint 2m30s, Trivy 1m0s, govulncheck, gitleaks); squash merge `76fc4f9` |
+
+## 2026-11-19 · Fase 2 · T2.7 — Rate limiting y fuerza bruta
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| Unitarias `ratelimit` | ✅ 6 pruebas | Ráfaga y recarga exactas con reloj fijo; tabla acotada (1000 claves → ≤ 100) y limpieza de inactivas; 200 goroutines → exactamente la ráfaga (50); backoff 1-2-4-8-8 s, expira, éxito reinicia, olvido tras `ForgetAfter`, valores por defecto. 1.ª corrida falló por error de coma flotante en la espera (999.999999 ms) → redondeo al ms hacia arriba y épsilon |
+| `httpx` | ✅ 3 pruebas | `ClientKey` (IPv4, IPv4 mapeada, IPv6 /64, inválida); middleware 429 + `Retry-After` + problem+json; rotar direcciones dentro de un /64 comparte bucket; `Retry-After` mínimo 1 |
+| Aplicación | ✅ 4 pruebas | Backoff idéntico para cuenta existente e inexistente; bloqueado **no** llama al hasher; otra IP no afectada; variantes de mayúsculas comparten clave; crece y expira; acierto reinicia; errores de validación no cuentan; cambio de contraseña con backoff por usuario |
+| Handlers HTTP | ✅ 2 pruebas | Límite estricto compartido por 6 endpoints públicos + `/me/password` (`Retry-After: 15`); `/me` no afectado; recarga; 429 de backoff idéntico (cuerpo y `Retry-After`) para cuenta existente e inexistente |
+| `internal/app` | ✅ | Límite general con `/healthz` y `/readyz` exentos; 429 conserva cabeceras de seguridad y `X-Request-ID` |
+| Configuración | ✅ | Valores por defecto, sobrescrituras y 6 valores fuera de rango rechazados |
+| Contrato OpenAPI | ✅ | 429 de backoff (cuenta inexistente) y de límite estricto (forgot, register) conformes |
+| `tests/security` fuerza bruta (config por defecto) | ✅ | 200 intentos desde una IP en un minuto → 195 con 429 y solo **5** verificaciones de contraseña; otra IP no afectada; tras 10 min de pausa, ≤ 1 verificación |
+| `task check` | ✅ | lint 0 issues, govulncheck sin vulnerabilidades |
+| `task test:integration` | ✅ | Todos los paquetes ok |
+| E2E Docker Compose | ✅ | 12 logins desde una IP → 10×401 + 2×429 (`Retry-After`, `RATE_LIMITED`); 25 `/healthz` → 200; tras recarga, misma cuenta 7 intentos → 5×401 + 2×429 (backoff); contraseñas en logs: 0 |
