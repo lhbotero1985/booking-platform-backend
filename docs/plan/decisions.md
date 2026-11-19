@@ -24,6 +24,8 @@ Decisiones relevantes no arquitectónicas (las arquitectónicas tienen ADR en `d
 | 2026-11-19 | ~~Una rama `feat/…` por tarea + PR a `main`; sin rama `qa`~~ | Reemplazado por ADR-0017 (ramas main/qa/feature/hotfix) | Reemplazado |
 | 2026-11-19 | Estrategia de ramas main / qa / feature/* / hotfix/* | Decisión del usuario; ADR-0017 | Aceptado |
 | 2026-11-19 | Nombres de rama `feature/…` (no `feat/…`) | ADR-0017; la rama remota `feat/t1.4-database` se renombra solo con autorización | Aceptado |
+| 2026-11-19 | Dependabot: PRs contra `qa`; sin actualizaciones mayores automáticas de PostGIS/PostgreSQL | ADR-0017; un salto mayor de PG requiere migración de datos planificada | Aplicado (efectivo al llegar a `main`) |
+| 2026-11-19 | Sin protección de ramas por ahora | Decisión del usuario (P23); se aplica por disciplina + CI | Aceptado |
 | 2026-11-18 | Imágenes en GHCR | Gratuito con GitHub, integrado con Actions | Propuesto |
 | 2026-11-18 | Búsqueda de negocios por ciudad en MVP (PostGIS listo para cercanía futura) | Simplicidad | Propuesto |
 | 2026-11-18 | Sin auto-cancelación de citas pendientes en MVP | Regla del prompt; requiere política aprobada | Propuesto |

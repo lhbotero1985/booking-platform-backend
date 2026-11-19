@@ -1,24 +1,41 @@
+# Dependabot (ADR-0013 / ADR-0017).
+# - Version updates open PRs against `qa` (never directly against `main`).
+# - Dependabot reads this file from the DEFAULT branch (main): it takes effect once it reaches
+#   main via the qa → main flow.
+# - Security updates always target the default branch; they are handled as hotfix/* when urgent.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
+    target-branch: qa
     schedule:
       interval: weekly
     groups:
       actions:
         patterns: ["*"]
+
   - package-ecosystem: gomod
     directory: /
+    target-branch: qa
     schedule:
       interval: weekly
     groups:
       go-deps:
         patterns: ["*"]
+
   - package-ecosystem: docker
     directory: /deploy/docker
+    target-branch: qa
     schedule:
       interval: weekly
+
   - package-ecosystem: docker-compose
     directory: /deploy/compose
+    target-branch: qa
     schedule:
       interval: weekly
+    ignore:
+      # A PostgreSQL major upgrade needs a data migration plan (pg_upgrade/dump-restore) and
+      # must also update the test image (internal/platform/pgtest). Planned manually.
+      - dependency-name: postgis/postgis
+        update-types: ["version-update:semver-major"]

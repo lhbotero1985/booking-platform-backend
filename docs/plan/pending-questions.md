@@ -39,7 +39,7 @@ la Fase 0, se adopta la propuesta.
 
 | # | Pregunta | Propuesta por defecto |
 |---|---|---|
-| P23 | La protección de `main` y `qa` en repos **privados** requiere GitHub Pro (personal) o Team (organización). ¿Contratar Pro, hacer público el repo, o proteger solo por disciplina + CI hasta decidir? | Recomendado: GitHub Pro (costo bajo) — requiere tu decisión, es un recurso pago. |
-| P24 | ¿Autorizas crear la rama `qa` desde `main` (push) para que los PR de `feature/*` apunten a ella? | Sí; es requisito del flujo. |
-| P25 | ¿Renombrar la rama remota `feat/t1.4-database` a `feature/t1.4-database`? | Sí, para cumplir la convención (borra la rama remota antigua). |
-| P26 | ¿Instalar GitHub CLI (`gh`) para que Claude Code pueda crear PRs cuando lo autorices? (alternativa: MCP de GitHub en una sesión nueva) | Sí, `winget install GitHub.cli` + `gh auth login` por el usuario. |
+| P23 | ~~Protección de ramas en repo privado~~ | ✅ Respondida 2026-11-19: **sin protección** por ahora (disciplina + CI). |
+| P24 | ~~Crear `qa` desde `main`~~ | ✅ Hecho 2026-11-19. |
+| P25 | ~~Renombrar `feat/t1.4-database`~~ | ✅ Hecho 2026-11-19 (`feature/t1.4-database`, ya fusionada y borrada). |
+| P26 | ~~GitHub CLI~~ | ✅ `gh` 2.105.0 instalado y autenticado (lhbotero1985). |
