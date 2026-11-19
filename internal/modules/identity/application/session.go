@@ -44,6 +44,10 @@ type LoginResult struct {
 //
 // Unknown email, wrong password and suspended account all return ErrInvalidCredentials and take
 // comparable time (VerifyDummy). ErrEmailNotVerified is only returned after a correct password.
+//
+// Repeated failures for the same email+IP trigger a progressive backoff (*RetryAfterError),
+// checked before any password hashing so a blocked attacker costs no Argon2 work. The backoff
+// is keyed by the submitted email whether or not the account exists.
 func (s *Service) Login(ctx context.Context, in LoginInput) (LoginResult, error) {
 	verr := &ValidationError{}
 	email, emailErr := domain.ParseEmail(in.Email)
@@ -60,6 +64,21 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (LoginResult, error)
 	if err := verr.orNil(); err != nil {
 		return LoginResult{}, err
 	}
+	key := loginThrottleKey(email, in.IP)
+	if err := s.checkThrottle(key); err != nil {
+		return LoginResult{}, err
+	}
+	res, err := s.login(ctx, in, email, clientType)
+	switch {
+	case errors.Is(err, ErrInvalidCredentials):
+		s.throttle.Failure(key)
+	case err == nil, errors.Is(err, ErrEmailNotVerified): // correct password
+		s.throttle.Success(key)
+	}
+	return res, err
+}
+
+func (s *Service) login(ctx context.Context, in LoginInput, email domain.Email, clientType domain.ClientType) (LoginResult, error) {
 	password, err := domain.PasswordForVerification(in.Password)
 	if err != nil {
 		return LoginResult{}, ErrInvalidCredentials

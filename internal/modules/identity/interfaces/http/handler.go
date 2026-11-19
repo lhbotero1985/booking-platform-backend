@@ -36,6 +36,9 @@ type Options struct {
 	// AllowedOrigins are the web origins allowed to make cookie-authenticated state-changing
 	// requests (same list as CORS_ALLOWED_ORIGINS).
 	AllowedOrigins []string
+	// AuthLimiter is the strict per-client limit shared by the credential and email endpoints
+	// (login, register, verification, password reset/change). nil disables it.
+	AuthLimiter httpx.Allower
 }
 
 // Handler serves the identity endpoints.
@@ -43,27 +46,29 @@ type Handler struct {
 	svc            Service
 	logger         *slog.Logger
 	allowedOrigins []string
+	authLimiter    httpx.Allower
 }
 
 // New builds the handler.
 func New(svc Service, logger *slog.Logger, opts Options) *Handler {
-	return &Handler{svc: svc, logger: logger, allowedOrigins: opts.AllowedOrigins}
+	return &Handler{svc: svc, logger: logger, allowedOrigins: opts.AllowedOrigins, authLimiter: opts.AuthLimiter}
 }
 
 // Routes registers the endpoints.
 func (h *Handler) Routes(rt *httpx.Router) {
-	// Public.
-	rt.HandleFunc("POST /api/v1/auth/register", h.register)
-	rt.HandleFunc("POST /api/v1/auth/verify-email", h.verifyEmail)
-	rt.HandleFunc("POST /api/v1/auth/verify-email/resend", h.resendVerification)
-	rt.HandleFunc("POST /api/v1/auth/login", h.login)
-	rt.HandleFunc("POST /api/v1/auth/password/forgot", h.forgotPassword)
-	rt.HandleFunc("POST /api/v1/auth/password/reset", h.resetPassword)
+	strict := httpx.RateLimit(h.authLimiter)
+	// Public (strict per-client limit: credentials and outgoing email).
+	rt.Handle("POST /api/v1/auth/register", strict(http.HandlerFunc(h.register)))
+	rt.Handle("POST /api/v1/auth/verify-email", strict(http.HandlerFunc(h.verifyEmail)))
+	rt.Handle("POST /api/v1/auth/verify-email/resend", strict(http.HandlerFunc(h.resendVerification)))
+	rt.Handle("POST /api/v1/auth/login", strict(http.HandlerFunc(h.login)))
+	rt.Handle("POST /api/v1/auth/password/forgot", strict(http.HandlerFunc(h.forgotPassword)))
+	rt.Handle("POST /api/v1/auth/password/reset", strict(http.HandlerFunc(h.resetPassword)))
 	// Authenticated.
 	rt.Handle("POST /api/v1/auth/logout", h.RequireAuth(http.HandlerFunc(h.logout)))
 	rt.Handle("POST /api/v1/auth/logout-all", h.RequireAuth(http.HandlerFunc(h.logoutAll)))
 	rt.Handle("GET /api/v1/me", h.RequireAuth(http.HandlerFunc(h.me)))
-	rt.Handle("POST /api/v1/me/password", h.RequireAuth(http.HandlerFunc(h.changePassword)))
+	rt.Handle("POST /api/v1/me/password", strict(h.RequireAuth(http.HandlerFunc(h.changePassword))))
 	rt.Handle("GET /api/v1/me/memberships", h.RequireAuth(http.HandlerFunc(h.myMemberships)))
 }
 
@@ -130,7 +135,10 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 		return
 	}
 	var verr *application.ValidationError
+	var retry *application.RetryAfterError
 	switch {
+	case errors.As(err, &retry):
+		httpx.WriteRateLimited(w, r, retry.RetryAfter)
 	case errors.As(err, &verr):
 		p := httpx.NewProblem(http.StatusBadRequest, httpx.CodeInvalidRequest, "one or more fields are invalid")
 		for _, f := range verr.Fields {

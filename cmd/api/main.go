@@ -25,6 +25,7 @@ import (
 	"github.com/lhbotero1985/booking-platform-backend/internal/app"
 	identityhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/interfaces/http"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/buildinfo"
+	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/config"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/db"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/jobs"
@@ -94,7 +95,8 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	identitySvc, err := app.NewIdentityService(cfg, pool, jobClient, logger)
+	limiters := app.NewRateLimiters(cfg.RateLimit, clock.System{})
+	identitySvc, err := app.NewIdentityService(cfg, pool, jobClient, logger, limiters.Login)
 	if err != nil {
 		return err
 	}
@@ -105,8 +107,9 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 			{Name: "migrations", Fn: migrator.Check},
 		},
 		Modules: []app.RouteRegistrar{
-			identityhttp.New(identitySvc, logger, identityhttp.Options{AllowedOrigins: cfg.HTTP.CORSAllowedOrigins}),
+			identityhttp.New(identitySvc, logger, identityhttp.Options{AllowedOrigins: cfg.HTTP.CORSAllowedOrigins, AuthLimiter: limiters.Auth}),
 		},
+		APILimiter: limiters.API,
 	})
 	srv := app.NewHTTPServer(ctx, cfg, logger, handler)
 

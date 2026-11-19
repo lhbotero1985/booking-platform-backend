@@ -33,6 +33,8 @@ type RouteRegistrar interface {
 type Deps struct {
 	Readiness []Check
 	Modules   []RouteRegistrar
+	// APILimiter is the general per-client limit (health probes are exempt). nil disables it.
+	APILimiter httpx.Allower
 }
 
 // NewHTTPHandler builds the complete API handler with its middleware chain.
@@ -49,6 +51,7 @@ func NewHTTPHandler(cfg config.Config, logger *slog.Logger, deps Deps) http.Hand
 		httpx.SecurityHeaders,
 		httpx.AccessLog(logger),
 		httpx.Recover(logger),
+		exemptProbes(httpx.RateLimit(deps.APILimiter)),
 		httpx.CORS(cfg.HTTP.CORSAllowedOrigins),
 		httpx.LimitBody(cfg.HTTP.MaxBodyBytes),
 	)
@@ -89,4 +92,19 @@ func readyz(logger *slog.Logger, checks []Check) http.Handler {
 		}
 		httpx.WriteJSON(w, http.StatusOK, readyResponse{Status: "ready"})
 	})
+}
+
+// exemptProbes skips mw for the health probes, which the orchestrator calls constantly from a
+// single address.
+func exemptProbes(mw httpx.Middleware) httpx.Middleware {
+	return func(next http.Handler) http.Handler {
+		limited := mw(next)
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/healthz" || r.URL.Path == "/readyz" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			limited.ServeHTTP(w, r)
+		})
+	}
 }

@@ -75,7 +75,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	identitySvc, err := app.NewIdentityService(cfg, pool, inserter, logger)
+	identitySvc, err := app.NewIdentityService(cfg, pool, inserter, logger, nil) // the worker checks no passwords
 	if err != nil {
 		return err
 	}

@@ -35,6 +35,8 @@ type Service struct {
 	random io.Reader
 	cfg    Config
 	logger *slog.Logger
+	// throttle applies progressive backoff to password checks (login, change password).
+	throttle AttemptThrottle
 }
 
 // Deps are the Service collaborators. Random defaults to crypto/rand.
@@ -46,6 +48,8 @@ type Deps struct {
 	Random io.Reader
 	Config Config
 	Logger *slog.Logger
+	// Throttle is the password-check backoff; nil disables it.
+	Throttle AttemptThrottle
 }
 
 // NewService builds the Service.
@@ -53,7 +57,10 @@ func NewService(d Deps) *Service {
 	if d.Random == nil {
 		d.Random = rand.Reader
 	}
-	return &Service{store: d.Store, hasher: d.Hasher, mailer: d.Mailer, clock: d.Clock, random: d.Random, cfg: d.Config, logger: d.Logger}
+	if d.Throttle == nil {
+		d.Throttle = noThrottle{}
+	}
+	return &Service{store: d.Store, hasher: d.Hasher, mailer: d.Mailer, clock: d.Clock, random: d.Random, cfg: d.Config, logger: d.Logger, throttle: d.Throttle}
 }
 
 // RegisterInput is the self-registration request.

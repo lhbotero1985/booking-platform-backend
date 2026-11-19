@@ -357,3 +357,22 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - **Notas:** el patrón se prueba de extremo a extremo con rutas de prueba (403 mismo negocio,
   404 otro negocio idéntico a ruta inexistente, revocación inmediata) sin adelantar la Fase 4.
   La gestión de membresías (invitar, cambiar rol, revocar) llega con los negocios en la Fase 4.
+
+## 2026-11-19 · Fase 2 · T2.6 integrada
+
+- PR #18 → `qa`: 6/6 ✅, squash merge `76fc4f9`. Rama `feature/t2.6-rbac` borrada.
+
+## 2026-11-19 · Fase 2 · T2.7 — Rate limiting y defensa contra fuerza bruta
+
+- **Estado:** ✅ Completada en `feature/t2.7-rate-limiting` (commit y push; PR y merge pendientes
+  de autorización).
+- **Archivos:** `internal/platform/ratelimit` (token bucket y backoff), `internal/platform/httpx/ratelimit.go`
+  (`ClientIP`, `ClientKey`, `RateLimit`, `WriteRateLimited`), `internal/platform/config`
+  (`RATE_LIMIT_*`, `LOGIN_BACKOFF_*`), `internal/app` (`NewRateLimiters`, límite general con sondas
+  exentas), `cmd/api`, `cmd/worker`, `identity/application/throttle.go` (+ `Login`,
+  `ChangePassword`), `identity/interfaces/http` (límite estricto, 429), OpenAPI (`TooManyRequests`
+  en 7 operaciones), `tests/security/bruteforce_test.go`, `.env.example`, `security.md`.
+- **Comportamiento:** general 300/min (ráfaga 100) por cliente; estricto 10/min (ráfaga 10)
+  compartido por los endpoints de credenciales y email; backoff de login desde el 5.º fallo
+  (1 s → 15 min); 429 `RATE_LIMITED` con `Retry-After`, idéntico exista o no la cuenta.
+- **Abiertos:** P28 (ataques distribuidos), P29 (NAT); IP real detrás de Caddy en la Fase 3.

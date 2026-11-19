@@ -1,8 +1,8 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T2.6 — RBAC y autorización por recurso (2026-11-19), en `feature/t2.6-rbac`
-(commit y push hechos; PR y merge pendientes de autorización).
+T2.7 — Rate limiting y defensa contra fuerza bruta (2026-11-19), en
+`feature/t2.7-rate-limiting` (commit y push hechos; PR y merge pendientes de autorización).
 
 ## Flujo de ramas (ADR-0017)
 
@@ -12,20 +12,22 @@ preguntar). PR, merge, borrado de ramas y despliegues: autorización explícita 
 
 ## Pendiente de autorización
 
-1. PR `feature/t2.6-rbac` → `qa` y merge si el CI queda en verde.
+1. PR `feature/t2.7-rate-limiting` → `qa` y merge si el CI queda en verde.
 
-## Próxima tarea: T2.7 — Rate limiting y defensa contra fuerza bruta
+## Próxima tarea: T2.8 — Auditoría básica
 
-- **Objetivo:** limitar abuso en endpoints públicos sensibles (security.md §3).
+- **Objetivo:** registrar eventos de seguridad en `audit_log` (tabla ya creada en la migración
+  00003; consulta `InsertAuditEntry` existente) sin datos sensibles.
 - **Diseño propuesto:**
-  - Token bucket en memoria (`golang.org/x/time/rate` o implementación propia mínima) por IP y,
-    en login, por cuenta (email normalizado, hasheado en memoria); limpieza periódica de
-    entradas inactivas y tope de entradas (anti-DoS de memoria).
-  - Límites estrictos en `login`, `register`, `verify-email/resend`, `password/forgot`,
-    `password/reset`, `verify-email`; límite general más amplio para el resto.
-  - Backoff progresivo por cuenta+IP tras fallos de login (exponencial con tope, sin bloqueo
-    permanente); respuesta 429 `RATE_LIMITED` con `Retry-After`, sin revelar si la cuenta existe.
-  - Configurable por variables de entorno; IP del cliente = par TCP (X-Forwarded-For solo desde
-    Caddy en la Fase 3).
-- **Pruebas:** límites por ruta, recuperación del bucket con reloj inyectado, backoff, 429
-  idéntico para cuentas existentes e inexistentes, contrato OpenAPI (429), concurrencia.
+  - Puerto `AuditLog` en la aplicación de identity; escritura **en la misma transacción** que el
+    cambio auditado cuando lo hay (cambio/restablecimiento de contraseña, verificación), y en
+    transacción propia para eventos sin cambio de datos (login fallido, 429 de backoff).
+  - Eventos: `auth.login` (SUCCESS/FAILURE/DENIED por backoff), `auth.logout`,
+    `auth.logout_all`, `auth.email_verified`, `auth.password_reset_requested`,
+    `auth.password_reset`, `auth.password_changed`, `authz.denied` (403).
+  - Campos: actor (si se conoce), IP, `outcome`, `metadata` mínima (p. ej. `clientType`,
+    motivo). **Nunca** email en claro de intentos fallidos con cuentas inexistentes (hash), ni
+    contraseñas, tokens o user agents completos.
+  - Retención y consulta por PLATFORM_ADMIN: se definen en la Fase 12 (solo escritura ahora).
+- **Pruebas:** cada evento registrado con el resultado correcto; ausencia de secretos en
+  `metadata`; atomicidad con el cambio; integración PostgreSQL.

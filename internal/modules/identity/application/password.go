@@ -171,6 +171,10 @@ func (s *Service) ChangePassword(ctx context.Context, p contract.Principal, in C
 		return &ValidationError{Fields: []FieldError{{"newPassword", CodePasswordUnchanged}}}
 	}
 
+	key := changePasswordThrottleKey(p.UserID)
+	if err := s.checkThrottle(key); err != nil {
+		return err
+	}
 	u, err := s.Me(ctx, p)
 	if err != nil {
 		return err
@@ -180,8 +184,10 @@ func (s *Service) ChangePassword(ctx context.Context, p contract.Principal, in C
 		return fmt.Errorf("change password: verify: %w", err)
 	}
 	if !ok {
+		s.throttle.Failure(key)
 		return &ValidationError{Fields: []FieldError{{"currentPassword", CodeInvalidCurrentPassword}}}
 	}
+	s.throttle.Success(key)
 	hash, err := s.hasher.Hash(ctx, newPassword)
 	if err != nil {
 		return fmt.Errorf("change password: hash: %w", err)

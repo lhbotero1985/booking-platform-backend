@@ -99,8 +99,8 @@ servicio).
 |---|---|
 | Validación de entrada | DTO con validación explícita; límites de tamaño de body (1 MiB); UUIDs parseados; enums cerrados; rechazo de campos desconocidos (`DisallowUnknownFields`). |
 | SQL injection | Solo SQLC/pgx parametrizado; prohibido concatenar SQL (regla de lint + revisión). |
-| Rate limiting | Token bucket en memoria por IP y por usuario (MVP, una instancia). Límites estrictos en login, registro, recuperación y webhooks. Se moverá a PostgreSQL/Redis si se escala horizontalmente. |
-| Fuerza bruta | Bloqueo progresivo por cuenta+IP tras intentos fallidos (backoff exponencial, no bloqueo permanente). |
+| Rate limiting | Token bucket en memoria por cliente (IPv4 o prefijo IPv6 /64), acotado en claves (`RATE_LIMIT_MAX_KEYS`). General: 300/min, ráfaga 100 (sondas `/healthz` y `/readyz` exentas). Estricto y compartido por login, registro, verificación, reenvío, olvido/restablecimiento y cambio de contraseña: 10/min, ráfaga 10. Respuesta 429 `RATE_LIMITED` + `Retry-After`. Webhooks: se agregarán en su fase. Se moverá a PostgreSQL/Redis si se escala horizontalmente. (T2.7) |
+| Fuerza bruta | Backoff por cuenta+IP (hash del email enviado, exista o no la cuenta): desde el 5.º fallo consecutivo, bloqueo de 1 s duplicándose hasta 15 min; nunca permanente; un acierto lo reinicia. Se evalúa **antes** de Argon2 (un atacante bloqueado no consume CPU). El cambio de contraseña autenticado aplica el mismo backoff por usuario. Ataques distribuidos (muchas IP contra una cuenta) quedan para la Fase 12 (P28). (T2.7) |
 | CORS | Lista blanca de orígenes por ambiente; nunca `*` con credenciales. |
 | Cabeceras | HSTS (en Caddy), `X-Content-Type-Options`, `Referrer-Policy`, `Cache-Control: no-store` en respuestas autenticadas. |
 | Webhooks | Verificación HMAC-SHA256 (`X-Hub-Signature-256`) sobre el cuerpo crudo con el App Secret de Meta, comparación en tiempo constante, rechazo si falla; deduplicación por ID de evento. |
