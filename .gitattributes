@@ -1,0 +1,16 @@
+# Normalizar fin de línea a LF en el repositorio (desarrollo en Windows, CI/servidores en Linux)
+* text=auto eol=lf
+
+*.go text eol=lf
+*.sql text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+Dockerfile text eol=lf
+
+*.ps1 text eol=crlf
+
+*.png binary
+*.jpg binary
+*.ico binary

@@ -1,0 +1,16 @@
+title = "booking-platform-backend gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "booking-platform-session-token"
+description = "Token de sesión opaco de booking-platform"
+regex = '''bp_s_[A-Za-z0-9_-]{43}'''
+keywords = ["bp_s_"]
+
+[[rules]]
+id = "whatsapp-cloud-api-access-token"
+description = "Token de acceso de Meta (WhatsApp Cloud API)"
+regex = '''EAA[A-Za-z0-9]{100,}'''
+keywords = ["EAA"]

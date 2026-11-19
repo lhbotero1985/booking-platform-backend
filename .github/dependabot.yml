@@ -1,0 +1,10 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+  # Fase 1: añadir ecosistemas "gomod" (/) y "docker" (/deploy/docker) cuando existan.

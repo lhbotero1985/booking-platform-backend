@@ -1,0 +1,52 @@
+# --- Secretos y configuración local (NUNCA versionar) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+*.age
+!*.age.example
+
+# --- Binarios y build ---
+/bin/
+/dist/
+/build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.*
+/tmp/
+
+# --- Go ---
+/vendor/
+go.work
+go.work.sum
+
+# --- Herramientas ---
+.task/
+.golangci-cache/
+
+# --- Datos locales / volúmenes ---
+/data/
+*.dump
+*.sql.gz
+/backups/
+
+# --- IDE / SO ---
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+.DS_Store
+Thumbs.db
+
+# --- Claude Code: configuración local personal ---
+.claude/settings.local.json
