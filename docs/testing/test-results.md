@@ -385,3 +385,23 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `task check` | ✅ | lint 0 issues; govulncheck falló por DNS (`vuln.go.dev`) y el reintento: sin vulnerabilidades |
 | `task test:integration` | ✅ | |
 
+## 2026-11-22 · Fase 2 · T2.10 — CI
+
+| Comando | Resultado |
+|---|---|
+| PR #22 — ci + security | ✅ 6/6 (unit+race 3m59s, integración 2m35s, lint 3m2s, Trivy 55s, govulncheck, gitleaks); squash merge `d982e06` |
+
+## 2026-11-22 · Fase 3 · T3.1 — Servidor QA (`174.138.92.121`)
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `bash -n` + shellcheck v0.10.0 (`-S style`) | ✅ | 1 aviso informativo (SC1091 `/etc/os-release`) → directiva `source=/dev/null` |
+| `ssh root@… 'bash -s' < bootstrap.sh` (paso 1) | ✅ exit 0 | Docker 29.10.0, Compose 5.8.0, swap 2 GB, ufw activo, fail2ban sin baneos |
+| Segunda ejecución del paso 1 | ✅ exit 0 | Idempotente |
+| `ssh deploy@…`: `id`, `sudo -n true`, `docker run hello-world` | ✅ | Grupo `docker`, sudo sin contraseña |
+| Paso 2 `--lock-root` | ✅ | `sshd -T`: `permitrootlogin no`, `passwordauthentication no`, `kbdinteractiveauthentication no`, `allowusers deploy`, `maxauthtries 3` |
+| `ssh root@…` tras el bloqueo | ✅ rechazado | `Permission denied (publickey)` |
+| `ssh deploy@…` solo con contraseña | ✅ rechazado | `Permission denied (publickey)` |
+| Puertos desde fuera (22, 80, 443, 5432, 8025) | ✅ | Solo 22 abierto; 80/443 permitidos en ufw pero sin servicio aún |
+| Servicios escuchando (`ss -tln`) | ✅ | Solo `sshd` y el resolvedor local (127.0.0.53/54) |
+| `unattended-upgrades`, swappiness, Docker, zona horaria | ✅ | Habilitado con reinicio 04:30; 10; `local` + `live-restore` + `no-new-privileges`; UTC |

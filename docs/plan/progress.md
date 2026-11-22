@@ -426,3 +426,19 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
   `security.md`, `domain-model.md`, `phase-2-closure.md` (aprobada), roadmap, decisiones,
   preguntas pendientes.
 - **Compatibilidad:** sin migración; las contraseñas existentes siguen siendo válidas.
+
+## 2026-11-22 · Fase 2 · T2.10 integrada
+
+- PR #22 → `qa`: 6/6 ✅, squash merge `d982e06`. Rama `feature/t2.10-password-policy` borrada.
+
+## 2026-11-22 · Fase 3 · T3.1 — Preparación y endurecimiento del servidor QA
+
+- **Estado:** ✅ Completada en `feature/t3.1-qa-server-bootstrap` (commit y push; PR y merge
+  pendientes de autorización). Desglose de la Fase 3 aprobado por el usuario.
+- **Infraestructura:** Droplet creado por el usuario; renombrado a `booking-qa` (autorizado). Las
+  etiquetas no se pueden gestionar con las herramientas MCP disponibles (el usuario puede
+  agregarlas en el panel). Redimensión a 2 GB pendiente de confirmar el precio real (P34).
+- **Archivos:** `deploy/server/bootstrap.sh`, `docs/operations/server-bootstrap.md`,
+  `.github/workflows/ci.yml` (shellcheck), `Taskfile.yml` (`task shellcheck`), roadmap (Fase 3),
+  `deployment.md`, `qa-deployment.md`, decisiones, preguntas P34–P36.
+- **Problemas:** Docker Desktop estaba detenido para shellcheck local → se inició y se reintentó.

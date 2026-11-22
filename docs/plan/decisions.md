@@ -70,6 +70,11 @@ Decisiones relevantes no arquitectónicas (las arquitectónicas tienen ADR en `d
 | 2026-11-19 | Contraseña mínima de 8 caracteres y lista pequeña de comunes (antes 10) | Decisión del usuario (P31): mínimo NIST; excepción frente a ASVS L2 documentada; se propuso 7 y se acordó 8 tras advertir que 7 queda bajo NIST | Aplicado (T2.10) |
 | 2026-11-19 | MFA para administradores y gestión de sesiones individuales en la Fase 12 | Decisión del usuario (P32, P33) | Pendiente (Fase 12) |
 | 2026-11-19 | Cierre de la Fase 2 | Aprobado por el usuario | Aplicado |
+| 2026-11-22 | Droplet QA creado por el usuario (`nyc3`, Ubuntu 24.04); renombrado a `booking-qa` | Autorización del usuario | Aplicado |
+| 2026-11-22 | Bootstrap en dos pasos: preparar y verificar `deploy`, luego `--lock-root` | Nunca dejar al operador sin acceso | Aplicado (T3.1) |
+| 2026-11-22 | Usuario único `deploy` (llave, sudo sin contraseña, grupo docker) | Simplicidad MVP; sin contraseñas que robar; llaves de CI se restringirán en T3.5 | Aplicado (T3.1) |
+| 2026-11-22 | Reinicio automático por actualizaciones de seguridad a las 04:30 UTC en QA | Parches sin intervención; impacto aceptable en QA | Aplicado (T3.1) |
+| 2026-11-22 | shellcheck en CI (imagen fijada por digest) y `task shellcheck` | Scripts de despliegue revisados como el código | Aplicado (T3.1) |
 | 2026-11-18 | Imágenes en GHCR | Gratuito con GitHub, integrado con Actions | Propuesto |
 | 2026-11-18 | Búsqueda de negocios por ciudad en MVP (PostGIS listo para cercanía futura) | Simplicidad | Propuesto |
 | 2026-11-18 | Sin auto-cancelación de citas pendientes en MVP | Regla del prompt; requiere política aprobada | Propuesto |
