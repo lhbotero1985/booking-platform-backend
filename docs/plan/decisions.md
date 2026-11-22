@@ -75,6 +75,13 @@ Decisiones relevantes no arquitectónicas (las arquitectónicas tienen ADR en `d
 | 2026-11-22 | Usuario único `deploy` (llave, sudo sin contraseña, grupo docker) | Simplicidad MVP; sin contraseñas que robar; llaves de CI se restringirán en T3.5 | Aplicado (T3.1) |
 | 2026-11-22 | Reinicio automático por actualizaciones de seguridad a las 04:30 UTC en QA | Parches sin intervención; impacto aceptable en QA | Aplicado (T3.1) |
 | 2026-11-22 | shellcheck en CI (imagen fijada por digest) y `task shellcheck` | Scripts de despliegue revisados como el código | Aplicado (T3.1) |
+| 2026-11-22 | QA con 1 GB + swap; subir a 2 GB solo si las mediciones lo exigen | Decisión del usuario (P34) | Aplicado |
+| 2026-11-22 | DNS de QA: DuckDNS `booking-platform-col.duckdns.org` | Decisión del usuario (P35); gratuito | Aplicado |
+| 2026-11-22 | Sin Cloud Firewall de DO en QA: `ufw` + solo Caddy expuesto | Decisión del usuario (P36) | Aplicado |
+| 2026-11-22 | Roles `app_migrator` (dueño, DDL) y `app_runtime` (DML vía privilegios por defecto) creados en el initdb | Mínimo privilegio; la API comprometida no puede alterar el esquema | Aplicado (T3.2) |
+| 2026-11-22 | Migraciones en un servicio `migrate` aparte; api/worker nunca reciben la contraseña del migrador | Separación de credenciales | Aplicado (T3.2) |
+| 2026-11-22 | `sslmode=disable` dentro de la red interna de Docker (mismo host) | Tráfico que no sale del host; TLS a la BD se reevalúa con BD gestionada (Fase 13) | Aplicado (T3.2) |
+| 2026-11-22 | Hasta T3.4 la imagen se transfiere por SSH (`docker save \| docker load`) | Sin credenciales de registro en el servidor todavía | Temporal (T3.4) |
 | 2026-11-18 | Imágenes en GHCR | Gratuito con GitHub, integrado con Actions | Propuesto |
 | 2026-11-18 | Búsqueda de negocios por ciudad en MVP (PostGIS listo para cercanía futura) | Simplicidad | Propuesto |
 | 2026-11-18 | Sin auto-cancelación de citas pendientes en MVP | Regla del prompt; requiere política aprobada | Propuesto |

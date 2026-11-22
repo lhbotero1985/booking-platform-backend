@@ -442,3 +442,21 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
   `.github/workflows/ci.yml` (shellcheck), `Taskfile.yml` (`task shellcheck`), roadmap (Fase 3),
   `deployment.md`, `qa-deployment.md`, decisiones, preguntas P34–P36.
 - **Problemas:** Docker Desktop estaba detenido para shellcheck local → se inició y se reintentó.
+
+## 2026-11-22 · Fase 3 · T3.1 integrada y decisiones
+
+- PR #23 → `qa`: 6/6 ✅ (incluye shellcheck), squash merge `c4952dd`.
+- Decisiones del usuario: P34 seguir con 1 GB y validar; P35 DuckDNS
+  `booking-platform-col.duckdns.org` (resuelve a `174.138.92.121`, verificado); P36 solo `ufw`.
+
+## 2026-11-22 · Fase 3 · T3.2 — Stack QA en Docker Compose
+
+- **Estado:** ✅ Completada en `feature/t3.2-qa-compose-stack` (commit y push; PR y merge
+  pendientes de autorización). **Stack desplegado y funcionando en el servidor QA.**
+- **Archivos:** `deploy/compose/docker-compose.qa.yml`, `deploy/compose/qa/initdb/10-app-roles.sh`,
+  `deploy/server/qa-env.sh`, `Taskfile.yml` (shellcheck de todos los scripts),
+  `docs/operations/qa-deployment.md`, `database.md`, roadmap, decisiones, preguntas P34–P36.
+- **Despliegue:** imagen `booking-platform-backend:qa-c4952dd` transferida por SSH; secretos
+  generados en el servidor; migraciones 00001–00004 aplicadas con `app_migrator`.
+- **Problemas:** fallo DNS local al construir la imagen (reintento OK); reloj del PC del usuario
+  ~3,5 min adelantado (el servidor está sincronizado por NTP).

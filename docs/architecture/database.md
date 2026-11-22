@@ -153,4 +153,6 @@ ADR-0004.
 |---|---|---|
 | `app_migrator` | Migraciones | DDL sobre el esquema |
 | `app_runtime` | API y worker | DML (SELECT/INSERT/UPDATE/DELETE), sin DDL |
+
+Implementación QA (T3.2): `deploy/compose/qa/initdb/10-app-roles.sh` (privilegios por defecto de `app_migrator` hacia `app_runtime`; extensiones creadas por el superusuario). Ver `docs/operations/qa-deployment.md` §2.
 | `app_readonly` | Soporte/diagnóstico | SELECT |
