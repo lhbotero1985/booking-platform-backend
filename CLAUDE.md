@@ -137,6 +137,7 @@ Ruta del módulo Go: `github.com/lhbotero1985/booking-platform-backend`.
 | `task lint` / `task fmt` | golangci-lint (gosec, depguard de arquitectura…) / formateo |
 | `task vuln` | govulncheck |
 | `task secrets` | gitleaks vía Docker (requiere Docker Desktop en ejecución) |
+| `task shellcheck` | shellcheck de los scripts de despliegue vía Docker |
 | `task up` / `task down` / `task logs` | Entorno DEV (PostGIS en `127.0.0.1:55432`, API en `127.0.0.1:8080`); requiere `.env` copiado de `.env.example` |
 | `task docker:build` | Imagen `booking-platform-backend:dev` (distroless, nonroot) |
 | `task trivy` | Trivy config + imagen (HIGH/CRITICAL) |

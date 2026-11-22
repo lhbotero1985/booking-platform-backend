@@ -59,7 +59,7 @@ jobs:
         run: go test -tags=integration -race -count=1 -timeout=15m ./...
 
   lint:
-    name: lint (golangci-lint, sqlc)
+    name: lint (golangci-lint, sqlc, shellcheck)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -79,3 +79,6 @@ jobs:
         run: sqlc vet
       - name: sqlc diff (generated code up to date)
         run: sqlc diff
+      - name: shellcheck (deploy scripts)
+        run: |
+          docker run --rm -v "$PWD:/mnt:ro" -w /mnt             koalaman/shellcheck@sha256:2097951f02e735b613f4a34de20c40f937a6c8f18ecb170612c88c34517221fb             -S style $(git ls-files 'deploy/*.sh' 'scripts/*.sh')

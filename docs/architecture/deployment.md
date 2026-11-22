@@ -1,7 +1,8 @@
 # Despliegue en DigitalOcean
 
-Estado: **Propuesta — Fase 0.** ADR-0012. **No se crea ningún recurso hasta la Fase 3 y con
-autorización explícita de costos.**
+Estado: **QA en construcción (Fase 3).** ADR-0012. Droplet QA `booking-qa` creado por el
+usuario (2026-11-22); preparación en `docs/operations/server-bootstrap.md`. Ningún recurso con
+costo adicional sin autorización explícita.
 
 ## 1. Topología por ambiente (QA y PROD idénticos, separados)
 
@@ -37,6 +38,8 @@ Los precios se verificarán en el panel de DigitalOcean antes de solicitar autor
 - Ubuntu LTS vigente, `unattended-upgrades` activado.
 - Usuario no-root `deploy`; `PermitRootLogin no`, `PasswordAuthentication no`; llaves ed25519.
 - Firewall de DO + `ufw` como segunda capa; PostgreSQL **no** expuesto (solo red interna Docker).
+  Docker publica puertos por fuera de ufw: solo Caddy publica puertos (80/443). El Cloud
+  Firewall de DO no se gestiona con las herramientas disponibles; en QA queda solo `ufw` (P36).
 - `fail2ban` para SSH.
 - Docker con contenedores no-root, `read_only`, `no-new-privileges`, límites de memoria.
 - Secretos en `/opt/booking/<env>/.env` con permisos `0600`, propiedad de `deploy`.

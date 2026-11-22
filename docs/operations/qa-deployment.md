@@ -1,10 +1,10 @@
 # Despliegue QA
 
-Estado: **Plantilla — se completa en la Fase 3.** No existe infraestructura QA todavía.
+Estado: **En construcción (Fase 3).** Servidor preparado en T3.1: ver `server-bootstrap.md`.
 
 Contenido previsto:
 1. Prerrequisitos (cuenta DO, dominio, llaves SSH, secretos del Environment `qa`).
-2. Aprovisionamiento del Droplet (pasos reproducibles, scripts en `booking-platform/infrastructure/qa`).
+2. Aprovisionamiento del Droplet: `deploy/server/bootstrap.sh` (`server-bootstrap.md`) ✅.
 3. Endurecimiento (ver `docs/architecture/deployment.md` §3).
 4. Primer despliegue y verificación.
 5. Despliegues posteriores vía `deploy-qa.yml`.
