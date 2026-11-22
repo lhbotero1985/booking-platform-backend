@@ -461,10 +461,10 @@ components:
           maxLength: 254
         password:
           type: string
-          minLength: 10
+          minLength: 8
           maxLength: 128
           writeOnly: true
-          description: 10–128 characters; common passwords are rejected. No composition rules.
+          description: 8–128 characters; common passwords are rejected. No composition rules.
         fullName:
           type: string
           minLength: 1
@@ -620,7 +620,7 @@ components:
           description: Token from the emailed link (`bp_pr_…`).
         newPassword:
           type: string
-          minLength: 10
+          minLength: 8
           maxLength: 128
           writeOnly: true
 
@@ -635,7 +635,7 @@ components:
           writeOnly: true
         newPassword:
           type: string
-          minLength: 10
+          minLength: 8
           maxLength: 128
           writeOnly: true
 

@@ -409,3 +409,20 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - **Hallazgos:** brechas ASVS frente a la política aprobada → P31 (mínimo 12 y lista de
   contraseñas filtradas), P32 (MFA para administradores), P33 (listado de sesiones). No se
   modificó la arquitectura aprobada: requieren decisión del usuario.
+
+## 2026-11-19 · Fase 2 · T2.9 integrada y decisiones de cierre
+
+- PR #21 → `qa`: 6/6 ✅, squash merge `32f7128`. Ramas `feature/t2.8-audit` y
+  `feature/t2.9-security-closure` borradas.
+- Decisiones del usuario: P31 → mínimo 8 y lista pequeña (se pidió 7; se advirtió que queda bajo
+  NIST y el usuario eligió 8); P32 y P33 → Fase 12; **cierre de la Fase 2 aprobado**.
+
+## 2026-11-19 · Fase 2 · T2.10 — Política de contraseñas (mínimo 8)
+
+- **Estado:** ✅ Completada en `feature/t2.10-password-policy` (commit y push; PR y merge
+  pendientes de autorización).
+- **Archivos:** `identity/domain/password.go` (`MinPasswordLength = 8`, 30 contraseñas comunes de
+  8–9 caracteres añadidas), `domain_test.go`, `api/openapi.yaml` (`minLength: 8` en 3 campos),
+  `security.md`, `domain-model.md`, `phase-2-closure.md` (aprobada), roadmap, decisiones,
+  preguntas pendientes.
+- **Compatibilidad:** sin migración; las contraseñas existentes siguen siendo válidas.

@@ -369,3 +369,19 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `task check` | ✅ | 1.ª corrida: gosec G124 en una cookie de petición simulada → atributos agregados; luego 0 issues, sin vulnerabilidades |
 | `task test:integration` / `sqlc:check` | ✅ | |
 | `task secrets` (gitleaks) | ✅ | 25 commits, sin fugas |
+
+## 2026-11-19 · Fase 2 · T2.9 — CI
+
+| Comando | Resultado |
+|---|---|
+| PR #21 — ci + security | ✅ 6/6 (unit+race 4m25s, integración 3m35s, lint 3m21s, Trivy 48s, govulncheck, gitleaks); squash merge `32f7128` |
+
+## 2026-11-19 · Fase 2 · T2.10 — Política de contraseñas (mínimo 8)
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| Unitarias dominio | ✅ 100 % | 7 → corta, 7 runas (9 bytes) → corta, `12345678` / `Password1` / `aaaaaaaa` → comunes, `tijera78` y `ñandú123` (8 runas) → válidas |
+| `go test ./...` (incl. contrato OpenAPI y `tests/security`) | ✅ | Spec con `minLength: 8` validada |
+| `task check` | ✅ | lint 0 issues; govulncheck falló por DNS (`vuln.go.dev`) y el reintento: sin vulnerabilidades |
+| `task test:integration` | ✅ | |
+

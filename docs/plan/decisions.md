@@ -67,6 +67,9 @@ Decisiones relevantes no arquitectónicas (las arquitectónicas tienen ADR en `d
 | 2026-11-19 | Accesos permitidos no se auditan; solo denegaciones (`authz.denied`) | Volumen: cada petición autorizada generaría una fila | Aplicado (T2.8) |
 | 2026-11-19 | `contract.Authorizer.RequirePlatformAdmin` recibe `ctx` | Necesario para auditar la denegación; sin consumidores aún | Aplicado (T2.8) |
 | 2026-11-19 | `NewService` usa reloj del sistema y logger descartado si no se inyectan | Evitar pánicos en wiring parcial (pruebas, herramientas) | Aplicado (T2.8) |
+| 2026-11-19 | Contraseña mínima de 8 caracteres y lista pequeña de comunes (antes 10) | Decisión del usuario (P31): mínimo NIST; excepción frente a ASVS L2 documentada; se propuso 7 y se acordó 8 tras advertir que 7 queda bajo NIST | Aplicado (T2.10) |
+| 2026-11-19 | MFA para administradores y gestión de sesiones individuales en la Fase 12 | Decisión del usuario (P32, P33) | Pendiente (Fase 12) |
+| 2026-11-19 | Cierre de la Fase 2 | Aprobado por el usuario | Aplicado |
 | 2026-11-18 | Imágenes en GHCR | Gratuito con GitHub, integrado con Actions | Propuesto |
 | 2026-11-18 | Búsqueda de negocios por ciudad en MVP (PostGIS listo para cercanía futura) | Simplicidad | Propuesto |
 | 2026-11-18 | Sin auto-cancelación de citas pendientes en MVP | Regla del prompt; requiere política aprobada | Propuesto |
