@@ -460,3 +460,22 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
   generados en el servidor; migraciones 00001–00004 aplicadas con `app_migrator`.
 - **Problemas:** fallo DNS local al construir la imagen (reintento OK); reloj del PC del usuario
   ~3,5 min adelantado (el servidor está sincronizado por NTP).
+
+## 2026-11-22 · Fase 3 · T3.2 integrada
+
+- PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
+- El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
+
+## 2026-11-22 · Fase 3 · T3.3 — Caddy, HTTPS e IP real del cliente
+
+- **Estado:** ✅ Completada en `feature/t3.3-caddy-https` (commit y push; PR y merge pendientes
+  de autorización). **QA disponible en https://booking-platform-col.duckdns.org.**
+- **Archivos:** `internal/platform/httpx/realip.go` (+ pruebas), `config` (`TRUSTED_PROXIES`),
+  `internal/app/http.go` (RealIP primer middleware), `tests/security/realip_test.go`,
+  `deploy/compose/qa/Caddyfile`, `docker-compose.qa.yml` (Caddy, red `172.30.0.0/24`),
+  `deploy/server/qa-env.sh` (`SITE_DOMAIN`), `.env.example`, `security.md`, `deployment.md`,
+  `qa-deployment.md`, decisiones.
+- **Despliegue:** imagen `qa-2d3f46c`; certificado Let's Encrypt (YE2) emitido al primer arranque.
+- **Problemas:** el health check activo de Caddy marcaba la API caída durante el arranque (un
+  bot recibió 503) → reemplazado por reintentos; DNS local intermitente → pruebas con `--resolve`;
+  el socket de control SSH en el scratchpad excedía 108 bytes → `~/.ssh/bp-tun`.

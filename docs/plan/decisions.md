@@ -81,6 +81,10 @@ Decisiones relevantes no arquitectónicas (las arquitectónicas tienen ADR en `d
 | 2026-11-22 | Roles `app_migrator` (dueño, DDL) y `app_runtime` (DML vía privilegios por defecto) creados en el initdb | Mínimo privilegio; la API comprometida no puede alterar el esquema | Aplicado (T3.2) |
 | 2026-11-22 | Migraciones en un servicio `migrate` aparte; api/worker nunca reciben la contraseña del migrador | Separación de credenciales | Aplicado (T3.2) |
 | 2026-11-22 | `sslmode=disable` dentro de la red interna de Docker (mismo host) | Tráfico que no sale del host; TLS a la BD se reevalúa con BD gestionada (Fase 13) | Aplicado (T3.2) |
+| 2026-11-22 | Caddy 2.11.9 como único punto de entrada; IP fija en la red interna y `TRUSTED_PROXIES` con solo esa IP | La API no puede ser engañada por `X-Forwarded-For` de clientes ni de otros contenedores | Aplicado (T3.3) |
+| 2026-11-22 | HSTS 1 año sin `includeSubDomains`/`preload` | Dominio en zona DNS compartida gratuita (DuckDNS) | Aplicado (T3.3) |
+| 2026-11-22 | Sin access log en Caddy | La API ya registra cada petición con redacción; evitar duplicar datos personales | Aplicado (T3.3) |
+| 2026-11-22 | Reintentos (`lb_try_duration 10s`) en lugar de health check activo | Con un único upstream, el health check activo devolvía 503 durante el arranque; los reintentos cubren reinicios en despliegues | Aplicado (T3.3) |
 | 2026-11-22 | Hasta T3.4 la imagen se transfiere por SSH (`docker save \| docker load`) | Sin credenciales de registro en el servidor todavía | Temporal (T3.4) |
 | 2026-11-18 | Imágenes en GHCR | Gratuito con GitHub, integrado con Actions | Propuesto |
 | 2026-11-18 | Búsqueda de negocios por ciudad en MVP (PostGIS listo para cercanía futura) | Simplicidad | Propuesto |

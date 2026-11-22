@@ -33,7 +33,8 @@
 		# Caddy sets X-Forwarded-For to the real client (ignoring client-supplied values,
 		# no trusted_proxies configured here); the API trusts it only from this container.
 		header_down -Server
-		health_uri /healthz
-		health_interval 30s
+		# Single upstream: retry while the API restarts (deployments) instead of failing fast.
+		lb_try_duration 10s
+		lb_try_interval 250ms
 	}
 }

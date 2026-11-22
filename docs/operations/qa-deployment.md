@@ -1,7 +1,7 @@
 # Despliegue QA
 
-Estado: **En construcción (Fase 3).** Servidor (T3.1) y stack (T3.2) operativos; HTTPS con
-Caddy (T3.3) y despliegue automático (T3.5) pendientes.
+Estado: **En construcción (Fase 3).** Servidor (T3.1), stack (T3.2) y HTTPS con Caddy (T3.3)
+operativos en **https://booking-platform-col.duckdns.org**. Despliegue automático pendiente (T3.5).
 
 ## 1. Datos del ambiente
 
@@ -21,11 +21,24 @@ Caddy (T3.3) y despliegue automático (T3.5) pendientes.
 | `api` | 256 MiB (`GOMEMLIMIT=180MiB`) | `127.0.0.1:8080` (solo el host) | `ARGON2_MAX_CONCURRENT=1`; rol `app_runtime` |
 | `worker` | 160 MiB (`GOMEMLIMIT=110MiB`) | Ninguna | Rol `app_runtime` |
 | `mailpit` | 64 MiB | `127.0.0.1:8025` (solo túnel SSH) | Ningún correo real sale de QA |
+| `caddy` (2.11.9, fijado por digest) | 96 MiB | **80, 443/tcp, 443/udp** (único servicio público) | HTTPS automático (Let's Encrypt), HSTS 1 año, HTTP/3, cuerpo ≤ 2 MB, reintentos 10 s hacia la API; IP fija `172.30.0.10` |
 | `migrate` (perfil `tools`) | 128 MiB | Ninguna | Único servicio con la contraseña de `app_migrator` |
 
-Todos los contenedores: `read_only`, `cap_drop: ALL` (salvo PostgreSQL), `no-new-privileges`.
-Docker evita ufw: **ningún puerto se publica en interfaces públicas**; solo Caddy (T3.3)
-publicará 80/443.
+Todos los contenedores: `read_only`, `cap_drop: ALL` (salvo PostgreSQL; Caddy solo
+`NET_BIND_SERVICE`), `no-new-privileges`. Docker evita ufw: solo Caddy publica puertos en
+interfaces públicas; el resto escucha en `127.0.0.1` o en la red interna `172.30.0.0/24`.
+
+### IP real del cliente
+
+La API cree `X-Forwarded-For` **solo** si la conexión viene de `TRUSTED_PROXIES=172.30.0.10`
+(Caddy). Caddy sobrescribe la cabecera con la IP real (ignora la que envíe el cliente). Así, rate
+limiting, logs y `audit_log` ven la IP pública del cliente; un `X-Forwarded-For` falso no tiene
+efecto (verificado en QA).
+
+### Certificados
+
+Caddy guarda certificados y cuenta ACME en el volumen `caddy_data`: **no borrarlo** (Let's
+Encrypt limita emisiones repetidas). La renovación es automática (≈30 días antes de vencer).
 
 ### Roles de base de datos (`deploy/compose/qa/initdb/10-app-roles.sh`)
 
@@ -68,6 +81,5 @@ ssh -N -L 18080:127.0.0.1:8080 -L 18025:127.0.0.1:8025 deploy@HOST
 
 ## 5. Pendiente
 
-- HTTPS con Caddy, IP real del cliente (T3.3).
 - Imagen desde GHCR (T3.4) y despliegue automático con rollback (T3.5).
 - Backups (T3.6) y registro de despliegues (fecha, commit, digest, actor, smoke tests).

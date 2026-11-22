@@ -425,3 +425,28 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Privilegios `app_migrator` | ✅ | No superusuario, no crea roles; dueño de las tablas |
 | Memoria en el servidor (1 GB) | ✅ | api 135 MiB, worker 68 MiB, postgres 89 MiB, mailpit 10 MiB; host 650 MB usados, swap 28 MB |
 | Puertos desde fuera (22, 80, 443, 5432, 8080, 8025) | ✅ | Solo 22 abierto; 8080/8025 escuchan solo en `127.0.0.1` |
+
+## 2026-11-22 · Fase 3 · T3.2 — CI
+
+| Comando | Resultado |
+|---|---|
+| PR #24 — ci + security | ✅ 6/6; squash merge `9bacd39` |
+
+## 2026-11-22 · Fase 3 · T3.3 — Caddy, HTTPS e IP real
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestRealIP` (12 casos) + `TestRealIPDisabledWithoutTrustedProxies` | ✅ | Cliente directo con cabecera falsa → IP TCP; proxy de confianza → IP del cliente (cadena, varias líneas, IPv6, IPv4 mapeada); entrada malformada o solo saltos de confianza → IP del proxy; misma subred pero otra IP → no confiable; la petición original no se muta |
+| `TestTrustedProxiesConfig` | ✅ | Vacío por defecto; IPs → /32 y /128; `0.0.0.0/0`, `::/0`, basura y `/33` rechazados |
+| `tests/security` `TestClientCannotSpoofItsIP` | ✅ | Cliente directo rotando `X-Forwarded-For` sigue en un bucket (429); detrás del proxy, buckets por cliente real; prefijos falsos en la cadena no evitan el límite |
+| `caddy validate` / `caddy fmt` | ✅ | |
+| Certificado | ✅ | `CN=booking-platform-col.duckdns.org`, emisor Let's Encrypt YE2, vence 2027-02-20; TLS 1.3 |
+| HTTP → HTTPS | ✅ | 308 a `https://…` |
+| Cabeceras | ✅ | HSTS `max-age=31536000`, `nosniff`, `no-referrer`, `no-store`, `X-Request-ID`, `alt-svc h3`; sin `Server` |
+| TLS ≤ 1.1 / cuerpo 3 MB | ✅ | Conexión rechazada / 413 |
+| IP real (login fallido con `X-Forwarded-For: 6.6.6.6`) | ✅ | Log de la API `remote_addr 181.54.0.95:0` y `audit_log.ip 181.54.0.95` = IP pública del cliente (la misma vista por SSH) |
+| E2E por HTTPS público (Mailpit por túnel SSH) | ✅ | register 202 → email → verify 200 → login → `/me` 200 |
+| Puertos desde fuera | ✅ | 22, 80, 443 abiertos; 5432, 8080, 8025 cerrados |
+| Memoria con Caddy | ✅ | caddy 12 MiB; host 660 MB usados, swap 37 MB |
+| `task check` / `task shellcheck` | ✅ | 0 issues, sin vulnerabilidades |
+| Incidencias | ⚠️ resuelto | Health check activo → 503 en el arranque (cambiado a reintentos); DNS local intermitente (`--resolve`) |
