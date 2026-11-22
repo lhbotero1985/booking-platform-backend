@@ -17,8 +17,9 @@ type Allower interface {
 	Allow(key string) (ok bool, retryAfter time.Duration)
 }
 
-// ClientIP returns the TCP peer address. Behind the reverse proxy (Phase 3) the trusted
-// X-Forwarded-For handling will be added here, never trusting client-supplied headers.
+// ClientIP returns the client address from r.RemoteAddr: the TCP peer, or the original client
+// when RealIP has resolved it from a trusted proxy. Client-supplied headers are never trusted
+// here.
 func ClientIP(r *http.Request) (netip.Addr, bool) {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {

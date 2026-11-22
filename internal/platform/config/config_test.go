@@ -242,3 +242,26 @@ func TestRateLimitConfig(t *testing.T) {
 		}
 	}
 }
+
+func TestTrustedProxiesConfig(t *testing.T) {
+	cfg, err := Load(envFrom(map[string]string{"APP_ENV": "test"}))
+	if err != nil || len(cfg.HTTP.TrustedProxies) != 0 {
+		t.Fatalf("default must trust nobody: %v %v", cfg.HTTP.TrustedProxies, err)
+	}
+	cfg, err = Load(envFrom(map[string]string{"APP_ENV": "test", "TRUSTED_PROXIES": "172.30.0.10, 10.0.0.0/8,fd00::1"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := []string{}
+	for _, p := range cfg.HTTP.TrustedProxies {
+		got = append(got, p.String())
+	}
+	if strings.Join(got, " ") != "172.30.0.10/32 10.0.0.0/8 fd00::1/128" {
+		t.Fatalf("prefixes = %v", got)
+	}
+	for _, bad := range []string{"0.0.0.0/0", "::/0", "not-an-ip", "10.0.0.0/33"} {
+		if _, err := Load(envFrom(map[string]string{"APP_ENV": "test", "TRUSTED_PROXIES": bad})); err == nil || !strings.Contains(err.Error(), "TRUSTED_PROXIES") {
+			t.Errorf("%q accepted (err %v)", bad, err)
+		}
+	}
+}

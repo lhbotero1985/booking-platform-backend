@@ -47,6 +47,8 @@ func NewHTTPHandler(cfg config.Config, logger *slog.Logger, deps Deps) http.Hand
 	}
 
 	return httpx.Chain(rt,
+		// First: every later middleware (request ID, rate limit, audit) sees the real client.
+		httpx.RealIP(cfg.HTTP.TrustedProxies),
 		httpx.RequestID,
 		httpx.SecurityHeaders,
 		httpx.AccessLog(logger),

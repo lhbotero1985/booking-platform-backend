@@ -1,0 +1,39 @@
+# Caddy — QA entry point (T3.3). Automatic HTTPS (Let's Encrypt, HTTP-01) for {$SITE_DOMAIN}.
+# The only service that publishes ports (80/443). Security headers come from the API;
+# Caddy adds HSTS and removes its own Server header.
+{
+	admin off
+	# No access log here: the API already logs every request (with redaction).
+	servers {
+		protocols h1 h2 h3
+		timeouts {
+			read_header 10s
+			read_body 30s
+			write 60s
+			idle 2m
+		}
+	}
+}
+
+{$SITE_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		# 1 year, no includeSubDomains/preload: the domain is a shared free DNS zone (DuckDNS).
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+		-Via
+	}
+
+	request_body {
+		max_size 2MB
+	}
+
+	reverse_proxy api:8080 {
+		# Caddy sets X-Forwarded-For to the real client (ignoring client-supplied values,
+		# no trusted_proxies configured here); the API trusts it only from this container.
+		header_down -Server
+		health_uri /healthz
+		health_interval 30s
+	}
+}
