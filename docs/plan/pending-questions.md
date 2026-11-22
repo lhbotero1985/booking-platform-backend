@@ -48,8 +48,8 @@ la Fase 0, se adopta la propuesta.
 | P31 | ~~Política de contraseñas frente a ASVS L2~~ | ✅ Respondida 2026-11-19: **mínimo 8** y lista pequeña (excepción ASVS documentada; T2.10). |
 | P32 | MFA para PLATFORM_ADMIN | ✅ Decidido 2026-11-19: **Fase 12** (TOTP obligatorio para administradores antes de PROD). |
 | P33 | Listado y cierre selectivo de sesiones (ASVS V3.3.4) | ✅ Decidido 2026-11-19: **Fase 12** (`GET /me/sessions`, `DELETE /me/sessions/{id}`). |
-| P34 | Redimensionar QA a 2 GB: en `nyc3` el plan es `s-1vcpu-2gb-intel` a **US$ 14/mes** (no US$ 12, que no existe en esa región) | Confirmación del usuario antes de redimensionar (solo CPU/RAM, reversible; requiere apagar el Droplet unos minutos). |
-| P35 | DNS gratuito para QA | sslip.io (sin registro) o DuckDNS (nombre limpio, registro del usuario). Se necesita en T3.3. |
-| P36 | Cloud Firewall de DigitalOcean | Gratis; las herramientas MCP disponibles no lo gestionan. Propuesta: el usuario lo crea en el panel (22, 80, 443) o se queda solo `ufw` en QA. |
+| P34 | Tamaño del Droplet QA | ✅ Decidido 2026-11-22: **seguir con 1 GB + 2 GB de swap y validar**; subir a 2 GB (`s-1vcpu-2gb-intel`, US$ 14/mes) solo si las mediciones lo exigen. Medición T3.2: 650 MB usados, 28 MB de swap. |
+| P35 | DNS gratuito para QA | ✅ Decidido 2026-11-22: **DuckDNS** `booking-platform-col.duckdns.org` → `174.138.92.121` (verificado). |
+| P36 | Cloud Firewall de DigitalOcean | ✅ Decidido 2026-11-22: **solo firewall propio (`ufw`)**; Caddy será el único servicio expuesto (80/443). |
 | P30 | Retención y acceso a `audit_log` | Propuesta Fase 12: 12 meses en línea, consulta solo PLATFORM_ADMIN (auditada), purga programada con River; revisar requisitos legales de protección de datos (Colombia, Ley 1581). |
 | P29 | Límites por IP detrás de NAT (p. ej. wifi de un salón) | 10/min en endpoints de credenciales es holgado para pocos dispositivos; revisar con datos reales de QA. Requiere IP real vía Caddy (Fase 3). |

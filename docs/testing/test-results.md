@@ -405,3 +405,23 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Puertos desde fuera (22, 80, 443, 5432, 8025) | ✅ | Solo 22 abierto; 80/443 permitidos en ufw pero sin servicio aún |
 | Servicios escuchando (`ss -tln`) | ✅ | Solo `sshd` y el resolvedor local (127.0.0.53/54) |
 | `unattended-upgrades`, swappiness, Docker, zona horaria | ✅ | Habilitado con reinicio 04:30; 10; `local` + `live-restore` + `no-new-privileges`; UTC |
+
+## 2026-11-22 · Fase 3 · T3.1 — CI
+
+| Comando | Resultado |
+|---|---|
+| PR #23 — ci + security | ✅ 6/6 (lint con shellcheck 3m13s); squash merge `c4952dd` |
+
+## 2026-11-22 · Fase 3 · T3.2 — Stack QA
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| shellcheck (3 scripts) / `docker compose config --quiet` | ✅ | |
+| `docker build` imagen `qa-c4952dd` | ✅ | 1.er intento falló por DNS (`production.cloudfront.docker.com`); reintento OK, 28.5 MB |
+| Stack QA **en local** (Docker Desktop) | ✅ | Roles creados, 4 migraciones con `app_migrator`, `/readyz` 200, E2E 5 pasos verde |
+| Stack QA **en el servidor** | ✅ | `app roles created`; migraciones al día; `/readyz` `{"status":"ready"}`; `/healthz` versión `qa-c4952dd` |
+| E2E en el servidor (túnel SSH a 8080/8025) | ✅ | register 202 → email en Mailpit con enlace `https://booking-platform-col.duckdns.org/verify-email` → verify 200 → login MOBILE (token 48 caracteres) → `/me` 200 |
+| Privilegios `app_runtime` (local y servidor) | ✅ | SELECT OK; CREATE TABLE → `permission denied for schema public`; DROP/ALTER → `must be owner`; TRUNCATE → `permission denied`; CREATE ROLE denegado; sin acceso a la base `postgres` |
+| Privilegios `app_migrator` | ✅ | No superusuario, no crea roles; dueño de las tablas |
+| Memoria en el servidor (1 GB) | ✅ | api 135 MiB, worker 68 MiB, postgres 89 MiB, mailpit 10 MiB; host 650 MB usados, swap 28 MB |
+| Puertos desde fuera (22, 80, 443, 5432, 8080, 8025) | ✅ | Solo 22 abierto; 8080/8025 escuchan solo en `127.0.0.1` |

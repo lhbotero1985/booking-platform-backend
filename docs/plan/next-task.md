@@ -1,8 +1,8 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T3.1 — Preparación y endurecimiento del servidor QA (2026-11-22), en
-`feature/t3.1-qa-server-bootstrap` (commit y push hechos; PR y merge pendientes de autorización).
+T3.2 — Stack QA en Docker Compose (2026-11-22), en `feature/t3.2-qa-compose-stack` (commit y
+push hechos; PR y merge pendientes de autorización). Stack desplegado en el servidor QA.
 
 **Fase 3 en curso** (desglose aprobado 2026-11-22, ver `roadmap.md`).
 
@@ -12,20 +12,19 @@ T3.1 — Preparación y endurecimiento del servidor QA (2026-11-22), en
 PROD con el mismo artefacto. Commit y push en `feature/*`: autorización permanente (sin
 preguntar). PR, merge, borrado de ramas y despliegues: autorización explícita por tarea.
 
-## Pendiente de autorización / decisión
+## Pendiente de autorización
 
-1. PR `feature/t3.1-qa-server-bootstrap` → `qa` y merge si el CI queda en verde.
-2. P34 — redimensionar `booking-qa` a 2 GB: `s-1vcpu-2gb-intel`, **US$ 14/mes** en `nyc3`.
-3. P35 — DNS gratuito: sslip.io o DuckDNS (necesario en T3.3).
-4. P36 — Cloud Firewall de DO (panel del usuario) o solo `ufw`.
+1. PR `feature/t3.2-qa-compose-stack` → `qa` y merge si el CI queda en verde.
+2. Borrar la rama fusionada `feature/t3.1-qa-server-bootstrap` (local y remota).
 
-## Próxima tarea: T3.2 — Stack QA en Docker Compose
+## Próxima tarea: T3.3 — Caddy, HTTPS e IP real del cliente
 
-- `deploy/compose/docker-compose.qa.yml`: PostGIS (memoria ajustada al tamaño final del
-  Droplet), API y worker desde la imagen (GHCR llega en T3.4; mientras tanto, imagen construida
-  en CI o cargada por SSH), Mailpit enlazado a `127.0.0.1`, red interna, límites de memoria,
-  `read_only`, `no-new-privileges`, ningún puerto publicado salvo Caddy (T3.3).
-- Roles de BD: `app_migrator` (dueño del esquema, solo migraciones) y `app_runtime` (DML, sin
-  DDL); `DATABASE_MIGRATOR_URL` y `DATABASE_URL` separados.
-- Secretos de QA generados en el servidor (`/opt/booking/qa/.env`, 0600, `deploy`), nunca en Git.
-- Pruebas: stack sano, `/readyz` OK, `app_runtime` no puede hacer DDL, puertos internos cerrados.
+- Servicio `caddy` (imagen fijada por digest) en el stack QA: único servicio que publica
+  80/443; certificado Let's Encrypt para `booking-platform-col.duckdns.org` (HTTP-01);
+  redirección HTTP→HTTPS; HSTS; compresión; límites de cuerpo y timeouts; logs JSON sin
+  cabeceras sensibles; volumen para certificados.
+- API: confiar en `X-Forwarded-For` **solo** desde el proxy (config `TRUSTED_PROXIES` con la
+  red de Docker); el resto de clientes sigue usando el par TCP. Pruebas de suplantación.
+- Quitar la publicación `127.0.0.1:8080` de la API cuando Caddy sea el punto de entrada.
+- Pruebas: certificado válido, redirección, HSTS, cabeceras de seguridad, rate limiting y
+  auditoría con la IP real, puertos.
