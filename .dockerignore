@@ -1,4 +1,4 @@
-# Solo go.mod, go.sum, cmd/ e internal/ entran a la imagen (ver Dockerfile).
+# Solo go.mod, go.sum, cmd/, internal/, db/ y el stack QA entran a la imagen (ver Dockerfile).
 .git
 .github
 .env
@@ -7,6 +7,9 @@ bin
 dist
 docs
 deploy
+# Stack QA dentro de la imagen: el script de despliegue del servidor lo extrae (T3.5).
+!deploy/compose/docker-compose.qa.yml
+!deploy/compose/qa
 *.md
 *.out
 coverage.*

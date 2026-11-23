@@ -81,6 +81,13 @@ Decisiones relevantes no arquitectónicas (las arquitectónicas tienen ADR en `d
 | 2026-11-22 | Roles `app_migrator` (dueño, DDL) y `app_runtime` (DML vía privilegios por defecto) creados en el initdb | Mínimo privilegio; la API comprometida no puede alterar el esquema | Aplicado (T3.2) |
 | 2026-11-22 | Migraciones en un servicio `migrate` aparte; api/worker nunca reciben la contraseña del migrador | Separación de credenciales | Aplicado (T3.2) |
 | 2026-11-22 | `sslmode=disable` dentro de la red interna de Docker (mismo host) | Tráfico que no sale del host; TLS a la BD se reevalúa con BD gestionada (Fase 13) | Aplicado (T3.2) |
+| 2026-11-23 | Despliegue automático a QA en cada push a `qa` (decisión del usuario) | Ciclo corto; QA solo tiene datos sintéticos; rollback automático | Aplicado (T3.5) |
+| 2026-11-23 | El stack de Compose viaja dentro de la imagen; el servidor solo acepta `deploy <imagen GHCR@digest>` | La llave de CI no puede enviar archivos ni comandos: aunque se filtre, solo despliega imágenes publicadas por este repositorio | Aplicado (T3.5) |
+| 2026-11-23 | Llave SSH de CI con `restrict,command=` y host key fijada en secreto; token de GHCR = `GITHUB_TOKEN` efímero por stdin | Mínimo privilegio; sin credenciales de registro persistentes en el servidor | Aplicado (T3.5) |
+| 2026-11-23 | Se publica la imagen escaneada (sin reconstruir); SBOM CycloneDX con Trivy como artefacto, sin atestaciones buildx | Imagen de un solo manifiesto: la retención en GHCR borra versiones completas; las atestaciones de GitHub no están disponibles en repos privados del plan Free | Aplicado (T3.4) |
+| 2026-11-23 | GHCR privado, conservar las 10 últimas `qa-*` (decisión del usuario) | Plan Free: 500 MB | Aplicado (T3.4) |
+| 2026-11-23 | Versión de la imagen = commit corto; tag `qa-<sha>` | El smoke test compara `/healthz` con el commit; PROD promoverá el mismo digest | Aplicado (T3.4) |
+| 2026-11-23 | Backup `pg_dump` antes de cada despliegue, 5 en el servidor | Restaurar si una migración daña datos; backups diarios en T3.6 | Aplicado (T3.5) |
 | 2026-11-22 | Caddy 2.11.9 como único punto de entrada; IP fija en la red interna y `TRUSTED_PROXIES` con solo esa IP | La API no puede ser engañada por `X-Forwarded-For` de clientes ni de otros contenedores | Aplicado (T3.3) |
 | 2026-11-22 | HSTS 1 año sin `includeSubDomains`/`preload` | Dominio en zona DNS compartida gratuita (DuckDNS) | Aplicado (T3.3) |
 | 2026-11-22 | Sin access log en Caddy | La API ya registra cada petición con redacción; evitar duplicar datos personales | Aplicado (T3.3) |
