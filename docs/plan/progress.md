@@ -466,6 +466,19 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-23 · Fase 3 · Despliegue automático operativo (cierre T3.4/T3.5) y T3.6 integrada
+
+- `denied` en GHCR: el paquete sí lo creó el workflow (vinculado al repo); el rechazo vino del
+  índice con atestación → PR #27 (`--provenance=false --sbom=false`).
+- Segundo intento: push y pull OK; el servidor no pudo extraer `/deploy/qa` (`permission
+  denied`): el BuildKit del runner aplicó `COPY --chmod=0644` a los directorios padre → PR #29
+  (permisos explícitos en una etapa `stack` + verificación de extracción no-root en
+  `release-qa` y en el job `container` de los PR).
+- **Primer despliegue automático exitoso:** `5070757` (run 45268736830). Luego PR #28 (T3.6) →
+  despliegue `9b169a9` (run 45269111095) ✅. `prune` borró 1 versión sin tag (resto del primer
+  push fallido). Ramas de #27, #28 y #29 borradas (autorizado). P38 aceptado para QA (revisar en
+  PROD). Imagen manual `qa-2d3f46c` borrada del servidor.
+
 ## 2026-11-23 · Fase 3 · T3.6 — Backups diarios de PostgreSQL
 
 - **Previo:** PR #26 (T3.4/T3.5) → `qa`: 6/6 ✅, squash merge `40300ea`; rama borrada

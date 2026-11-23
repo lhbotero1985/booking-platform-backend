@@ -492,3 +492,14 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | **Restauración en sitio** (`restore … --yes`) | ✅ | Usuarios 2 → registro marcador (3) → restore → 2 y marcador ausente; dump de seguridad `prerestore-*`; api/worker detenidos ≈5 s; `/readyz` OK por Caddy |
 | Permisos tras restaurar | ✅ | Base y tablas de `app_migrator`; `app_runtime` INSERT ✅, CREATE en `public` ❌ (correcto), CONNECT ✅; ACL de la base sin PUBLIC; registro vía API 202 (escritura con `app_runtime`) |
 | Copia semanal + verify del domingo | ⏳ | Misma ruta de código que `verify` (probado); primera ejecución automática el domingo 2026-11-29 |
+
+## 2026-11-23 · Fase 3 · Despliegue automático a QA (correcciones y verificación)
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| PR #27 / #29 / #28 — ci + security | ✅ 6/6 cada uno | Squash merges `ab5b22a`, `5070757`, `9b169a9` |
+| `release-qa` 45266135708 (`ab5b22a`) | ❌ | Push y pull OK; extracción de `/deploy/qa` → `permission denied` (directorios 0644); servidor sin cambios |
+| `docker export` de la imagen corregida | ✅ | Directorios 0755, archivos 0644, `10-app-roles.sh` 0755 |
+| `release-qa` 45268736830 (`5070757`) | ✅ | image ✅ (extracción no-root ✅), deploy ✅ (pull, backup, migraciones, smoke, HTTPS público), prune ✅ (1 versión sin tag borrada) |
+| `release-qa` 45269111095 (`9b169a9`) | ✅ | Segundo despliegue; `deployments.log` `ok` × 2; `predeploy-*` por despliegue; servidor conserva solo imagen actual y anterior |
+| `/healthz` público | ✅ | `{"status":"ok","version":"9b169a9"}` |
