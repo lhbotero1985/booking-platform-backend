@@ -1,0 +1,127 @@
+package app
+
+import (
+	"context"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"regexp"
+	"strings"
+	"testing"
+	"time"
+
+	geoapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/application"
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/application/geotest"
+	geographyhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/interfaces/http"
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application"
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application/apptest"
+	identityhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/interfaces/http"
+	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
+	"github.com/lhbotero1985/booking-platform-backend/internal/platform/config"
+)
+
+type geoEnv struct {
+	srv      *httptest.Server
+	identity *application.Service
+	users    *apptest.Store
+	mailer   *apptest.Mailer
+	geo      *geotest.Store
+}
+
+// newGeoServer wires identity (authentication, authorizer) and geography like cmd/api does.
+func newGeoServer(t *testing.T) geoEnv {
+	t.Helper()
+	cfg, err := config.Load(func(k string) string {
+		return map[string]string{"APP_ENV": "test", "DATABASE_URL": "postgres://u:p@localhost:5432/test"}[k]
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	clk := clock.NewFixed(time.Date(2026, 11, 23, 12, 0, 0, 0, time.UTC))
+	e := geoEnv{users: apptest.NewStore(), mailer: &apptest.Mailer{}, geo: geotest.NewSeededStore()}
+	e.identity = application.NewService(application.Deps{
+		Store: e.users, Hasher: &apptest.Hasher{}, Mailer: e.mailer, Clock: clk, Random: &apptest.FixedRandom{},
+		Config: application.Config{PublicAppURL: "https://app.example.test"}, Logger: logger,
+	})
+	idh := identityhttp.New(e.identity, logger, identityhttp.Options{})
+	geo := geoapp.NewService(e.geo, e.identity, clk)
+	e.srv = httptest.NewServer(NewHTTPHandler(cfg, logger, Deps{Modules: []RouteRegistrar{
+		idh, geographyhttp.New(geo, logger, idh.RequireAuth),
+	}}))
+	t.Cleanup(e.srv.Close)
+	return e
+}
+
+// signIn registers, verifies and logs in email, returning a bearer token.
+func (e geoEnv) signIn(t *testing.T, email string) string {
+	t.Helper()
+	ctx := context.Background()
+	pw := "una clave suficientemente larga"
+	if err := e.identity.Register(ctx, application.RegisterInput{Email: email, Password: pw, FullName: "QA"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.identity.SendVerificationEmail(ctx, e.users.Enqueued[len(e.users.Enqueued)-1]); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := url.QueryUnescape(regexp.MustCompile(`token=([^\s]+)`).FindStringSubmatch(e.mailer.Last().Body)[1])
+	if err := e.identity.VerifyEmail(ctx, raw); err != nil {
+		t.Fatal(err)
+	}
+	res, err := e.identity.Login(ctx, application.LoginInput{Email: email, Password: pw, ClientType: "MOBILE"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return res.Token.Reveal()
+}
+
+func TestContractGeographyEndpoints(t *testing.T) {
+	c := loadContract(t)
+	e := newGeoServer(t)
+	userTok := e.signIn(t, "ana@example.com")
+	adminTok := e.signIn(t, "admin@example.com")
+	if err := e.identity.SetPlatformAdmin(context.Background(), "admin@example.com", true); err != nil {
+		t.Fatal(err)
+	}
+	valle, cali := geotest.ValleID.String(), geotest.CaliID.String()
+
+	// Public reads.
+	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/countries", "", "", http.StatusOK)
+	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/countries/CO/divisions", "", "", http.StatusOK)
+	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/countries/ZZ/divisions", "", "", http.StatusNotFound)
+	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/divisions/"+valle+"/cities", "", "", http.StatusOK)
+	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/divisions/not-a-uuid/cities", "", "", http.StatusNotFound)
+
+	// Admin writes.
+	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/admin/countries", `{"code":"US","name":"Estados Unidos","phoneCode":"+1","defaultCurrency":"USD"}`, adminTok, http.StatusCreated)
+	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/admin/countries", `{"code":"US","name":"Estados Unidos","phoneCode":"+1","defaultCurrency":"USD"}`, adminTok, http.StatusConflict)
+	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/admin/countries", `{"code":"X","name":"","phoneCode":"1","defaultCurrency":"EUR"}`, adminTok, http.StatusBadRequest)
+	c.callAuth(t, e.srv, http.MethodPatch, "/api/v1/admin/countries/US", `{"active":false}`, adminTok, http.StatusOK)
+	c.callAuth(t, e.srv, http.MethodPatch, "/api/v1/admin/countries/PE", `{"active":false}`, adminTok, http.StatusNotFound)
+
+	body := c.callAuth(t, e.srv, http.MethodPost, "/api/v1/admin/divisions", `{"countryCode":"CO","code":"CO-CAU","name":"Cauca","type":"DEPARTMENT"}`, adminTok, http.StatusCreated)
+	div := regexp.MustCompile(`"id":"([^"]+)"`).FindStringSubmatch(body)[1]
+	c.callAuth(t, e.srv, http.MethodPatch, "/api/v1/admin/divisions/"+div, `{"code":""}`, adminTok, http.StatusOK)
+	c.callAuth(t, e.srv, http.MethodPatch, "/api/v1/admin/divisions/"+div, `{"name":"Antioquia"}`, adminTok, http.StatusConflict)
+
+	body = c.callAuth(t, e.srv, http.MethodPost, "/api/v1/admin/cities", `{"divisionId":"`+div+`","name":"Popayán","timeZone":"America/Bogota"}`, adminTok, http.StatusCreated)
+	if !strings.Contains(body, `"timeZone":"America/Bogota"`) {
+		t.Errorf("city body = %s", body)
+	}
+	c.callAuth(t, e.srv, http.MethodPatch, "/api/v1/admin/cities/"+cali, `{"timeZone":"Mars/Olympus"}`, adminTok, http.StatusBadRequest)
+	c.callAuth(t, e.srv, http.MethodPatch, "/api/v1/admin/cities/"+cali, `{"name":"Santiago de Cali"}`, adminTok, http.StatusOK)
+
+	// Authentication and authorization.
+	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/admin/cities", `{"divisionId":"`+valle+`","name":"Palmira","timeZone":"America/Bogota"}`, "", http.StatusUnauthorized)
+	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/admin/cities", `{"divisionId":"`+valle+`","name":"Palmira","timeZone":"America/Bogota"}`, userTok, http.StatusForbidden)
+	c.callAuth(t, e.srv, http.MethodPatch, "/api/v1/admin/countries/CO", `{"active":false}`, userTok, http.StatusForbidden)
+
+	if got := len(e.geo.Audit); got != 6 {
+		t.Errorf("geography audit entries = %d (%v), want 6 successful writes", got, e.geo.AuditActions())
+	}
+	if n := len(e.users.AuditActions()); n == 0 || e.users.AuditActions()[n-1] != application.AuditAuthzDenied+":DENIED" {
+		t.Errorf("denied admin attempts must be audited by identity: %v", e.users.AuditActions())
+	}
+}

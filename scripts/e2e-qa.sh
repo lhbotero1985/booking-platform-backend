@@ -112,6 +112,21 @@ check "GET /me forged token" 401 "$(status GET /api/v1/me "" "bp_s_forged-token-
 check "GET /me/memberships" 200 "$(status GET /api/v1/me/memberships "" "$T1")"
 check "  no memberships yet" 0 "$(json '.items | length')"
 
+# --- geography (Phase 4): public reference data, writes only for PLATFORM_ADMIN ------------
+check "GET /countries" 200 "$(status GET /api/v1/countries)"
+check "  Colombia COP +57" "CO COP +57" "$(json '.items[] | select(.code=="CO") | "\(.code) \(.defaultCurrency) \(.phoneCode)"')"
+check "GET /countries/CO/divisions" 200 "$(status GET /api/v1/countries/CO/divisions)"
+check "  Antioquia, Valle del Cauca" "CO-ANT,CO-VAC" "$(json '[.items[].code] | join(",")')"
+valle=$(json '.items[] | select(.code=="CO-VAC") | .id')
+antioquia=$(json '.items[] | select(.code=="CO-ANT") | .id')
+check "GET Valle del Cauca cities" 200 "$(status GET "/api/v1/divisions/$valle/cities")"
+check "  Cali, Yumbo (America/Bogota)" "Cali,Yumbo America/Bogota" "$(json '[.items[].name] | join(",")') $(json '[.items[].timeZone] | unique | join(",")')"
+check "GET Antioquia cities" 200 "$(status GET "/api/v1/divisions/$antioquia/cities")"
+check "  Itagüí, Medellín" "Itagüí,Medellín" "$(json '[.items[].name] | join(",")')"
+check "unknown country -> 404" 404 "$(status GET /api/v1/countries/ZZ/divisions)"
+check "admin write without token" 401 "$(status POST /api/v1/admin/cities "{\"divisionId\":\"$valle\",\"name\":\"Palmira\",\"timeZone\":\"America/Bogota\"}")"
+check "admin write as normal user" 403 "$(status POST /api/v1/admin/cities "{\"divisionId\":\"$valle\",\"name\":\"Palmira\",\"timeZone\":\"America/Bogota\"}" "$T1")"
+
 # --- change password (current session stays, others revoked) -------------------------------
 login "$EMAIL" "$PW1" >/dev/null
 T2=$(token)

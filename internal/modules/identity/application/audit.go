@@ -26,6 +26,8 @@ const (
 	AuditPasswordReset          = "auth.password_reset"
 	AuditPasswordChanged        = "auth.password_changed"
 	AuditAuthzDenied            = "authz.denied"
+	AuditPlatformAdminGranted   = "admin.platform_admin_granted"
+	AuditPlatformAdminRevoked   = "admin.platform_admin_revoked"
 )
 
 // AuditOutcome matches the audit_log_outcome_valid CHECK.

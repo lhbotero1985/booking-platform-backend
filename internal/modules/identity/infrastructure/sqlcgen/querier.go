@@ -40,6 +40,8 @@ type Querier interface {
 	// Used after an authenticated password change: keeps the current session.
 	RevokeOtherUserSessions(ctx context.Context, arg RevokeOtherUserSessionsParams) (int64, error)
 	RevokeSession(ctx context.Context, arg RevokeSessionParams) (int64, error)
+	// Only through the operator command "api admin" (no HTTP endpoint grants this flag).
+	SetUserPlatformAdmin(ctx context.Context, arg SetUserPlatformAdminParams) error
 	// Sliding idle expiry, never beyond the absolute expiry.
 	TouchSession(ctx context.Context, arg TouchSessionParams) error
 	UpdateUserPasswordHash(ctx context.Context, arg UpdateUserPasswordHashParams) error

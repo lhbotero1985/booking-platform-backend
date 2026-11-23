@@ -1,15 +1,21 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T3.8 — Cierre de la Fase 3 (2026-11-23). **Fase 3 aprobada por el usuario.** El paso `qa` →
-`main` se hará al ir a producción (Fase 13).
+T4.1 — Geografía (2026-11-23), en `feature/t4.1-geography` (commit y push; PR y merge pendientes
+de autorización). Al desplegar: otorgar `PLATFORM_ADMIN` a la cuenta que indique el usuario y
+repetir `scripts/e2e-qa.sh`.
+
+**Fase 4 en curso** (desglose aprobado 2026-11-23, ver `roadmap.md`).
 
 ## Flujo de ramas (ADR-0017)
 
 `feature/*` (nace de `qa`) → PR → `qa` → despliegue automático a QA → validación. `qa` → `main`
-(merge commit + tag `vX.Y.Z`, `release-tag.yml`) solo al pasar a producción.
+solo al pasar a producción.
 
-## Próxima tarea: desglose de la Fase 4
+## Próxima tarea: T4.2 — Dominio y persistencia de negocios
 
-Proponer el desglose de la Fase 4 según `roadmap.md` (tareas, criterios de aceptación, decisiones
-pendientes) y esperar la aprobación del usuario antes de empezar.
+- Migración `businesses` (slug citext único, estado, contacto, ubicación país/división/ciudad +
+  `location geography(Point)` opcional, `time_zone`, `currency`, política de reservas, avisos).
+- FK `memberships.business_id → businesses` (RESTRICT); `audit_log.business_id` sin FK.
+- Invariante pendiente de T4.1: no desactivar una ciudad con negocios activos.
+- Teléfono con `github.com/nyaruka/phonenumbers` (nueva dependencia, govulncheck).

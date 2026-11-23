@@ -38,6 +38,8 @@ audit_log(id uuid pk, occurred_at, actor_user_id, business_id null, action text,
 
 ### Geography
 ```sql
+-- Implementado en 00005_geography.sql (T4.1): CHECK de formatos, nombres únicos por padre
+-- (lower(name)), código ISO 3166-2 único y del mismo país, created_at/updated_at.
 countries(code char(2) pk, name, phone_code, default_currency char(3), active)
 administrative_divisions(id uuid pk, country_code fk, code text null, name, type, active)
 cities(id uuid pk, division_id fk, name, time_zone text not null, active)

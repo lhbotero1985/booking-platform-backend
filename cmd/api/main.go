@@ -7,6 +7,8 @@
 //	api migrate up           apply pending migrations (uses DATABASE_MIGRATOR_URL)
 //	api migrate down         revert the last migration (development/test only)
 //	api migrate status       list migrations and their state
+//	api admin grant-platform-admin EMAIL    make an active account PLATFORM_ADMIN (audited)
+//	api admin revoke-platform-admin EMAIL   remove PLATFORM_ADMIN (audited)
 package main
 
 import (
@@ -23,6 +25,7 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/app"
+	geographyhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/interfaces/http"
 	identityhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/interfaces/http"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/buildinfo"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
@@ -60,8 +63,10 @@ func run(args []string) error {
 		return serve(ctx, cfg, logger)
 	case "migrate":
 		return runMigrate(ctx, cfg, logger, args[1:])
+	case "admin":
+		return runAdmin(ctx, cfg, logger, args[1:])
 	default:
-		return fmt.Errorf("unknown command %q (use: serve | migrate up|down|status)", cmd)
+		return fmt.Errorf("unknown command %q (use: serve | migrate up|down|status | admin ...)", cmd)
 	}
 }
 
@@ -101,13 +106,17 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		return err
 	}
 
+	identityHandler := identityhttp.New(identitySvc, logger, identityhttp.Options{AllowedOrigins: cfg.HTTP.CORSAllowedOrigins, AuthLimiter: limiters.Auth})
+	geographySvc := app.NewGeographyService(pool, identitySvc)
+
 	handler := app.NewHTTPHandler(cfg, logger, app.Deps{
 		Readiness: []app.Check{
 			{Name: "database", Fn: pool.Ping},
 			{Name: "migrations", Fn: migrator.Check},
 		},
 		Modules: []app.RouteRegistrar{
-			identityhttp.New(identitySvc, logger, identityhttp.Options{AllowedOrigins: cfg.HTTP.CORSAllowedOrigins, AuthLimiter: limiters.Auth}),
+			identityHandler,
+			geographyhttp.New(geographySvc, logger, identityHandler.RequireAuth),
 		},
 		APILimiter: limiters.API,
 	})
@@ -198,5 +207,33 @@ func runMigrate(ctx context.Context, cfg config.Config, logger *slog.Logger, arg
 	default:
 		return fmt.Errorf("unknown migrate action %q (use: up | down | status)", action)
 	}
+	return nil
+}
+
+// runAdmin runs operator commands. They need server access (they run inside the api container)
+// and are never exposed over HTTP.
+func runAdmin(ctx context.Context, cfg config.Config, logger *slog.Logger, args []string) error {
+	if len(args) != 2 || (args[0] != "grant-platform-admin" && args[0] != "revoke-platform-admin") {
+		return errors.New("usage: api admin grant-platform-admin|revoke-platform-admin EMAIL")
+	}
+	pool, err := db.NewPool(ctx, db.PoolConfig{
+		URL:             cfg.Database.URL,
+		MaxConns:        2,
+		ConnectTimeout:  cfg.Database.ConnectTimeout,
+		ApplicationName: "booking-admin",
+	})
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+	svc, err := app.NewIdentityService(cfg, pool, nil, logger, nil)
+	if err != nil {
+		return err
+	}
+	grant := args[0] == "grant-platform-admin"
+	if err := svc.SetPlatformAdmin(ctx, args[1], grant); err != nil {
+		return err
+	}
+	logger.Info("platform admin updated", slog.Bool("platform_admin", grant))
 	return nil
 }

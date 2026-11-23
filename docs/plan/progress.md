@@ -466,6 +466,22 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-23 · Fase 4 · T4.1 — Geografía
+
+- **Desglose de la Fase 4 aprobado** (T4.1–T4.7). Decisiones: Colombia con Valle del Cauca
+  (Cali, Yumbo) y Antioquia (Medellín, Itagüí); solo el administrador crea negocios; miembros por
+  email.
+- **Estado:** ✅ Implementada en `feature/t4.1-geography` (commit y push; PR pendiente de
+  autorización).
+- **Archivos:** `db/migrations/00005_geography.sql` (tablas + datos iniciales),
+  `db/queries/geography/`, `db/queries/platform/audit.sql`, módulo
+  `internal/modules/geography/` (domain, application, geotest, infrastructure, interfaces/http),
+  `internal/platform/audit/`, `internal/app/geography.go`, `cmd/api` (rutas + comando
+  `admin`), identity `SetPlatformAdmin` (+ query, store, apptest), `api/openapi.yaml` (9
+  operaciones), `.golangci.yml` (fronteras del módulo), `sqlc.yaml`, pruebas (unitarias,
+  integración, contrato, seguridad), `scripts/e2e-qa.sh` (geografía), docs.
+- **Problemas:** ninguno relevante (un hallazgo de `gocritic` en una prueba, corregido).
+
 ## 2026-11-23 · Fase 3 · T3.8 — Cierre de la fase ✅ (Fase 3 aprobada)
 
 - **El usuario aprobó el cierre de la Fase 3.** PR `qa` → `main` **pospuesto hasta el paso a
