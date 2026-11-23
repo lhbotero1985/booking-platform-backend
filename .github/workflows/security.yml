@@ -70,6 +70,14 @@ jobs:
           docker build -f deploy/docker/Dockerfile \
             --build-arg VERSION="ci-${GITHUB_SHA::7}" --build-arg COMMIT="${GITHUB_SHA::7}" \
             -t booking-platform-backend:ci .
+      - name: stack files extractable from the image (non-root, as the deploy script does)
+        run: |
+          out=$(mktemp -d)
+          cid=$(docker create booking-platform-backend:ci)
+          docker cp --quiet "$cid:/deploy/qa/." "$out/"
+          docker rm "$cid" >/dev/null
+          test -f "$out/docker-compose.yml" && test -f "$out/qa/Caddyfile"
+          test -x "$out/qa/initdb/10-app-roles.sh"
       - name: trivy image (HIGH/CRITICAL with a fix available fails the build)
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY_IMAGE" \
