@@ -1,6 +1,6 @@
 # Cierre de la Fase 3 — Infraestructura QA en DigitalOcean
 
-Fecha: 2026-11-23 · Estado: **Pendiente de aprobación del usuario**
+Fecha: 2026-11-23 · Estado: **✅ Aprobada por el usuario (2026-11-23)**
 
 QA en línea: **https://booking-platform-col.duckdns.org** (Droplet `booking-qa`, 1 vCPU / 1 GB +
 2 GB swap, nyc3). Costo: solo el Droplet; ningún otro recurso pago.
@@ -16,7 +16,7 @@ QA en línea: **https://booking-platform-col.duckdns.org** (Droplet `booking-qa`
 | T3.5 | Despliegue automático en cada merge a `qa`: llave de CI restringida a un comando, token efímero, stack dentro de la imagen, backup previo, migraciones, smoke tests, rollback automático | ✅ | PR #26, #29 |
 | T3.6 | `booking-backup` + timer systemd: diarios (7) y semanales (4), verificación de restauración semanal, restauración en sitio | ✅ | PR #28 |
 | T3.7 | `scripts/e2e-qa.sh` (52 verificaciones), calibración de Argon2id (P27), manuales de operación | ✅ | PR #30 |
-| T3.8 | Este documento; `release-tag.yml` (re-etiquetado del digest validado); PR `qa` → `main` | ⏳ | `feature/t3.8-phase-3-closure` |
+| T3.8 | Este documento; `release-tag.yml` (re-etiquetado del digest validado) | ✅ | `feature/t3.8-phase-3-closure` |
 
 Manuales: `docs/operations/server-bootstrap.md`, `qa-deployment.md`, `backup-restore.md`,
 `rollback.md`.
@@ -68,12 +68,16 @@ Manuales: `docs/operations/server-bootstrap.md`, `qa-deployment.md`, `backup-res
 
 ## 5. Release
 
-Al aprobar: PR `qa` → `main` (merge commit, ADR-0017) y tag **`v0.3.0`** en el merge commit;
-`release-tag.yml` re-etiqueta la imagen validada en QA (`qa-<sha>`) como `v0.3.0` sin
-reconstruirla (mismo digest; la retención de GHCR la conserva). `main` no despliega a ningún
-ambiente hasta la Fase 13.
+**Decisión del usuario (2026-11-23): el paso a `main` se hará cuando se vaya a producción**
+(Fase 13), no al cerrar esta fase. Hasta entonces `qa` acumula las fases validadas.
+
+Mecanismo listo para ese momento: PR `qa` → `main` (merge commit, ADR-0017) y tag `vX.Y.Z` en
+el merge commit; `release-tag.yml` re-etiqueta la imagen validada en QA (`qa-<sha>`) sin
+reconstruirla (mismo digest; la retención de GHCR conserva las versiones con tag de release).
+Mientras tanto, la retención de GHCR (10 `qa-*`) puede borrar imágenes antiguas: la release se
+hará desde la imagen del último despliegue validado en QA.
 
 ## 6. Aprobación
 
-- [ ] Usuario aprueba el cierre de la Fase 3.
-- [ ] Usuario autoriza el PR `qa` → `main` (merge commit) y el tag `v0.3.0`.
+- [x] Usuario aprueba el cierre de la Fase 3 (2026-11-23).
+- [x] PR `qa` → `main`: **pospuesto hasta el paso a producción** (decisión del usuario).

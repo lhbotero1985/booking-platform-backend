@@ -1,21 +1,15 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T3.7 — Validación E2E en QA (PR #30, `d0f48b1`, desplegado y verificado).
-
-**Fase 3: cierre en curso (T3.8)** — `docs/plan/phase-3-closure.md`.
+T3.8 — Cierre de la Fase 3 (2026-11-23). **Fase 3 aprobada por el usuario.** El paso `qa` →
+`main` se hará al ir a producción (Fase 13).
 
 ## Flujo de ramas (ADR-0017)
 
-`feature/*` (nace de `qa`) → PR → `qa` → despliegue automático a QA → validación → PR `qa` →
-`main` (merge commit) + tag `vX.Y.Z` → PROD con el mismo artefacto (Fase 13).
+`feature/*` (nace de `qa`) → PR → `qa` → despliegue automático a QA → validación. `qa` → `main`
+(merge commit + tag `vX.Y.Z`, `release-tag.yml`) solo al pasar a producción.
 
-## Pendiente de autorización
+## Próxima tarea: desglose de la Fase 4
 
-1. Aprobación del cierre de la Fase 3.
-2. PR `feature/t3.8-phase-3-closure` → `qa` (despliega; se repite el E2E).
-3. PR `qa` → `main` con **merge commit** y tag `v0.3.0` (dispara `release-tag.yml`).
-
-## Después: Fase 4
-
-Desglose de la Fase 4 según `roadmap.md`, para aprobación antes de empezar.
+Proponer el desglose de la Fase 4 según `roadmap.md` (tareas, criterios de aceptación, decisiones
+pendientes) y esperar la aprobación del usuario antes de empezar.
