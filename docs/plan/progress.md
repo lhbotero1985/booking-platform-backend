@@ -466,6 +466,17 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-23 · Fase 3 · T3.8 — Cierre de la fase ✅ (Fase 3 aprobada)
+
+- **El usuario aprobó el cierre de la Fase 3.** PR `qa` → `main` **pospuesto hasta el paso a
+  producción** (decisión del usuario); no se crea tag por ahora.
+
+- PR #30 (T3.7) → `qa`: 6/6 ✅, squash `d0f48b1`; desplegado automáticamente (`release-qa` ✅);
+  rama borrada (autorizado). Argon2 t=2 activo; rehash verificado; E2E 52/52 en `d0f48b1`.
+- `feature/t3.8-phase-3-closure`: `docs/plan/phase-3-closure.md`, `.github/workflows/release-tag.yml`.
+- `main` está 25+ commits detrás de `qa` (primera integración); sin commits propios.
+- PR de esta rama → `qa` autorizado (merge, despliegue y E2E sobre la imagen final).
+
 ## 2026-11-23 · Fase 3 · T3.7 — Validación E2E en QA
 
 - **Estado:** ✅ en `feature/t3.7-qa-validation` (commit y push; PR pendiente de autorización).

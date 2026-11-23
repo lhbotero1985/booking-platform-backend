@@ -1,23 +1,15 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T3.7 — Validación E2E en QA (2026-11-23), en `feature/t3.7-qa-validation` (commit y push; PR y
-merge pendientes de autorización). Al fusionar, `release-qa` despliega `ARGON2_ITERATIONS=2`:
-verificar tiempo de login y rehash, y repetir `scripts/e2e-qa.sh`.
-
-**Fase 3 en curso** (desglose aprobado 2026-11-22, ver `roadmap.md`).
+T3.8 — Cierre de la Fase 3 (2026-11-23). **Fase 3 aprobada por el usuario.** El paso `qa` →
+`main` se hará al ir a producción (Fase 13).
 
 ## Flujo de ramas (ADR-0017)
 
-`feature/*` (nace de `qa`) → PR → `qa` → despliegue automático a QA → validación → PR `qa` →
-`main` → PROD con el mismo artefacto. Commit y push en `feature/*`: autorización permanente.
-PR, merge, borrado de ramas y despliegues: autorización explícita por tarea.
+`feature/*` (nace de `qa`) → PR → `qa` → despliegue automático a QA → validación. `qa` → `main`
+(merge commit + tag `vX.Y.Z`, `release-tag.yml`) solo al pasar a producción.
 
-## Próxima tarea: T3.8 — PR `qa` → `main` y cierre de la Fase 3
+## Próxima tarea: desglose de la Fase 4
 
-- Checklist de cierre de fase (`docs/plan/phase-3-closure.md`): criterios de T3.1–T3.7,
-  riesgos aceptados (P36 sin Cloud Firewall, P37 sin protección de ramas, P38 backups en el mismo
-  disco), deuda y preguntas abiertas.
-- PR `qa` → `main` (requiere autorización). `main` aún no despliega a ningún lado: PROD es la
-  Fase 13.
-- Aprobación del cierre de la fase por el usuario.
+Proponer el desglose de la Fase 4 según `roadmap.md` (tareas, criterios de aceptación, decisiones
+pendientes) y esperar la aprobación del usuario antes de empezar.
