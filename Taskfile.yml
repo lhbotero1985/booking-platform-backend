@@ -94,7 +94,7 @@ tasks:
   shellcheck:
     desc: Analiza los scripts de despliegue con shellcheck (requiere Docker en ejecución)
     cmds:
-      - docker run --rm -v "{{.ROOT_DIR}}:/mnt:ro" -w /mnt koalaman/shellcheck:v0.10.0 -S style deploy/server/bootstrap.sh deploy/server/qa-env.sh deploy/server/deploy.sh deploy/server/backup.sh deploy/compose/qa/initdb/10-app-roles.sh
+      - docker run --rm -v "{{.ROOT_DIR}}:/mnt:ro" -w /mnt koalaman/shellcheck:v0.10.0 -S style deploy/server/bootstrap.sh deploy/server/qa-env.sh deploy/server/deploy.sh deploy/server/backup.sh scripts/e2e-qa.sh deploy/compose/qa/initdb/10-app-roles.sh
 
   secrets:
     desc: Escaneo de secretos con gitleaks (requiere Docker en ejecución)
