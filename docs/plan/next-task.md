@@ -1,9 +1,8 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T3.4 + T3.5 — Despliegue desde GitHub a QA (2026-11-23), en `feature/t3.4-deploy-from-github`
-(commit y push hechos; PR y merge pendientes de autorización). Al fusionar, `release-qa`
-desplegará automáticamente: esa ejecución es la validación final.
+T3.6 — Backups diarios de PostgreSQL (2026-11-23), en `feature/t3.6-db-backups` (commit y push;
+PR y merge pendientes de autorización). Instalado y probado en QA.
 
 **Fase 3 en curso** (desglose aprobado 2026-11-22, ver `roadmap.md`).
 
@@ -13,17 +12,21 @@ desplegará automáticamente: esa ejecución es la validación final.
 `main` → PROD con el mismo artefacto. Commit y push en `feature/*`: autorización permanente.
 PR, merge, borrado de ramas y despliegues: autorización explícita por tarea.
 
+## Bloqueante: push a GHCR denegado en `release-qa`
+
+El primer `release-qa` (commit `40300ea`) falló en el push a GHCR con `denied`. Hipótesis
+principal: ya existe un paquete `booking-platform-backend` en la cuenta no vinculado al repo (el
+`GITHUB_TOKEN` del repo no tiene acceso). Para diagnosticar se necesita ver los paquetes
+(`gh auth refresh -h github.com -s read:packages,delete:packages` o revisar
+https://github.com/lhbotero1985?tab=packages).
+
 ## Pendiente de autorización
 
-1. PR `feature/t3.4-deploy-from-github` → `qa` y merge si el CI queda en verde (dispara el
-   primer despliegue automático).
-2. P37: protección de ramas en el plan Free.
+1. PR `feature/t3.4-ghcr-push-fix` → `qa` (imagen de un solo manifiesto) — cada merge despliega.
+2. PR `feature/t3.6-db-backups` → `qa`.
+3. P38: copia externa de backups QA.
 
-## Próxima tarea: T3.6 — Backups diarios de PostgreSQL
+## Próxima tarea: T3.7 — Validación E2E en QA
 
-- Timer systemd (o cron) en el servidor: `pg_dump -Fc` diario, retención (p. ej. 7 diarios + 4
-  semanales), en `/opt/booking/qa/backups/` (gratuito, mismo disco; P34/decisión sin costo).
-- Prueba de restauración real en una base temporal y verificación de conteos.
-- Documentar en `docs/operations/backup-restore.md`.
-- Riesgo aceptado: backups en el mismo Droplet (sin copia externa) mientras no se autorice
-  Spaces u otra ubicación.
+- Flujos de la Fase 2 por HTTPS público (Mailpit por túnel SSH), primer despliegue automático
+  verificado, calibración de Argon2id en el Droplet (P27), manuales de operación.

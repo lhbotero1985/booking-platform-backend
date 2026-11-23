@@ -1,0 +1,12 @@
+# 03:15 UTC daily, before the unattended-upgrades reboot window (04:30 UTC). Persistent: a run
+# missed while the server was off happens at the next boot.
+[Unit]
+Description=Daily booking-platform PostgreSQL backup
+
+[Timer]
+OnCalendar=*-*-* 03:15:00 UTC
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

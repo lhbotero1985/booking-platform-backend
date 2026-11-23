@@ -137,6 +137,6 @@ ssh -N -L 18080:127.0.0.1:8080 -L 18025:127.0.0.1:8025 deploy@HOST
 Registro de despliegues: `cat /opt/booking/qa/deployments.log` (fecha, resultado, versión,
 imagen, actor) y el resumen de cada ejecución de `release-qa` en GitHub Actions.
 
-## 6. Pendiente
+## 6. Backups
 
-- Backups diarios con retención y prueba de restauración (T3.6).
+Diarios con `booking-backup.timer` (T3.6); ver `backup-restore.md`.
