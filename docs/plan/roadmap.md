@@ -70,7 +70,7 @@ Costo: solo el Droplet; cualquier recurso con costo adicional requiere autorizac
 |---|---|---|
 | T3.1 ✅ | Preparación y endurecimiento del servidor (`deploy/server/bootstrap.sh`): usuario `deploy`, SSH solo con llave, ufw, fail2ban, actualizaciones automáticas, swap, Docker | Root y contraseñas rechazados; solo 22 abierto; script idempotente y con shellcheck en CI |
 | T3.2 ✅ | Stack QA en Compose: PostGIS ajustado a la RAM, API, worker, Mailpit en `127.0.0.1`; roles de BD `app_migrator`/`app_runtime`; secretos generados en el servidor | Stack sano; ningún puerto interno expuesto; secretos fuera de Git |
-| T3.3 | Caddy con HTTPS (DNS gratuito), HSTS, IP real del cliente (proxy de confianza) | Certificado válido; rate limiting y auditoría con la IP real |
+| T3.3 ✅ | Caddy con HTTPS (DNS gratuito), HSTS, IP real del cliente (proxy de confianza) | Certificado válido; rate limiting y auditoría con la IP real |
 | T3.4 | Publicación de la imagen en GHCR (tag por commit, digest), Trivy y SBOM | Imagen firmable y trazable desde `qa` |
 | T3.5 | Despliegue automático a QA: backup previo, migraciones, smoke tests, rollback automático | Despliegue y rollback probados |
 | T3.6 | Backups diarios de PostgreSQL con retención y prueba de restauración | Restauración real verificada |

@@ -40,6 +40,8 @@ Los precios se verificarán en el panel de DigitalOcean antes de solicitar autor
 - Firewall de DO + `ufw` como segunda capa; PostgreSQL **no** expuesto (solo red interna Docker).
   Docker publica puertos por fuera de ufw: solo Caddy publica puertos (80/443). El Cloud
   Firewall de DO no se gestiona con las herramientas disponibles; en QA queda solo `ufw` (P36).
+- Caddy (T3.3) es el único servicio expuesto; la API solo confía en `X-Forwarded-For` de la IP
+  fija de Caddy (`TRUSTED_PROXIES`).
 - `fail2ban` para SSH.
 - Docker con contenedores no-root, `read_only`, `no-new-privileges`, límites de memoria.
 - Secretos en `/opt/booking/<env>/.env` con permisos `0600`, propiedad de `deploy`.

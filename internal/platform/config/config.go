@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"net/url"
 	"strconv"
 	"strings"
@@ -41,6 +42,9 @@ type HTTP struct {
 	ShutdownTimeout    time.Duration
 	MaxBodyBytes       int64
 	CORSAllowedOrigins []string
+	// TrustedProxies are the reverse proxies (Caddy) whose X-Forwarded-For is believed.
+	// Empty: the TCP peer is the client.
+	TrustedProxies []netip.Prefix
 }
 
 // Database holds PostgreSQL settings. URLs contain credentials: never log them.
@@ -126,6 +130,7 @@ func Load(getenv func(string) string) (Config, error) {
 			ShutdownTimeout:    p.duration("HTTP_SHUTDOWN_TIMEOUT", 20*time.Second),
 			MaxBodyBytes:       p.int64("HTTP_MAX_BODY_BYTES", 1<<20),
 			CORSAllowedOrigins: p.list("CORS_ALLOWED_ORIGINS"),
+			TrustedProxies:     p.prefixes("TRUSTED_PROXIES"),
 		},
 		Database: Database{
 			URL:            p.postgresURL("DATABASE_URL", true),
@@ -338,4 +343,34 @@ func (p *parser) validatePublicURL(env Env, raw string) {
 	if env.IsDeployed() && u.Scheme != "https" {
 		p.fail(key, fmt.Sprintf("must use https in %s", env))
 	}
+}
+
+// prefixes parses a comma-separated list of IP addresses or CIDR prefixes. Catch-all prefixes
+// are rejected: trusting every peer would let any client choose its own IP.
+func (p *parser) prefixes(key string) []netip.Prefix {
+	var out []netip.Prefix
+	for _, v := range p.list(key) {
+		var pfx netip.Prefix
+		if strings.Contains(v, "/") {
+			parsed, err := netip.ParsePrefix(v)
+			if err != nil {
+				p.fail(key, fmt.Sprintf("invalid prefix %q", v))
+				continue
+			}
+			pfx = parsed.Masked()
+		} else {
+			ip, err := netip.ParseAddr(v)
+			if err != nil {
+				p.fail(key, fmt.Sprintf("invalid address %q", v))
+				continue
+			}
+			pfx = netip.PrefixFrom(ip.Unmap(), ip.Unmap().BitLen())
+		}
+		if pfx.Bits() == 0 {
+			p.fail(key, fmt.Sprintf("%q would trust every client", v))
+			continue
+		}
+		out = append(out, pfx)
+	}
+	return out
 }
