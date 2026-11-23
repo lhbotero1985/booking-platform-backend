@@ -471,3 +471,24 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Llave de CI restringida | ✅ | Comando arbitrario → ejecuta solo `booking-deploy` (usage, exit 1); reenvío de puertos → `administratively prohibited`; token falso → `registry login failed` |
 | Limpieza del servidor | ✅ | Registro de prueba, imágenes de prueba y `qa-c4952dd` borrados; script de prueba eliminado |
 | Workflow `release-qa` en GitHub | ⏳ | Se ejecuta al fusionar en `qa` |
+
+## 2026-11-23 · Fase 3 · T3.4/T3.5 — CI y primer release
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| PR #26 — ci + security | ✅ 6/6 | Squash merge `40300ea` |
+| `release-qa` run 45261417122 | ❌ | build ✅, Trivy ✅, SBOM ✅; push GHCR `denied`; deploy y prune omitidos; QA intacto (`qa-2d3f46c`). El build generó índice + atestación (almacén containerd) → fix `--provenance=false --sbom=false` |
+
+## 2026-11-23 · Fase 3 · T3.6 — Backups
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `task shellcheck` (incluye `backup.sh`) | ✅ | Sin hallazgos |
+| `systemd-analyze verify` service + timer | ✅ | Sin avisos |
+| `systemctl start booking-backup.service` | ✅ | `Result=success`; `daily-20261123T203457Z.dump` (37 KB) + `.sha256`; `last-backup` ok; timer próximo 2026-11-24 03:16 UTC |
+| `booking-backup verify` | ✅ | Restaurado en `booking_verify`: 12 tablas, `goose_version 4`, mismos conteos; base temporal eliminada |
+| Archivo truncado (20 KB, sin checksum) | ✅ rechazado | `pg_restore: could not read from input file` → exit 1 |
+| Archivo alterado (1 byte) | ✅ rechazado | `checksum mismatch` → exit 1 |
+| **Restauración en sitio** (`restore … --yes`) | ✅ | Usuarios 2 → registro marcador (3) → restore → 2 y marcador ausente; dump de seguridad `prerestore-*`; api/worker detenidos ≈5 s; `/readyz` OK por Caddy |
+| Permisos tras restaurar | ✅ | Base y tablas de `app_migrator`; `app_runtime` INSERT ✅, CREATE en `public` ❌ (correcto), CONNECT ✅; ACL de la base sin PUBLIC; registro vía API 202 (escritura con `app_runtime`) |
+| Copia semanal + verify del domingo | ⏳ | Misma ruta de código que `verify` (probado); primera ejecución automática el domingo 2026-11-29 |

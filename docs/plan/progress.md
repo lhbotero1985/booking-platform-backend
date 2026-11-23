@@ -466,6 +466,20 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-23 · Fase 3 · T3.6 — Backups diarios de PostgreSQL
+
+- **Previo:** PR #26 (T3.4/T3.5) → `qa`: 6/6 ✅, squash merge `40300ea`; rama borrada
+  (autorizado). P37: seguir sin protección de ramas (decisión del usuario).
+- **Primer `release-qa`:** ❌ build, Trivy y SBOM OK; el push a GHCR respondió `denied`; deploy
+  omitido (QA sigue en `qa-2d3f46c`). Hallazgo adicional: el runner usa el almacén containerd de
+  Docker y `docker build` añade atestaciones (índice de manifiestos) → corregido en
+  `feature/t3.4-ghcr-push-fix` (`--provenance=false --sbom=false`). La causa del `denied`
+  requiere ver los paquetes de la cuenta (pendiente con el usuario).
+- **T3.6 estado:** ✅ Implementada en `feature/t3.6-db-backups` e instalada en QA.
+- **Archivos:** `deploy/server/backup.sh` (→ `/usr/local/bin/booking-backup`),
+  `deploy/server/systemd/booking-backup.{service,timer}`, `Taskfile.yml` (shellcheck),
+  `backup-restore.md`, `qa-deployment.md`, decisiones, P37/P38.
+
 ## 2026-11-23 · Fase 3 · T3.4 + T3.5 — Despliegue desde GitHub a QA
 
 - **Previo:** PR #25 (T3.3) → `qa`: 6/6 ✅, squash merge `e5aab0f`. Ramas borradas:
