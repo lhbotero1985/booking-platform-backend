@@ -1,0 +1,58 @@
+# Release tag (ADR-0017): pushing vX.Y.Z on the qa -> main merge commit re-tags the image that
+# was validated in QA (qa-<sha of the merged qa head>) as vX.Y.Z, without rebuilding it. The
+# GHCR prune job only deletes versions whose tags are all qa-*, so released images are kept.
+name: release-tag
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_REPO: ghcr.io/lhbotero1985/booking-platform-backend
+
+jobs:
+  retag:
+    name: re-tag the QA-validated image
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: find the QA image of the release
+        id: src
+        run: |
+          # On a qa -> main merge commit the second parent is the qa head deployed to QA.
+          if git rev-parse -q --verify "$GITHUB_SHA^2" >/dev/null; then
+            qa_sha=$(git rev-parse "$GITHUB_SHA^2")
+          else
+            qa_sha=$GITHUB_SHA
+          fi
+          echo "source=$IMAGE_REPO:qa-${qa_sha::7}" >>"$GITHUB_OUTPUT"
+      - name: re-tag (same digest)
+        env:
+          SOURCE: ${{ steps.src.outputs.source }}
+          TARGET: ${{ env.IMAGE_REPO }}:${{ github.ref_name }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          # Digest as the registry reports it, for both tags.
+          digest() { docker buildx imagetools inspect "$1" | awk '/^Digest:/ {print $2}'; }
+          src=$(digest "$SOURCE")
+          docker pull --quiet "$SOURCE"
+          docker tag "$SOURCE" "$TARGET"
+          docker push --quiet "$TARGET"
+          dst=$(digest "$TARGET")
+          docker logout ghcr.io
+          [[ -n $src && $src == "$dst" ]] || { echo "digest changed: '$src' vs '$dst'"; exit 1; }
+          {
+            echo "### Release ${GITHUB_REF_NAME}"
+            echo "\`$SOURCE\` → \`$TARGET\` (\`$src\`)"
+          } >>"$GITHUB_STEP_SUMMARY"

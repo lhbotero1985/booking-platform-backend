@@ -1,23 +1,21 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T3.7 — Validación E2E en QA (2026-11-23), en `feature/t3.7-qa-validation` (commit y push; PR y
-merge pendientes de autorización). Al fusionar, `release-qa` despliega `ARGON2_ITERATIONS=2`:
-verificar tiempo de login y rehash, y repetir `scripts/e2e-qa.sh`.
+T3.7 — Validación E2E en QA (PR #30, `d0f48b1`, desplegado y verificado).
 
-**Fase 3 en curso** (desglose aprobado 2026-11-22, ver `roadmap.md`).
+**Fase 3: cierre en curso (T3.8)** — `docs/plan/phase-3-closure.md`.
 
 ## Flujo de ramas (ADR-0017)
 
 `feature/*` (nace de `qa`) → PR → `qa` → despliegue automático a QA → validación → PR `qa` →
-`main` → PROD con el mismo artefacto. Commit y push en `feature/*`: autorización permanente.
-PR, merge, borrado de ramas y despliegues: autorización explícita por tarea.
+`main` (merge commit) + tag `vX.Y.Z` → PROD con el mismo artefacto (Fase 13).
 
-## Próxima tarea: T3.8 — PR `qa` → `main` y cierre de la Fase 3
+## Pendiente de autorización
 
-- Checklist de cierre de fase (`docs/plan/phase-3-closure.md`): criterios de T3.1–T3.7,
-  riesgos aceptados (P36 sin Cloud Firewall, P37 sin protección de ramas, P38 backups en el mismo
-  disco), deuda y preguntas abiertas.
-- PR `qa` → `main` (requiere autorización). `main` aún no despliega a ningún lado: PROD es la
-  Fase 13.
-- Aprobación del cierre de la fase por el usuario.
+1. Aprobación del cierre de la Fase 3.
+2. PR `feature/t3.8-phase-3-closure` → `qa` (despliega; se repite el E2E).
+3. PR `qa` → `main` con **merge commit** y tag `v0.3.0` (dispara `release-tag.yml`).
+
+## Después: Fase 4
+
+Desglose de la Fase 4 según `roadmap.md`, para aprobación antes de empezar.

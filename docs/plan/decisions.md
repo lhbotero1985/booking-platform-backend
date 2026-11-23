@@ -81,6 +81,8 @@ Decisiones relevantes no arquitectónicas (las arquitectónicas tienen ADR en `d
 | 2026-11-22 | Roles `app_migrator` (dueño, DDL) y `app_runtime` (DML vía privilegios por defecto) creados en el initdb | Mínimo privilegio; la API comprometida no puede alterar el esquema | Aplicado (T3.2) |
 | 2026-11-22 | Migraciones en un servicio `migrate` aparte; api/worker nunca reciben la contraseña del migrador | Separación de credenciales | Aplicado (T3.2) |
 | 2026-11-22 | `sslmode=disable` dentro de la red interna de Docker (mismo host) | Tráfico que no sale del host; TLS a la BD se reevalúa con BD gestionada (Fase 13) | Aplicado (T3.2) |
+| 2026-11-23 | `release-tag.yml`: el tag `vX.Y.Z` re-etiqueta la imagen `qa-<sha>` validada (2.º padre del merge commit) sin reconstruir y verifica el digest | ADR-0017 (mismo artefacto en PROD); la retención de GHCR conserva las versiones con tag de release | Propuesto (T3.8) |
+| 2026-11-23 | Primera release: `v0.3.0` (fin de la Fase 3) | Versionado 0.x hasta PROD; el menor sigue el número de fase | Propuesto (T3.8) |
 | 2026-11-23 | Argon2id QA: 64 MiB, t=2, p=2 (P27) | Medido en el Droplet: 222–262 ms (objetivo 100–250 ms); t=3 = 340 ms. Supera los mínimos de OWASP (19 MiB t=2) | Aplicado (T3.7) |
 | 2026-11-23 | E2E de QA como script versionado (`scripts/e2e-qa.sh`) que respeta `Retry-After` | Repetible tras cada despliegue; el límite de 10/min en autenticación es intencional | Aplicado (T3.7) |
 | 2026-11-23 | Backups QA con systemd timer + `pg_dump -Fc` en el mismo Droplet (7 diarios, 4 semanales), sin cifrado local | Sin costo (decisión del usuario); en el mismo disco el cifrado no añade protección; la copia externa queda como riesgo aceptado (P38) | Aplicado (T3.6) |

@@ -514,3 +514,20 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `BenchmarkHashCalibration` en el Droplet (1 vCPU DO-Premium-Intel) | ✅ | 64 MiB p=2: t=2 222–262 ms, t=3 330–347 ms, t=4 437 ms, t=5 541 ms, t=6 735 ms; 64 MiB por hash |
 | Recursos tras el E2E | ✅ | 599 MB usados, swap 62 MB; api 132/256 MiB; disco 18 % |
 | `task check` / `task shellcheck` | ✅ | Ver commit de T3.7 |
+
+## 2026-11-23 · Fase 3 · T3.7 — Tras el despliegue
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| PR #30 — ci + security | ✅ 6/6 | Squash `d0f48b1` |
+| `release-qa` (`d0f48b1`) | ✅ | image, deploy, prune; contenedor api con `ARGON2_ITERATIONS=2` |
+| Rehash automático | ✅ | Usuario E2E: `m=65536,t=3,p=2` → `t=2` tras el primer login; los otros 4 usuarios siguen en t=3 hasta su próximo login |
+| Latencia de login (localhost del servidor, 6 muestras) | ✅ | 1.º 737 ms (verifica t=3 + rehash t=2), luego 206–405 ms |
+| `scripts/e2e-qa.sh` en `d0f48b1` | ✅ 52/52 | 1 min 27 s (antes 1 min 51 s) |
+
+## 2026-11-23 · Fase 3 · T3.8 — Cierre
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| `actionlint` `release-tag.yml` | ✅ | |
+| `release-tag.yml` en GitHub | ⏳ | Se ejecuta al crear el tag `v0.3.0` |
