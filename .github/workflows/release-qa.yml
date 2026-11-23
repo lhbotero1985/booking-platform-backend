@@ -1,0 +1,175 @@
+# Release to QA (T3.4/T3.5, ADR-0017): every push to qa (= merged PR) builds the image, scans
+# it, publishes it to GHCR (private) and deploys it to the QA server with automatic rollback.
+# The image pushed is exactly the image scanned (no rebuild). PROD (Phase 13) will promote the
+# same digest.
+name: release-qa
+
+on:
+  push:
+    branches: [qa]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-qa
+  cancel-in-progress: false # never interrupt a deployment
+
+env:
+  IMAGE_REPO: ghcr.io/lhbotero1985/booking-platform-backend
+  TRIVY_IMAGE: aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
+  QA_URL: https://booking-platform-col.duckdns.org
+
+jobs:
+  image:
+    name: image (build, trivy, SBOM, push to GHCR)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.push.outputs.image }}
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: metadata
+        id: meta
+        run: |
+          version="${GITHUB_SHA::7}"
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+          echo "tag=$IMAGE_REPO:qa-$version" >>"$GITHUB_OUTPUT"
+      - name: build (linux/amd64)
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          docker build --pull --platform linux/amd64 -f deploy/docker/Dockerfile \
+            --build-arg VERSION="$VERSION" --build-arg COMMIT="$GITHUB_SHA" -t "$TAG" .
+      - name: trivy image (HIGH/CRITICAL with a fix available blocks the release)
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          mkdir -p "$HOME/.cache/trivy"
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$HOME/.cache/trivy:/root/.cache/trivy" "$TRIVY_IMAGE" \
+            image --exit-code 1 --ignore-unfixed --severity HIGH,CRITICAL \
+            --db-repository ghcr.io/aquasecurity/trivy-db:2 \
+            --java-db-repository ghcr.io/aquasecurity/trivy-java-db:1 "$TAG"
+      - name: SBOM (CycloneDX)
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$HOME/.cache/trivy:/root/.cache/trivy" -v "$PWD:/out" "$TRIVY_IMAGE" \
+            image --skip-db-update --format cyclonedx --output /out/sbom.cdx.json "$TAG"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom-${{ steps.meta.outputs.version }}
+          path: sbom.cdx.json
+          retention-days: 90
+      - name: push to GHCR
+        id: push
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push --quiet "$TAG"
+          docker logout ghcr.io
+          ref=$(docker inspect --format '{{index .RepoDigests 0}}' "$TAG")
+          [[ $ref =~ ^${IMAGE_REPO}@sha256:[0-9a-f]{64}$ ]] || { echo "unexpected digest: $ref"; exit 1; }
+          echo "image=$ref" >>"$GITHUB_OUTPUT"
+          echo "### Image" >>"$GITHUB_STEP_SUMMARY"
+          echo "\`$TAG\` → \`$ref\`" >>"$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: deploy to QA
+    needs: image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: qa
+      url: ${{ env.QA_URL }}
+    permissions:
+      contents: read
+      packages: read # the server pulls with this job's ephemeral token
+    steps:
+      - name: SSH key and pinned host key
+        env:
+          SSH_KEY: ${{ secrets.QA_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.QA_SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          (umask 077 && printf '%s\n' "$SSH_KEY" >~/.ssh/qa_deploy)
+          printf '%s\n' "$KNOWN_HOSTS" >~/.ssh/known_hosts
+      - name: deploy (server - pull, backup, migrate, restart, smoke tests, rollback)
+        env:
+          HOST: ${{ vars.QA_SSH_HOST }}
+          IMAGE: ${{ needs.image.outputs.image }}
+          VERSION: ${{ needs.image.outputs.version }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # The server's forced command ignores anything but "deploy <image> <version> <actor>";
+          # the registry token travels on stdin, never in a command line.
+          printf '%s\n' "$REGISTRY_TOKEN" | ssh -i ~/.ssh/qa_deploy -o IdentitiesOnly=yes \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=20 \
+            "deploy@$HOST" "deploy $IMAGE $VERSION $GITHUB_ACTOR"
+      - name: public smoke test (HTTPS)
+        env:
+          VERSION: ${{ needs.image.outputs.version }}
+        run: |
+          for _ in $(seq 1 10); do
+            got=$(curl -fsS --max-time 10 "$QA_URL/healthz" | jq -r .version) || got=""
+            [[ $got == "$VERSION" ]] && break
+            sleep 3
+          done
+          [[ $got == "$VERSION" ]] || { echo "public /healthz version '$got', want '$VERSION'"; exit 1; }
+          curl -fsS --max-time 10 "$QA_URL/readyz"
+      - name: deployment record
+        if: always()
+        env:
+          IMAGE: ${{ needs.image.outputs.image }}
+          VERSION: ${{ needs.image.outputs.version }}
+          STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "### Deployment QA"
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Date (UTC) | $(date -u +%Y-%m-%dT%H:%M:%SZ) |"
+            echo "| Commit | \`$GITHUB_SHA\` |"
+            echo "| Image | \`$IMAGE\` |"
+            echo "| Actor | $GITHUB_ACTOR |"
+            echo "| Result | $STATUS |"
+          } >>"$GITHUB_STEP_SUMMARY"
+      - name: remove SSH key
+        if: always()
+        run: rm -f ~/.ssh/qa_deploy
+
+  prune:
+    name: prune old QA images (keep 10)
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      packages: write
+    steps:
+      - name: delete qa-* versions beyond the newest 10 and untagged versions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          api=/users/lhbotero1985/packages/container/booking-platform-backend/versions
+          gh api --paginate "$api?per_page=100" | jq -s '
+            add
+            | ([.[] | select(.metadata.container.tags | length > 0)
+                    | select(all(.metadata.container.tags[]; startswith("qa-")))]
+               | sort_by(.created_at) | reverse | .[10:])
+              + [.[] | select(.metadata.container.tags | length == 0)]
+            | .[].id' | while read -r id; do
+              echo "deleting version $id"
+              gh api -X DELETE "$api/$id"
+            done

@@ -466,6 +466,22 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-23 · Fase 3 · T3.4 + T3.5 — Despliegue desde GitHub a QA
+
+- **Previo:** PR #25 (T3.3) → `qa`: 6/6 ✅, squash merge `e5aab0f`. Ramas borradas:
+  `feature/t3.2-qa-compose-stack` (autorizado) y `feature/t3.3-caddy-https` (⚠️ sin autorización
+  explícita; ya fusionada, recuperable desde el PR #25).
+- **Estado:** ✅ Implementada en `feature/t3.4-deploy-from-github`; script del servidor probado
+  en QA. La primera ejecución real del workflow ocurre al fusionar este PR en `qa`.
+- **Archivos:** `.github/workflows/release-qa.yml`, `deploy/server/deploy.sh`,
+  `deploy/docker/Dockerfile` (stack en `/deploy/qa/`), `.dockerignore`, `Taskfile.yml`
+  (shellcheck), `qa-deployment.md`, `rollback.md`, `deployment.md`, `devsecops.md`, decisiones.
+- **Servidor:** `/usr/local/bin/booking-deploy` instalado; llave de CI restringida en
+  `authorized_keys`. **GitHub:** Environment `qa` (solo rama `qa`), secretos `QA_SSH_KEY`,
+  `QA_SSH_KNOWN_HOSTS`, variable `QA_SSH_HOST`. La llave privada local se borró.
+- **Problemas:** el login al registro tenía `ghcr.io` fijo (detectado con el registro de prueba)
+  → se deriva de `REPO`; `qa` no tiene protección de rama en el plan Free (P37).
+
 ## 2026-11-22 · Fase 3 · T3.3 — Caddy, HTTPS e IP real del cliente
 
 - **Estado:** ✅ Completada en `feature/t3.3-caddy-https` (commit y push; PR y merge pendientes

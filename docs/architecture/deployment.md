@@ -48,9 +48,15 @@ Los precios se verificarán en el panel de DigitalOcean antes de solicitar autor
 
 ## 4. Procedimiento de despliegue (pipeline)
 
-1. Imagen construida y escaneada en CI, publicada en GHCR con tag del commit y digest.
-2. Aprobación en el GitHub Environment.
-3. SSH al Droplet → `docker compose pull` (digest fijado en `.env` de despliegue).
+Implementado para QA en T3.4/T3.5 (`release-qa.yml` + `deploy/server/deploy.sh`; detalle en
+`docs/operations/qa-deployment.md`).
+
+1. Imagen construida y escaneada en CI, publicada en GHCR con tag del commit y digest. El stack
+   de Compose viaja **dentro de la imagen** (`/deploy/qa/`).
+2. GitHub Environment (`qa`: solo la rama `qa`; sin aprobadores, no disponibles en repos
+   privados del plan Free — QA se despliega automáticamente en cada merge).
+3. SSH al Droplet con llave de CI restringida a un comando fijo → `pull` por digest con token
+   efímero.
 4. Backup previo a migraciones (`pg_dump`).
 5. `docker compose run --rm api migrate up` con usuario `app_migrator`.
 6. `docker compose up -d api worker`.

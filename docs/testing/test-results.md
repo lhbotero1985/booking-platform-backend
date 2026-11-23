@@ -450,3 +450,24 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Memoria con Caddy | ✅ | caddy 12 MiB; host 660 MB usados, swap 37 MB |
 | `task check` / `task shellcheck` | ✅ | 0 issues, sin vulnerabilidades |
 | Incidencias | ⚠️ resuelto | Health check activo → 503 en el arranque (cambiado a reintentos); DNS local intermitente (`--resolve`) |
+
+## 2026-11-23 · Fase 3 · T3.3 — CI
+
+| Comando | Resultado |
+|---|---|
+| PR #25 — ci + security | ✅ 6/6; squash merge `e5aab0f` |
+
+## 2026-11-23 · Fase 3 · T3.4 + T3.5 — Despliegue desde GitHub
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `task check` / `task shellcheck` (incluye `deploy.sh`) / `task secrets` | ✅ | 0 issues, sin vulnerabilidades (govulncheck reintentado por DNS local), sin fugas |
+| `actionlint 1.7.7` | ✅ `release-qa.yml` | Aviso previo SC2046 en `ci.yml` (división de palabras intencional en la lista de scripts) |
+| `trivy config` `deploy/` | ✅ | 0 misconfiguraciones |
+| `docker build` + extracción de `/deploy/qa/` | ✅ | Imagen 28,5 MB; compose, Caddyfile e initdb (0755) extraídos |
+| Despliegue en QA con registro local temporal (`127.0.0.1:5000`, copia del script con `REPO` de prueba) | ✅ | pull → backup 37 KB → migraciones (0 pendientes) → recrea api/worker → smoke → `ok` en `deployments.log`, `API_IMAGE` actualizado; 1.ª ejecución falló por `ghcr.io` fijo en el login (corregido) |
+| Rollback (versión esperada incorrecta) | ✅ | Smoke falla a los 60 s → restaura stack e imagen `qa-2d3f46c` → smoke OK → `rolled-back`, exit 1; `/healthz` = `qa-2d3f46c` |
+| Validación de entrada | ✅ | Rechazados (exit 1): otro registro, tag sin digest, `;id`, `&& id`, versión `../etc`, `bash -i`, sin token |
+| Llave de CI restringida | ✅ | Comando arbitrario → ejecuta solo `booking-deploy` (usage, exit 1); reenvío de puertos → `administratively prohibited`; token falso → `registry login failed` |
+| Limpieza del servidor | ✅ | Registro de prueba, imágenes de prueba y `qa-c4952dd` borrados; script de prueba eliminado |
+| Workflow `release-qa` en GitHub | ⏳ | Se ejecuta al fusionar en `qa` |

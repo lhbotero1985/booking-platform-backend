@@ -33,8 +33,8 @@ Fase 3; PROD, en Fase 13.
 | PR – IaC / Docker | Misconfiguraciones | Trivy `config` (Dockerfile, compose) |
 | Build | Imagen mínima | Multi-stage, `distroless/static` no-root, `CGO_ENABLED=0`, `-trimpath` |
 | Build | Vulnerabilidades de imagen | Trivy `image` (falla en HIGH/CRITICAL con fix disponible) |
-| Build | Cadena de suministro | SBOM (Syft, SPDX) adjunto al release; firma de imagen con cosign keyless (OIDC) ❓ |
-| Deploy | Secretos | GitHub Environments (`qa`, `prod`) con revisores requeridos; secretos por ambiente |
+| Build | Cadena de suministro | SBOM CycloneDX (Trivy) como artefacto del workflow; se publica la misma imagen escaneada, referenciada por digest; firma con cosign keyless ❓ (PROD) |
+| Deploy | Secretos | GitHub Environments (`qa`, `prod`) con política de rama; secretos por ambiente (revisores requeridos no disponibles en repos privados del plan Free) |
 | Deploy | Verificación | Migraciones → smoke tests → registro del despliegue |
 | Runtime | Superficie | Firewall, SSH solo con llave, puertos de BD cerrados, Caddy TLS, contenedores no-root, `read_only` |
 | Runtime | Detección | Logs estructurados, auditoría, alertas de health check |
@@ -45,9 +45,13 @@ Fase 3; PROD, en Fase 13.
 - Acciones de terceros **fijadas por SHA** (Dependabot las actualiza). En Fase 0 el workflow de
   gitleaks usa tags de versión; se fijan por SHA en Fase 1.
 - Sin `pull_request_target` con checkout de código del PR.
-- Despliegues solo desde `main`/tags y con GitHub Environment protegido.
-- Acceso al Droplet por SSH con llave dedicada de despliegue (usuario `deploy`, sin sudo
-  general) guardada como secreto del Environment.
+- Despliegues solo desde la rama del ambiente (`qa` → QA; `main` → PROD, ADR-0017) mediante la
+  política de rama del Environment.
+- Acceso al Droplet por SSH con llave dedicada de CI guardada como secreto del Environment y
+  restringida en `authorized_keys` (`restrict,command=`) a un script fijo de root que solo
+  acepta imágenes de este repositorio en GHCR por digest; host key fijada en un secreto.
+- Token de registro: el `GITHUB_TOKEN` efímero del job, enviado por stdin; el servidor no guarda
+  credenciales de GHCR.
 - Imágenes en **GHCR** (`ghcr.io/<owner>/booking-platform-backend`) referenciadas por digest.
 
 ## 4. Pipelines
@@ -63,13 +67,13 @@ flowchart LR
     S[gitleaks]
     TR[trivy config]
   end
-  CI -->|merge a main| IMG[build imagen + trivy image + SBOM + push GHCR]
-  IMG -->|aprobación env qa| QA[deploy-qa.yml]
-  QA -->|tag vX.Y.Z + aprobación env prod| PROD[deploy-prod.yml: misma imagen]
+  CI -->|merge a qa| IMG[release-qa.yml: build + trivy image + SBOM + push GHCR]
+  IMG -->|env qa| QA[deploy: booking-deploy en el servidor]
+  QA -->|PR qa→main + env prod| PROD[release-prod: mismo digest]
 ```
 
-Archivos previstos: `.github/workflows/ci.yml`, `security.yml` (programado semanal + PR),
-`release-image.yml`, `deploy-qa.yml`, `deploy-prod.yml`.
+Archivos: `.github/workflows/ci.yml`, `security.yml` (programado semanal + PR), `release-qa.yml`
+(T3.4/T3.5); `release-prod.yml` en la Fase 13.
 
 ## 5. Lo que existe hoy (T1.8)
 

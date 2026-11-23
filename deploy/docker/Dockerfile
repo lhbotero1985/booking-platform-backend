@@ -36,6 +36,12 @@ LABEL org.opencontainers.image.title="booking-platform-backend" \
 COPY --from=build /out/api /usr/local/bin/api
 COPY --from=build /out/worker /usr/local/bin/worker
 
+# Deployment stack shipped inside the artifact (T3.5): the server's deploy script extracts it,
+# so CI only sends an image digest, never files. Data only; nothing here is executed.
+COPY --chmod=0644 deploy/compose/docker-compose.qa.yml /deploy/qa/docker-compose.yml
+COPY --chmod=0644 deploy/compose/qa/Caddyfile /deploy/qa/qa/Caddyfile
+COPY --chmod=0755 deploy/compose/qa/initdb/ /deploy/qa/qa/initdb/
+
 USER nonroot:nonroot
 EXPOSE 8080
 
