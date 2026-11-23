@@ -47,7 +47,10 @@ jobs:
           TAG: ${{ steps.meta.outputs.tag }}
           VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          docker build --pull --platform linux/amd64 -f deploy/docker/Dockerfile \
+          # Single-manifest image (no buildx attestations, which the containerd image store adds
+          # by default): GHCR retention then deletes whole versions. SBOM is produced below.
+          docker build --pull --platform linux/amd64 --provenance=false --sbom=false \
+            -f deploy/docker/Dockerfile \
             --build-arg VERSION="$VERSION" --build-arg COMMIT="$GITHUB_SHA" -t "$TAG" .
       - name: trivy image (HIGH/CRITICAL with a fix available blocks the release)
         env:
