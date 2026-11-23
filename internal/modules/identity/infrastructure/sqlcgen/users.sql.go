@@ -101,6 +101,21 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	return i, err
 }
 
+const setUserPlatformAdmin = `-- name: SetUserPlatformAdmin :exec
+UPDATE users SET is_platform_admin = $2, updated_at = now() WHERE id = $1
+`
+
+type SetUserPlatformAdminParams struct {
+	ID              uuid.UUID
+	IsPlatformAdmin bool
+}
+
+// Only through the operator command "api admin" (no HTTP endpoint grants this flag).
+func (q *Queries) SetUserPlatformAdmin(ctx context.Context, arg SetUserPlatformAdminParams) error {
+	_, err := q.db.Exec(ctx, setUserPlatformAdmin, arg.ID, arg.IsPlatformAdmin)
+	return err
+}
+
 const updateUserPasswordHash = `-- name: UpdateUserPasswordHash :exec
 UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1
 `

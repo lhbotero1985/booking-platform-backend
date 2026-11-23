@@ -18,12 +18,12 @@ la Fase 0, se adopta la propuesta.
 
 | # | Pregunta | Propuesta por defecto |
 |---|---|---|
-| P5 | País(es) y moneda(s) del piloto | Un país inicial; define zona horaria, moneda, ley de datos y plantillas de WhatsApp. |
+| P5 | País(es) y moneda(s) del piloto | ✅ Decidido 2026-11-23: **Colombia** (COP, `America/Bogota`, Ley 1581). Datos iniciales: Valle del Cauca (Cali, Yumbo) y Antioquia (Medellín, Itagüí); el administrador agrega más. |
 | P6 | Reservas con < 24 h de antelación | Ver `booking-lifecycle.md` §6: mensaje de creación con botón de confirmar, sin recordatorio D-1; antelación mínima 60 min. |
 | P7 | Estado tras reprogramar | Cliente reprograma → mantiene `CONFIRMED` si lo estaba; negocio reprograma → `PENDING_CONFIRMATION`. |
 | P8 | ¿Auto-cancelación de pendientes no confirmadas? | No en MVP. |
 | P9 | ¿Opción "cualquier profesional" al reservar? | Fuera del MVP (cada reserva elige profesional, como dice el prompt). |
-| P10 | ¿Negocio nuevo queda `ACTIVE` al registrarse o requiere revisión admin? | `PENDING_REVIEW` → activación por admin (control de calidad del piloto). |
+| P10 | ¿Negocio nuevo queda `ACTIVE` al registrarse o requiere revisión admin? | ✅ Decidido 2026-11-23: **por ahora solo el administrador crea negocios** (sin autoregistro). Miembros: se agregan por email de un usuario registrado (revela a un OWNER si un email tiene cuenta: aceptado). |
 | P11 | Crear una ausencia/bloqueo sobre citas existentes | Rechazar con lista de citas en conflicto; el negocio debe reprogramarlas/cancelarlas primero. |
 | P12 | ¿El cliente necesita cuenta para reservar? | Sí desde la app; el negocio puede crear clientes sin cuenta en reservas manuales. |
 | P13 | Proveedor de email para PROD | **QA usa Mailpit** (decisión 2026-11-19). Para PROD elegir proveedor con SMTP+TLS antes de la Fase 13 (p. ej. Amazon SES, Resend, Postmark, Brevo); requiere dominio con SPF/DKIM. |

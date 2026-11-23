@@ -65,6 +65,8 @@ type Tx interface {
 	EnqueueVerificationEmail(ctx context.Context, userID uuid.UUID) error
 
 	UpdatePasswordHash(ctx context.Context, userID uuid.UUID, hash domain.PasswordHash) error
+	// SetPlatformAdmin sets or clears the PLATFORM_ADMIN flag (operator command only).
+	SetPlatformAdmin(ctx context.Context, userID uuid.UUID, admin bool) error
 
 	// CreateSession stores a session identified by the SHA-256 of its token.
 	CreateSession(ctx context.Context, s *domain.Session, tokenHash []byte, ip *netip.Addr, userAgent string) error

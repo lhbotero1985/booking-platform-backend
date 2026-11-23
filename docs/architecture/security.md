@@ -85,7 +85,7 @@ Estado: **Propuesta — Fase 0.** ADR-0006 y ADR-0007.
 | `RolesManagement` | OWNER, MANAGER | Catálogo, profesionales y horarios, agenda completa, clientes |
 | `RolesStaff` | OWNER, MANAGER, PROFESSIONAL | Agenda propia; el caso de uso además compara el dueño del recurso con el principal |
 | — (sin membresía) | CUSTOMER | Solo recursos propios (`/me/...`); nunca datos internos de un negocio |
-| `RequirePlatformAdmin` | PLATFORM_ADMIN | Geografía, alta/suspensión de negocios, auditoría |
+| `RequirePlatformAdmin` | PLATFORM_ADMIN | Geografía, alta/suspensión de negocios, auditoría. El rol solo se otorga con `api admin grant-platform-admin` en el servidor (auditado); se lee en cada petición, así que revocarlo es inmediato |
 
 | Caso | Mismo negocio, rol permitido | Mismo negocio, rol insuficiente | Otro negocio / sin membresía |
 |---|---|---|---|

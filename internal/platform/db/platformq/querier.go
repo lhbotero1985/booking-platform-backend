@@ -9,6 +9,9 @@ import (
 )
 
 type Querier interface {
+	// Shared audit writer for modules other than identity (internal/platform/audit). occurred_at
+	// comes from the application clock (ADR-0005), not from now().
+	InsertAuditEntry(ctx context.Context, arg InsertAuditEntryParams) error
 	// Installed PostgreSQL extensions; used to verify the schema baseline (00001_extensions.sql).
 	ListExtensions(ctx context.Context) ([]ListExtensionsRow, error)
 }

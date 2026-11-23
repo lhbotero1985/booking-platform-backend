@@ -17,6 +17,9 @@ import (
 	"time"
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/app"
+	geoapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/application"
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/application/geotest"
+	geographyhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/interfaces/http"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application/apptest"
 	identityhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/interfaces/http"
@@ -37,6 +40,7 @@ type authHarness struct {
 	mailer *apptest.Mailer
 	clock  *clock.Fixed
 	logs   *syncBuffer
+	geo    *geotest.Store
 }
 
 func startAuth(t *testing.T) authHarness {
@@ -51,14 +55,16 @@ func startAuth(t *testing.T) authHarness {
 		t.Fatal(err)
 	}
 	h := authHarness{store: apptest.NewStore(), mailer: &apptest.Mailer{}, logs: &syncBuffer{},
-		clock: clock.NewFixed(time.Date(2026, 11, 19, 12, 0, 0, 0, time.UTC))}
+		clock: clock.NewFixed(time.Date(2026, 11, 19, 12, 0, 0, 0, time.UTC)), geo: geotest.NewSeededStore()}
 	logger := logging.New(h.logs, slog.LevelDebug)
 	h.svc = application.NewService(application.Deps{
 		Store: h.store, Hasher: &apptest.Hasher{}, Mailer: h.mailer, Clock: h.clock,
 		Config: application.Config{PublicAppURL: "https://app.example.test"}, Logger: logger,
 	})
+	// Same composition as cmd/api: geography uses identity's authentication and authorizer.
+	idh := identityhttp.New(h.svc, logger, identityhttp.Options{AllowedOrigins: cfg.HTTP.CORSAllowedOrigins})
 	h.srv = httptest.NewServer(app.NewHTTPHandler(cfg, logger, app.Deps{Modules: []app.RouteRegistrar{
-		identityhttp.New(h.svc, logger, identityhttp.Options{AllowedOrigins: cfg.HTTP.CORSAllowedOrigins}),
+		idh, geographyhttp.New(geoapp.NewService(h.geo, h.svc, h.clock), logger, idh.RequireAuth),
 	}}))
 	t.Cleanup(h.srv.Close)
 	return h
@@ -148,6 +154,18 @@ var authenticatedRoutes = []struct{ method, path, body string }{
 	{http.MethodPost, "/api/v1/auth/logout", ""},
 	{http.MethodPost, "/api/v1/auth/logout-all", ""},
 }
+
+// geographyAdminRoutes are the PLATFORM_ADMIN endpoints of the geography module (T4.1).
+var geographyAdminRoutes = []struct{ method, path, body string }{
+	{http.MethodPost, "/api/v1/admin/countries", `{"code":"MX","name":"México","phoneCode":"+52","defaultCurrency":"USD"}`},
+	{http.MethodPatch, "/api/v1/admin/countries/CO", `{"active":false}`},
+	{http.MethodPost, "/api/v1/admin/divisions", `{"countryCode":"CO","name":"Cauca","type":"DEPARTMENT"}`},
+	{http.MethodPatch, "/api/v1/admin/divisions/" + geotest.ValleID.String(), `{"active":false}`},
+	{http.MethodPost, "/api/v1/admin/cities", `{"divisionId":"` + geotest.ValleID.String() + `","name":"Palmira","timeZone":"America/Bogota"}`},
+	{http.MethodPatch, "/api/v1/admin/cities/" + geotest.CaliID.String(), `{"active":false}`},
+}
+
+func init() { authenticatedRoutes = append(authenticatedRoutes, geographyAdminRoutes...) }
 
 // TestAuthenticatedRoutesRejectInvalidCredentials: route × credential matrix. Every case is
 // 401 UNAUTHENTICATED with WWW-Authenticate and no-store.

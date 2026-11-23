@@ -36,7 +36,9 @@ Estado: **Propuesta — Fase 0.** ADR-0011.
 
 ### Geografía (lectura pública, escritura admin)
 `GET /countries`, `GET /countries/{code}/divisions`, `GET /divisions/{id}/cities`;
-`POST/PATCH /admin/countries|divisions|cities…`
+`POST /admin/countries|divisions|cities`, `PATCH /admin/countries/{code}`,
+`PATCH /admin/divisions/{id}`, `PATCH /admin/cities/{id}` (implementado en T4.1; detalle en
+`api/openapi.yaml`).
 
 ### Descubrimiento (cliente)
 | Método | Ruta |

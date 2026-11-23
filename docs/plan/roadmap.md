@@ -7,8 +7,8 @@ Orden obligatorio. **No se avanza de fase sin aprobación explícita del usuario
 | 0 | Arquitectura | Diseño, ADR, plan | ✅ Aprobada 2026-11-18 |
 | 1 | Cimientos técnicos | Proyecto Go, Docker, PG, SQLC, Goose, River, OpenAPI, CI | ✅ Aprobada 2026-11-19 (`phase-1-closure.md`) |
 | 2 | Autenticación y autorización | Usuarios, sesiones, Argon2id, RBAC, auditoría | ✅ Aprobada 2026-11-19 (`phase-2-closure.md`) |
-| 3 | DigitalOcean QA | Droplet QA, HTTPS, backups, deploy QA (requiere autorización de costos) | 🟡 En curso (desglose aprobado 2026-11-22) |
-| 4 | Geografía y negocios | Países/divisiones/ciudades, negocios, aislamiento | ⏳ |
+| 3 | DigitalOcean QA | Droplet QA, HTTPS, backups, deploy QA (requiere autorización de costos) | ✅ Aprobada 2026-11-23 (`phase-3-closure.md`) |
+| 4 | Geografía y negocios | Países/divisiones/ciudades, negocios, aislamiento | 🟡 En curso (desglose aprobado 2026-11-23) |
 | 5 | Profesionales y servicios | Profesionales, horarios, descansos, ausencias, catálogo | ⏳ |
 | 6 | Disponibilidad y reservas | Motor de slots, citas, estados, concurrencia | ⏳ |
 | 7 | WhatsApp y push | Meta Cloud API, Expo, River jobs, webhooks | ⏳ |
@@ -77,7 +77,23 @@ Costo: solo el Droplet; cualquier recurso con costo adicional requiere autorizac
 | T3.7 ✅ | Validación E2E en QA (Mailpit por túnel SSH), calibración de Argon2id (P27), manuales de operación | Flujos de la Fase 2 verdes en QA |
 | T3.8 ✅ | Cierre de la fase (`phase-3-closure.md`, `release-tag.yml`); PR `qa` → `main` pospuesto hasta producción (decisión del usuario) | Checklist de fase aprobado |
 
-Las fases 4–13 se desglosarán en tareas al iniciar cada una.
+## Fase 4 — Geografía y negocios (tareas)
+
+Desglose aprobado por el usuario el 2026-11-23. Decisiones: piloto Colombia con Valle del Cauca
+(Cali, Yumbo) y Antioquia (Medellín, Itagüí) (P5); **solo el administrador crea negocios** (P10);
+miembros agregados por email de un usuario registrado.
+
+| ID | Tarea | Criterio de aceptación principal |
+|---|---|---|
+| T4.1 ✅ | Geografía: países, divisiones, ciudades (zona horaria), datos iniciales; lectura pública, escritura `PLATFORM_ADMIN` auditada; comando `api admin grant-platform-admin` | Datos iniciales en QA; no admin → 403; auditoría en la misma transacción |
+| T4.2 | Dominio y persistencia de negocios: slug, zona horaria, moneda, ubicación, políticas, avisos; FK de membresías | Ciudad ∈ división ∈ país; migración e integración |
+| T4.3 | Alta de negocios por el administrador con su OWNER (usuario existente por email); activar/suspender | Negocio + OWNER atómicos; suspendido fuera de búsqueda; un OWNER activo |
+| T4.4 | Gestión del negocio (datos, ubicación, políticas, avisos) | OWNER sí, MANAGER 403 en lo exclusivo, otro negocio 404 |
+| T4.5 | Miembros: listar, agregar por email, cambiar rol, revocar | Solo OWNER; no se revoca el último OWNER; efecto inmediato |
+| T4.6 | Búsqueda pública por ciudad y texto, detalle por slug | Solo activos; sin datos internos |
+| T4.7 | Suite cross-tenant/IDOR, contrato, E2E en QA, cierre de fase | Suite verde; cierre aprobado |
+
+Las fases 5–13 se desglosarán en tareas al iniciar cada una.
 
 ## Riesgos identificados
 

@@ -156,6 +156,19 @@ ssh -S ~/.ssh/bp-tun -O exit deploy@HOST                                      # 
 
 Después, comprobar en `audit_log` que las acciones quedaron con la IP pública del cliente.
 
+### Administradores de la plataforma (T4.1)
+
+`PLATFORM_ADMIN` no se otorga por HTTP. Con acceso al servidor (la cuenta debe existir y estar
+verificada):
+
+```bash
+ssh deploy@HOST 'cd /opt/booking/qa && docker compose exec api /usr/local/bin/api admin grant-platform-admin EMAIL'
+ssh deploy@HOST 'cd /opt/booking/qa && docker compose exec api /usr/local/bin/api admin revoke-platform-admin EMAIL'
+```
+
+Queda en `audit_log` (`admin.platform_admin_granted|revoked`, `source=cli`). El cambio aplica en la
+siguiente petición del usuario.
+
 ### Argon2id (P27)
 
 QA: `ARGON2_MEMORY_KIB=65536` (64 MiB), `ARGON2_ITERATIONS=2`, `ARGON2_PARALLELISM=2`,

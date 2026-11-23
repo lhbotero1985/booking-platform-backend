@@ -531,3 +531,23 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 |---|---|---|
 | `actionlint` `release-tag.yml` | ✅ | |
 | `release-tag.yml` en GitHub | ⏳ | Se ejecuta al crear el tag `v0.3.0` |
+
+## 2026-11-23 · Fase 3 · T3.8 — Despliegue final
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| PR #31 — ci + security | ✅ 6/6 | Squash `f861fb1`; `release-qa` ✅ |
+| `scripts/e2e-qa.sh` en `f861fb1` | ✅ 52/52 | Imagen final de la Fase 3 |
+
+## 2026-11-23 · Fase 4 · T4.1 — Geografía
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `go test ./internal/modules/geography/...` | ✅ | domain **100 %**, application **91 %** (lecturas solo activas y ocultamiento en cascada, 6 escrituras × no admin → 403 sin cambios, creación/edición con auditoría y campos cambiados, validación por campo, duplicados → conflicto, PATCH sin cambios = no-op) |
+| `TestSetPlatformAdmin` / `platform/audit` | ✅ | Cuenta no verificada rechazada, idempotente, auditoría `source=cli` sin actor; constructor de auditoría con IP y request ID |
+| `TestContractGeographyEndpoints` | ✅ | 9 operaciones nuevas validadas contra OpenAPI: 200/201/400/401/403/404/409 |
+| Integración PostgreSQL (`-tags=integration`) | ✅ | Datos iniciales (CO, CO-VAC/CO-ANT, 4 ciudades en America/Bogota); nombres únicos sin distinguir mayúsculas y códigos ISO → conflicto; auditoría con campos cambiados; **rollback si la auditoría falla**; CHECK del esquema rechazan 6 casos inválidos; `SetPlatformAdmin` en BD |
+| `tests/security` | ✅ | 6 rutas admin en la matriz de 12 credenciales inválidas (401); no admin → 403 + `authz.denied` × 6; revocación de `PLATFORM_ADMIN` inmediata con la misma sesión; asignación masiva (id, createdAt, code, countryCode, divisionId) → 400; rutas malformadas/inyección → 404 genérico; país público sin campos internos |
+| `task check` / `task sqlc:check` / `task shellcheck` | ✅ | 0 issues, sin vulnerabilidades |
+| Suite completa `go test -tags=integration ./...` | ✅ | Todos los paquetes |
+| Despliegue y E2E en QA | ⏳ | Tras el merge |

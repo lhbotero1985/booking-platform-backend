@@ -129,6 +129,10 @@ func (t *txStore) UpdatePasswordHash(ctx context.Context, userID uuid.UUID, hash
 	return t.q.UpdateUserPasswordHash(ctx, sqlcgen.UpdateUserPasswordHashParams{ID: userID, PasswordHash: string(hash)})
 }
 
+func (t *txStore) SetPlatformAdmin(ctx context.Context, userID uuid.UUID, admin bool) error {
+	return t.q.SetUserPlatformAdmin(ctx, sqlcgen.SetUserPlatformAdminParams{ID: userID, IsPlatformAdmin: admin})
+}
+
 func (t *txStore) CreateSession(ctx context.Context, s *domain.Session, tokenHash []byte, ip *netip.Addr, userAgent string) error {
 	var ua *string
 	if userAgent != "" {

@@ -334,6 +334,15 @@ func (t *storeTx) UpdatePasswordHash(_ context.Context, id uuid.UUID, hash domai
 	return u.ChangePasswordHash(hash, u.UpdatedAt())
 }
 
+func (t *storeTx) SetPlatformAdmin(_ context.Context, id uuid.UUID, admin bool) error {
+	u, ok := t.s.users[id]
+	if !ok {
+		return application.ErrNotFound
+	}
+	t.s.users[id] = domain.RehydrateUser(u.ID(), u.Email(), u.FullName(), u.PasswordHash(), u.Status(), admin, u.EmailVerifiedAt(), u.CreatedAt(), u.UpdatedAt())
+	return nil
+}
+
 func (t *storeTx) CreateSession(_ context.Context, sess *domain.Session, hash []byte, _ *netip.Addr, ua string) error {
 	t.s.sessions[hex.EncodeToString(hash)] = &sessRec{session: *sess, userAgent: ua}
 	return nil

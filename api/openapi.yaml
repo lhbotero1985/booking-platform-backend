@@ -29,6 +29,12 @@ tags:
       Registration and email verification. Accounts start `PENDING_VERIFICATION` and must verify
       their email before the first login. Responses never reveal whether an email is registered.
 
+  - name: Geography
+    description: |
+      Countries, administrative divisions and cities (reference data). Reads are public and
+      return active records only; writes under `/api/v1/admin` require `PLATFORM_ADMIN`
+      (403 `FORBIDDEN` otherwise) and are audited.
+
 paths:
   /healthz:
     get:
@@ -376,7 +382,309 @@ paths:
           $ref: "#/components/responses/TooManyRequests"
 
 
+  /api/v1/countries:
+    get:
+      tags: [Geography]
+      operationId: listCountries
+      summary: Active countries
+      description: Sorted by name. Not paginated (small reference list).
+      security: []
+      responses:
+        "200":
+          description: Active countries.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CountryList"
+
+  /api/v1/countries/{code}/divisions:
+    get:
+      tags: [Geography]
+      operationId: listDivisions
+      summary: Active administrative divisions of a country
+      description: Sorted by name. Unknown or inactive country → 404.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/CountryCode"
+      responses:
+        "200":
+          description: Active divisions of the country.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DivisionList"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/divisions/{id}/cities:
+    get:
+      tags: [Geography]
+      operationId: listCities
+      summary: Active cities of a division
+      description: Sorted by name. Unknown or inactive division (or country) → 404.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses:
+        "200":
+          description: Active cities of the division.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CityList"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/admin/countries:
+    post:
+      tags: [Geography]
+      operationId: createCountry
+      summary: Create a country (PLATFORM_ADMIN)
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCountryRequest"
+      responses:
+        "201":
+          description: Country created.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Country"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/admin/countries/{code}:
+    patch:
+      tags: [Geography]
+      operationId: updateCountry
+      summary: Update a country (PLATFORM_ADMIN)
+      description: Only the fields present change. The code cannot change.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CountryCode"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCountryRequest"
+      responses:
+        "200":
+          description: The updated country.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Country"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/admin/divisions:
+    post:
+      tags: [Geography]
+      operationId: createDivision
+      summary: Create an administrative division (PLATFORM_ADMIN)
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDivisionRequest"
+      responses:
+        "201":
+          description: Division created.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Division"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/admin/divisions/{id}:
+    patch:
+      tags: [Geography]
+      operationId: updateDivision
+      summary: Update an administrative division (PLATFORM_ADMIN)
+      description: Only the fields present change; `code` "" removes the ISO code. It cannot move to another country.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDivisionRequest"
+      responses:
+        "200":
+          description: The updated division.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Division"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/admin/cities:
+    post:
+      tags: [Geography]
+      operationId: createCity
+      summary: Create a city (PLATFORM_ADMIN)
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCityRequest"
+      responses:
+        "201":
+          description: City created.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/City"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/admin/cities/{id}:
+    patch:
+      tags: [Geography]
+      operationId: updateCity
+      summary: Update a city (PLATFORM_ADMIN)
+      description: Only the fields present change. It cannot move to another division.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCityRequest"
+      responses:
+        "200":
+          description: The updated city.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/City"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
 components:
+  parameters:
+    CountryCode:
+      name: code
+      in: path
+      required: true
+      description: ISO 3166-1 alpha-2 code, upper case.
+      schema:
+        type: string
+        pattern: "^[A-Z]{2}$"
+    ResourceID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
   headers:
     XRequestID:
       description: Correlation ID of the request (client-supplied if valid, otherwise generated).
@@ -647,6 +955,196 @@ components:
         status:
           const: password_reset
 
+    Country:
+      type: object
+      additionalProperties: false
+      required: [code, name, phoneCode, defaultCurrency, active]
+      properties:
+        code:
+          type: string
+          pattern: "^[A-Z]{2}$"
+        name:
+          type: string
+        phoneCode:
+          type: string
+          pattern: "^\\+[1-9][0-9]{0,3}$"
+        defaultCurrency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+        active:
+          type: boolean
+
+    CountryList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Country"
+
+    Division:
+      type: object
+      additionalProperties: false
+      required: [id, countryCode, code, name, type, active]
+      properties:
+        id:
+          type: string
+          format: uuid
+        countryCode:
+          type: string
+          pattern: "^[A-Z]{2}$"
+        code:
+          type: [string, "null"]
+          description: ISO 3166-2 code (e.g. `CO-VAC`), if any.
+        name:
+          type: string
+        type:
+          $ref: "#/components/schemas/DivisionType"
+        active:
+          type: boolean
+
+    DivisionType:
+      type: string
+      enum: [DEPARTMENT, STATE, PROVINCE, REGION, DISTRICT]
+
+    DivisionList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Division"
+
+    City:
+      type: object
+      additionalProperties: false
+      required: [id, divisionId, name, timeZone, active]
+      properties:
+        id:
+          type: string
+          format: uuid
+        divisionId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        timeZone:
+          type: string
+          description: IANA time zone (e.g. `America/Bogota`); default for businesses in the city.
+        active:
+          type: boolean
+
+    CityList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/City"
+
+    CreateCountryRequest:
+      type: object
+      additionalProperties: false
+      required: [code, name, phoneCode, defaultCurrency]
+      properties:
+        code:
+          type: string
+          description: ISO 3166-1 alpha-2.
+        name:
+          type: string
+          maxLength: 100
+        phoneCode:
+          type: string
+          description: International calling code, e.g. `+57`.
+        defaultCurrency:
+          type: string
+          description: ISO 4217 code from the supported list (`COP`, `USD`).
+        active:
+          type: boolean
+          default: true
+
+    UpdateCountryRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        phoneCode:
+          type: string
+        defaultCurrency:
+          type: string
+        active:
+          type: boolean
+
+    CreateDivisionRequest:
+      type: object
+      additionalProperties: false
+      required: [countryCode, name, type]
+      properties:
+        countryCode:
+          type: string
+        code:
+          type: string
+          description: Optional ISO 3166-2 code of the same country.
+        name:
+          type: string
+          maxLength: 100
+        type:
+          $ref: "#/components/schemas/DivisionType"
+        active:
+          type: boolean
+          default: true
+
+    UpdateDivisionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+          maxLength: 100
+        type:
+          $ref: "#/components/schemas/DivisionType"
+        active:
+          type: boolean
+
+    CreateCityRequest:
+      type: object
+      additionalProperties: false
+      required: [divisionId, name, timeZone]
+      properties:
+        divisionId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 100
+        timeZone:
+          type: string
+        active:
+          type: boolean
+          default: true
+
+    UpdateCityRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        timeZone:
+          type: string
+        active:
+          type: boolean
+
   responses:
     Unauthorized:
       description: |
@@ -729,6 +1227,15 @@ components:
           schema:
             type: integer
             minimum: 1
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Conflict:
+      description: A record with the same code or name already exists (`ALREADY_EXISTS`).
+      headers:
+        X-Request-ID:
+          $ref: "#/components/headers/XRequestID"
       content:
         application/problem+json:
           schema:
