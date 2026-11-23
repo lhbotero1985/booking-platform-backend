@@ -22,6 +22,12 @@ RUN CGO_ENABLED=0 go build -trimpath \
       -ldflags "-s -w -X ${MODULE}/internal/platform/buildinfo.version=${VERSION} -X ${MODULE}/internal/platform/buildinfo.commit=${COMMIT}" \
       -o /out/ ./cmd/...
 
+# ---- deployment stack (data only) ------------------------------------------
+FROM build AS stack
+COPY deploy/compose/docker-compose.qa.yml /deploy/qa/docker-compose.yml
+COPY deploy/compose/qa /deploy/qa/qa
+RUN find /deploy -type d -exec chmod 0755 {} +  && find /deploy -type f -exec chmod 0644 {} +  && chmod 0755 /deploy/qa/qa/initdb/*.sh
+
 # ---- runtime --------------------------------------------------------------
 # distroless/static: no shell, no package manager, runs as uid 65532 (nonroot).
 FROM gcr.io/distroless/static-debian12:nonroot
@@ -38,9 +44,9 @@ COPY --from=build /out/worker /usr/local/bin/worker
 
 # Deployment stack shipped inside the artifact (T3.5): the server's deploy script extracts it,
 # so CI only sends an image digest, never files. Data only; nothing here is executed.
-COPY --chmod=0644 deploy/compose/docker-compose.qa.yml /deploy/qa/docker-compose.yml
-COPY --chmod=0644 deploy/compose/qa/Caddyfile /deploy/qa/qa/Caddyfile
-COPY --chmod=0755 deploy/compose/qa/initdb/ /deploy/qa/qa/initdb/
+# Modes are set explicitly in the build stage: some BuildKit versions apply COPY --chmod to the
+# implicitly created parent directories too (0644 directories cannot be traversed).
+COPY --from=stack /deploy /deploy
 
 USER nonroot:nonroot
 EXPOSE 8080

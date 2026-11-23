@@ -52,6 +52,20 @@ jobs:
           docker build --pull --platform linux/amd64 --provenance=false --sbom=false \
             -f deploy/docker/Dockerfile \
             --build-arg VERSION="$VERSION" --build-arg COMMIT="$GITHUB_SHA" -t "$TAG" .
+      - name: stack files extractable (as the server's deploy script does, non-root)
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          out=$(mktemp -d)
+          cid=$(docker create "$TAG")
+          docker cp --quiet "$cid:/deploy/qa/." "$out/"
+          docker rm "$cid" >/dev/null
+          test -f "$out/docker-compose.yml" && test -f "$out/qa/Caddyfile"
+          test -x "$out/qa/initdb/10-app-roles.sh"
+          API_IMAGE="$TAG" PUBLIC_APP_URL=https://example.test SITE_DOMAIN=example.test \
+            POSTGRES_ADMIN_PASSWORD=x APP_MIGRATOR_PASSWORD=x APP_RUNTIME_PASSWORD=x \
+            docker compose -f "$out/docker-compose.yml" config --quiet
+          find "$out" -printf '%M %p\n'
       - name: trivy image (HIGH/CRITICAL with a fix available blocks the release)
         env:
           TAG: ${{ steps.meta.outputs.tag }}
