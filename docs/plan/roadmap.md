@@ -74,7 +74,7 @@ Costo: solo el Droplet; cualquier recurso con costo adicional requiere autorizac
 | T3.4 ✅ | Publicación de la imagen en GHCR (tag por commit, digest), Trivy y SBOM | Imagen firmable y trazable desde `qa` |
 | T3.5 ✅ | Despliegue automático a QA: backup previo, migraciones, smoke tests, rollback automático | Despliegue y rollback probados |
 | T3.6 ✅ | Backups diarios de PostgreSQL con retención y prueba de restauración | Restauración real verificada |
-| T3.7 | Validación E2E en QA (Mailpit por túnel SSH), calibración de Argon2id (P27), manuales de operación | Flujos de la Fase 2 verdes en QA |
+| T3.7 ✅ | Validación E2E en QA (Mailpit por túnel SSH), calibración de Argon2id (P27), manuales de operación | Flujos de la Fase 2 verdes en QA |
 | T3.8 | PR `qa` → `main` y cierre de la fase | Checklist de fase aprobado |
 
 Las fases 4–13 se desglosarán en tareas al iniciar cada una.

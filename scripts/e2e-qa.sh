@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+# End-to-end check of the Phase 2 flows against a deployed environment (T3.7). Synthetic data
+# only: creates a throwaway user qa-e2e-<random>@example.test.
+#
+#   scripts/e2e-qa.sh BASE_URL MAILPIT_URL
+#   BASE_URL     public API, e.g. https://booking-platform-col.duckdns.org
+#   MAILPIT_URL  Mailpit API through an SSH tunnel, e.g. http://127.0.0.1:18025
+#                (ssh -N -L 18025:127.0.0.1:8025 deploy@HOST)
+#   CURL_EXTRA   optional extra curl options (e.g. --resolve host:443:IP when local DNS fails)
+#   SKIP_RATE_LIMIT=1 skips the rate-limit check (it blocks auth endpoints for this IP ~1 min)
+#
+# Exit status: number of failed checks (0 = all green).
+set -uo pipefail
+
+B=${1:?BASE_URL}
+M=${2:?MAILPIT_URL}
+read -r -a X <<<"${CURL_EXTRA:-}"
+J='Content-Type: application/json'
+EMAIL="qa-e2e-$(date +%s)-$RANDOM@example.test"
+PW1="primera clave de prueba e2e"
+PW2="segunda clave de prueba e2e"
+PW3="tercera clave de prueba e2e"
+fails=0
+
+check() { # name expected(regex) got
+  if [[ $3 =~ ^($2)$ ]]; then
+    printf 'PASS  %-55s %s\n' "$1" "$3"
+  else
+    printf 'FAIL  %-55s got %s, want %s\n' "$1" "$3" "$2"
+    fails=$((fails + 1))
+  fi
+}
+
+# status METHOD PATH [JSON] [TOKEN] -> HTTP status. Body and headers go to files because callers
+# run it inside $(...) (a subshell); read them with json / hdrs / token.
+status() {
+  local args=(-s "${X[@]}" -X "$1" "$B$2" -D "$tmp/h" -o "$tmp/b" -w '%{http_code}')
+  [[ -n ${3:-} ]] && args+=(-H "$J" -d "$3")
+  [[ -n ${4:-} ]] && args+=(-H "Authorization: Bearer $4")
+  local code wait
+  for _ in 1 2 3 4 5 6; do
+    code=$(curl "${args[@]}")
+    # The auth endpoints allow 10 requests/min per IP: honour Retry-After instead of failing
+    # (except in the rate-limit check itself, NO_RETRY=1).
+    [[ $code == 429 && ${NO_RETRY:-0} != 1 ]] || break
+    wait=$(tr -d '\r' <"$tmp/h" | sed -n 's/^[Rr]etry-[Aa]fter: *//p')
+    sleep "$((${wait:-10} + 1))"
+  done
+  echo "$code"
+}
+
+json() { jq -r "$1" "$tmp/b" 2>/dev/null; }
+hdrs() { tr -d '\r' <"$tmp/h"; }
+token() { json '.token // empty'; }
+
+login() { # email password -> status (read the token with token right after)
+  status POST /api/v1/auth/login "{\"email\":\"$1\",\"password\":\"$2\",\"clientType\":\"MOBILE\"}"
+}
+
+# mail_link PATH_FRAGMENT -> newest link in the user's mailbox containing it (waits up to 30 s)
+mail_link() {
+  local id link
+  for _ in $(seq 1 30); do
+    for id in $(curl -s "$M/api/v1/search?query=to:$EMAIL" | jq -r '.messages[].ID'); do
+      link=$(curl -s "$M/api/v1/message/$id" | jq -r '.Text' |
+        grep -o "https://[^ ]*$1?token=[A-Za-z0-9_%.-]*" | head -1)
+      [[ -n $link ]] && { echo "$link"; return; }
+    done
+    sleep 1
+  done
+}
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+echo "user: $EMAIL"
+
+# --- platform ----------------------------------------------------------------------------
+check "GET /healthz" 200 "$(status GET /healthz)"
+echo "      version $(json .version)"
+check "GET /readyz" 200 "$(status GET /readyz)"
+check "HSTS header" 1 "$(grep -ci '^strict-transport-security: max-age=31536000' <<<"$(hdrs)")"
+check "no Server header" 0 "$(grep -ci '^server:' <<<"$(hdrs)")"
+check "X-Request-ID header" 1 "$(grep -ci '^x-request-id:' <<<"$(hdrs)")"
+check "unknown route -> problem+json 404" 404 "$(status GET /api/v1/does-not-exist)"
+check "  content type application/problem+json" 1 "$(grep -ci '^content-type: application/problem+json' <<<"$(hdrs)")"
+
+# --- registration and email verification ---------------------------------------------------
+check "register" 202 "$(status POST /api/v1/auth/register "{\"email\":\"$EMAIL\",\"password\":\"$PW1\",\"fullName\":\"QA E2E\"}")"
+check "register again (no enumeration)" 202 "$(status POST /api/v1/auth/register "{\"email\":\"$EMAIL\",\"password\":\"$PW1\",\"fullName\":\"QA E2E\"}")"
+check "register weak password" '400|422' "$(status POST /api/v1/auth/register "{\"email\":\"x$EMAIL\",\"password\":\"password\",\"fullName\":\"QA\"}")"
+check "register unknown field" '400|422' "$(status POST /api/v1/auth/register "{\"email\":\"y$EMAIL\",\"password\":\"$PW1\",\"fullName\":\"QA\",\"role\":\"PLATFORM_ADMIN\"}")"
+check "login before verification" '401|403' "$(login "$EMAIL" "$PW1")"
+link=$(mail_link verify-email)
+check "verification email received" 1 "$([[ -n $link ]] && echo 1 || echo 0)"
+check "  link points to PUBLIC_APP_URL" 1 "$([[ $link == "$B"/verify-email* ]] && echo 1 || echo 0)"
+vtok=${link##*token=}
+check "verify email" 200 "$(status POST /api/v1/auth/verify-email "{\"token\":\"$vtok\"}")"
+check "verify email token reuse" '400|401|404|410|422' "$(status POST /api/v1/auth/verify-email "{\"token\":\"$vtok\"}")"
+check "resend verification (verified: still 202)" 202 "$(status POST /api/v1/auth/verify-email/resend "{\"email\":\"$EMAIL\"}")"
+
+# --- login, session, me ------------------------------------------------------------------
+check "login wrong password" 401 "$(login "$EMAIL" "not the password at all")"
+check "login unknown email (same answer)" 401 "$(login "nobody-$EMAIL" "$PW1")"
+check "login" 200 "$(login "$EMAIL" "$PW1")"
+T1=$(token)
+check "  opaque session token bp_s_" 1 "$([[ $T1 == bp_s_* ]] && echo 1 || echo 0)"
+check "GET /me" 200 "$(status GET /api/v1/me "" "$T1")"
+check "  /me email" "$EMAIL" "$(json .email)"
+check "  /me no password hash" 0 "$(grep -ci 'hash\|argon' "$tmp/b")"
+check "GET /me without token" 401 "$(status GET /api/v1/me)"
+check "GET /me forged token" 401 "$(status GET /api/v1/me "" "bp_s_forged-token-value")"
+check "GET /me/memberships" 200 "$(status GET /api/v1/me/memberships "" "$T1")"
+check "  no memberships yet" 0 "$(json '.items | length')"
+
+# --- change password (current session stays, others revoked) -------------------------------
+login "$EMAIL" "$PW1" >/dev/null
+T2=$(token)
+check "change password wrong current" '400|401|403|422' "$(status POST /api/v1/me/password "{\"currentPassword\":\"wrong wrong wrong\",\"newPassword\":\"$PW2\"}" "$T1")"
+check "change password" 204 "$(status POST /api/v1/me/password "{\"currentPassword\":\"$PW1\",\"newPassword\":\"$PW2\"}" "$T1")"
+check "  current session still valid" 200 "$(status GET /api/v1/me "" "$T1")"
+check "  other session revoked" 401 "$(status GET /api/v1/me "" "$T2")"
+check "  old password rejected" 401 "$(login "$EMAIL" "$PW1")"
+check "  new password accepted" 200 "$(login "$EMAIL" "$PW2")"
+
+# --- forgot / reset password (all sessions revoked) ----------------------------------------
+check "forgot password" 202 "$(status POST /api/v1/auth/password/forgot "{\"email\":\"$EMAIL\"}")"
+check "forgot password unknown email (same answer)" 202 "$(status POST /api/v1/auth/password/forgot "{\"email\":\"nobody-$EMAIL\"}")"
+link=$(mail_link reset-password)
+check "reset email received" 1 "$([[ -n $link ]] && echo 1 || echo 0)"
+rtok=${link##*token=}
+check "reset with weak password" '400|422' "$(status POST /api/v1/auth/password/reset "{\"token\":\"$rtok\",\"newPassword\":\"12345678\"}")"
+check "reset password" 200 "$(status POST /api/v1/auth/password/reset "{\"token\":\"$rtok\",\"newPassword\":\"$PW3\"}")"
+check "  reset token reuse" '400|401|404|410|422' "$(status POST /api/v1/auth/password/reset "{\"token\":\"$rtok\",\"newPassword\":\"$PW1\"}")"
+check "  sessions revoked after reset" 401 "$(status GET /api/v1/me "" "$T1")"
+check "  login with reset password" 200 "$(login "$EMAIL" "$PW3")"
+
+# --- logout / logout-all -------------------------------------------------------------------
+T3=$(token)
+login "$EMAIL" "$PW3" >/dev/null
+T4=$(token)
+check "logout" 204 "$(status POST /api/v1/auth/logout "" "$T3")"
+check "  token unusable after logout" 401 "$(status GET /api/v1/me "" "$T3")"
+check "  other session still valid" 200 "$(status GET /api/v1/me "" "$T4")"
+login "$EMAIL" "$PW3" >/dev/null
+T5=$(token)
+check "logout-all" 200 "$(status POST /api/v1/auth/logout-all "" "$T4")"
+check "  revoked count >= 2" 1 "$(( $(json ".revoked // 0") >= 2 ))"
+check "  all sessions gone" 401 "$(status GET /api/v1/me "" "$T5")"
+
+# --- rate limiting (last: blocks this IP on auth endpoints ~1 min) ---------------------------
+if [[ ${SKIP_RATE_LIMIT:-0} != 1 ]]; then
+  got=""
+  for _ in $(seq 1 15); do
+    got=$(NO_RETRY=1 login "ratelimit-$EMAIL" "whatever whatever")
+    [[ $got == 429 ]] && break
+  done
+  check "auth rate limit reached" 429 "$got"
+  check "  Retry-After header" 1 "$(grep -ci '^retry-after: [0-9]' <<<"$(hdrs)")"
+  check "  code RATE_LIMITED" RATE_LIMITED "$(json .code)"
+fi
+
+echo "user: $EMAIL"
+echo "failed: $fails"
+exit "$fails"

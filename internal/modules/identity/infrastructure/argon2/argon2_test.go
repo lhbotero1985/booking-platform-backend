@@ -240,7 +240,7 @@ func BenchmarkHashDefault(b *testing.B) {
 // BenchmarkHashCalibration compares iteration counts at 64 MiB to calibrate ARGON2_ITERATIONS
 // on the target machine (the QA droplet in Phase 3).
 func BenchmarkHashCalibration(b *testing.B) {
-	for _, iters := range []uint32{3, 4, 5, 6} {
+	for _, iters := range []uint32{2, 3, 4, 5, 6} {
 		b.Run(fmt.Sprintf("m=64MiB_t=%d_p=2", iters), func(b *testing.B) {
 			h := newHasher(b, Params{MemoryKiB: 64 * 1024, Iterations: iters, Parallelism: 2})
 			p := pw(b, "benchmark password")

@@ -137,6 +137,32 @@ ssh -N -L 18080:127.0.0.1:8080 -L 18025:127.0.0.1:8025 deploy@HOST
 Registro de despliegues: `cat /opt/booking/qa/deployments.log` (fecha, resultado, versión,
 imagen, actor) y el resumen de cada ejecución de `release-qa` en GitHub Actions.
 
+### Validación E2E (`scripts/e2e-qa.sh`, T3.7)
+
+52 verificaciones de los flujos de la Fase 2 contra el entorno desplegado (usuario sintético
+`qa-e2e-…@example.test`): plataforma (sondas, HSTS, sin `Server`, `X-Request-ID`, RFC 9457),
+registro y verificación por correo, anti-enumeración, login/`/me`/membresías, cambio y
+recuperación de contraseña con revocación de sesiones, logout/logout-all y rate limiting. Respeta
+`Retry-After` (las rutas de autenticación permiten 10/min por IP); tarda ≈2 min.
+
+```bash
+ssh -f -N -M -S ~/.ssh/bp-tun -L 18025:127.0.0.1:8025 deploy@HOST          # Mailpit
+scripts/e2e-qa.sh https://booking-platform-col.duckdns.org http://127.0.0.1:18025
+# Sin bash/jq locales (Windows): en un contenedor
+docker run --rm -v "$PWD/scripts:/s:ro" alpine:3.22 sh -c \
+  "apk add -q bash curl jq && bash /s/e2e-qa.sh https://booking-platform-col.duckdns.org http://host.docker.internal:18025"
+ssh -S ~/.ssh/bp-tun -O exit deploy@HOST                                      # cerrar túnel
+```
+
+Después, comprobar en `audit_log` que las acciones quedaron con la IP pública del cliente.
+
+### Argon2id (P27)
+
+QA: `ARGON2_MEMORY_KIB=65536` (64 MiB), `ARGON2_ITERATIONS=2`, `ARGON2_PARALLELISM=2`,
+`ARGON2_MAX_CONCURRENT=1`: ≈220–260 ms por hash en el vCPU compartido (t=3 ≈ 340 ms). Medido
+con `BenchmarkHashCalibration` compilado para Linux y ejecutado en el Droplet (`/tmp` es
+`noexec`: usar el home). Recalibrar en PROD con su hardware.
+
 ## 6. Backups
 
 Diarios con `booking-backup.timer` (T3.6); ver `backup-restore.md`.

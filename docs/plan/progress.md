@@ -466,6 +466,19 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-23 · Fase 3 · T3.7 — Validación E2E en QA
+
+- **Estado:** ✅ en `feature/t3.7-qa-validation` (commit y push; PR pendiente de autorización).
+  La configuración de Argon2 (t=2) se aplica al desplegar el merge.
+- **Archivos:** `scripts/e2e-qa.sh` (nuevo), `Taskfile.yml` (shellcheck), `argon2_test.go`
+  (t=2 en la calibración), `docker-compose.qa.yml` (`ARGON2_ITERATIONS=2`), `qa-deployment.md`,
+  P27, decisiones.
+- **Resultados:** E2E 52/52 por HTTPS público desde fuera (versión `9b169a9`); auditoría con IP
+  real y sin secretos; Argon2 calibrado; memoria 599 MB + 62 MB swap.
+- **Problemas:** primera corrida del E2E con 25 fallos, todos 429: el límite de autenticación
+  (10/min por IP) frenó al propio script → ahora respeta `Retry-After`. `/tmp` del servidor es
+  `noexec` (benchmark desde el home). Sin `jq` en Windows → E2E en contenedor Alpine.
+
 ## 2026-11-23 · Fase 3 · Despliegue automático operativo (cierre T3.4/T3.5) y T3.6 integrada
 
 - `denied` en GHCR: el paquete sí lo creó el workflow (vinculado al repo); el rechazo vino del

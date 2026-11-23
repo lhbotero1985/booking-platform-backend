@@ -503,3 +503,14 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `release-qa` 45268736830 (`5070757`) | ✅ | image ✅ (extracción no-root ✅), deploy ✅ (pull, backup, migraciones, smoke, HTTPS público), prune ✅ (1 versión sin tag borrada) |
 | `release-qa` 45269111095 (`9b169a9`) | ✅ | Segundo despliegue; `deployments.log` `ok` × 2; `predeploy-*` por despliegue; servidor conserva solo imagen actual y anterior |
 | `/healthz` público | ✅ | `{"status":"ok","version":"9b169a9"}` |
+
+## 2026-11-23 · Fase 3 · T3.7 — Validación E2E en QA
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `scripts/e2e-qa.sh` (1.ª corrida) | ❌ 25 fallos | Todos 429 del límite de autenticación (10/min por IP) contra el propio script; el API se comportó correctamente → el script ahora respeta `Retry-After` |
+| `scripts/e2e-qa.sh` contra https://booking-platform-col.duckdns.org (contenedor Alpine, IP pública del cliente, Mailpit por túnel SSH) | ✅ **52/52** | 1 min 51 s; versión `9b169a9`. Plataforma, registro + verificación, anti-enumeración (registro y forgot 202, login 401 igual), login antes de verificar 403, tokens de un solo uso, `/me` sin hash, token falso 401, cambio de contraseña (sesión actual sí, otras revocadas), reset (todas revocadas), logout/logout-all, 429 con `Retry-After` y `RATE_LIMITED` |
+| `audit_log` de la corrida | ✅ | 15 combinaciones acción/resultado (SUCCESS/FAILURE/DENIED), todas con IP `181.54.0.95` = IP pública del cliente (ipify); 0 filas con contraseñas o tokens en `metadata` |
+| `BenchmarkHashCalibration` en el Droplet (1 vCPU DO-Premium-Intel) | ✅ | 64 MiB p=2: t=2 222–262 ms, t=3 330–347 ms, t=4 437 ms, t=5 541 ms, t=6 735 ms; 64 MiB por hash |
+| Recursos tras el E2E | ✅ | 599 MB usados, swap 62 MB; api 132/256 MiB; disco 18 % |
+| `task check` / `task shellcheck` | ✅ | Ver commit de T3.7 |
