@@ -466,6 +466,20 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 4 · T4.5 — Miembros del negocio
+
+- **Previo:** PR #36 (T4.4) → `qa`: 6/6 ✅, `ffb2eae`, desplegado; E2E en QA **79/79**.
+  Decisión del usuario: siempre un responsable (OWNER), que puede agregar más responsables,
+  barberos, y gestionar horarios/servicios/precios (Fase 5); cambio de dueño = nuevo responsable.
+- **Estado:** ✅ en `feature/t4.5-business-members` (commit y push; PR pendiente).
+- **Archivos:** migración `00008_multiple_owners.sql`, queries de membresías (upsert, listado,
+  rol, bloqueo de OWNERs, revocar), identity contract (`Member`, `ErrLastOwner`,
+  `ErrMemberNotFound`; se elimina `ErrOwnerExists`), application (`ListMembers`,
+  `ChangeMemberRole`, `RemoveMember`), HTTP `business_members.go`, store, apptest, OpenAPI (4
+  operaciones), pruebas, E2E, docs (modelo de dominio, base de datos, decisiones).
+- **Problemas:** la prueba de esquema que exigía un único OWNER se actualizó a la nueva regla;
+  `misspell` marcó "responsable" en comentarios en inglés → "person in charge".
+
 ## 2026-11-24 · Fase 4 · T4.4 — Gestión del negocio
 
 - **Previo:** PR #35 (T4.3b) → `qa`: 6/6 ✅, `d69023f`, desplegado (migración 7; job de

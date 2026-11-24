@@ -31,7 +31,7 @@ sessions(id uuid pk, user_id uuid fk, token_hash bytea unique not null, client_t
 password_reset_tokens(token_hash bytea pk, user_id uuid fk, expires_at, used_at)
 memberships(id uuid pk, user_id fk, business_id fk, role text, status text,
             unique(user_id, business_id))
-  -- índice único parcial: un OWNER activo por negocio
+  -- (T4.5, migración 00008) varios OWNER por negocio; "al menos uno" se garantiza en los casos de uso
 audit_log(id uuid pk, occurred_at, actor_user_id, business_id null, action text,
           resource_type text, resource_id uuid, ip inet, outcome text, metadata jsonb)
 ```

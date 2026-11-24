@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"net/netip"
+	"sort"
 	"sync"
 	"time"
 
@@ -335,19 +336,77 @@ func (t *storeTx) UpdatePasswordHash(_ context.Context, id uuid.UUID, hash domai
 }
 
 func (t *storeTx) InsertMembership(_ context.Context, _, userID, businessID uuid.UUID, role contract.Role, _ time.Time) error {
-	for _, ms := range t.s.memberships {
-		for _, m := range ms {
-			if m.BusinessID == businessID && m.Role == contract.RoleOwner && role == contract.RoleOwner {
-				return contract.ErrOwnerExists
-			}
-		}
-	}
 	for _, m := range t.s.memberships[userID] {
 		if m.BusinessID == businessID {
 			return contract.ErrAlreadyMember
 		}
 	}
 	t.s.memberships[userID] = append(t.s.memberships[userID], contract.Membership{BusinessID: businessID, Role: role})
+	return nil
+}
+
+func (t *storeTx) ActiveMembers(_ context.Context, businessID uuid.UUID) ([]contract.Member, error) {
+	order := map[contract.Role]int{contract.RoleOwner: 0, contract.RoleManager: 1, contract.RoleProfessional: 2}
+	var out []contract.Member
+	for userID, ms := range t.s.memberships {
+		for _, m := range ms {
+			if m.BusinessID == businessID {
+				u := t.s.users[userID]
+				member := contract.Member{UserID: userID, Role: m.Role}
+				if u != nil {
+					member.FullName, member.Email = u.FullName(), u.Email().String()
+				}
+				out = append(out, member)
+			}
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if order[out[i].Role] != order[out[j].Role] {
+			return order[out[i].Role] < order[out[j].Role]
+		}
+		return out[i].Email < out[j].Email
+	})
+	return out, nil
+}
+
+func (t *storeTx) ActiveRole(_ context.Context, businessID, userID uuid.UUID) (contract.Role, error) {
+	for _, m := range t.s.memberships[userID] {
+		if m.BusinessID == businessID {
+			return m.Role, nil
+		}
+	}
+	return "", contract.ErrMemberNotFound
+}
+
+func (t *storeTx) LockActiveOwners(_ context.Context, businessID uuid.UUID) ([]uuid.UUID, error) {
+	var out []uuid.UUID
+	for userID, ms := range t.s.memberships {
+		for _, m := range ms {
+			if m.BusinessID == businessID && m.Role == contract.RoleOwner {
+				out = append(out, userID)
+			}
+		}
+	}
+	return out, nil
+}
+
+func (t *storeTx) UpdateMembershipRole(_ context.Context, businessID, userID uuid.UUID, role contract.Role, _ time.Time) error {
+	for i, m := range t.s.memberships[userID] {
+		if m.BusinessID == businessID {
+			t.s.memberships[userID][i].Role = role
+		}
+	}
+	return nil
+}
+
+func (t *storeTx) RevokeMembership(_ context.Context, businessID, userID uuid.UUID, _ time.Time) error {
+	kept := t.s.memberships[userID][:0]
+	for _, m := range t.s.memberships[userID] {
+		if m.BusinessID != businessID {
+			kept = append(kept, m)
+		}
+	}
+	t.s.memberships[userID] = kept
 	return nil
 }
 

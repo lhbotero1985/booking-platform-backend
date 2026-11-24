@@ -56,15 +56,110 @@ func TestAddMember(t *testing.T) {
 			t.Errorf("%s: err = %v, want %v", name, err, tc.want)
 		}
 	}
-	// One active OWNER per business.
+	// Several OWNERs per business are allowed (decision of 2026-11-24).
 	other := uuid.Must(uuid.NewV7())
 	if _, err := e.svc.AddMember(ctx, admin, other, "staff@example.com", contract.RoleOwner); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.svc.AddMember(ctx, admin, other, "owner@example.com", contract.RoleOwner); !errors.Is(err, contract.ErrOwnerExists) {
+	if _, err := e.svc.AddMember(ctx, admin, other, "owner@example.com", contract.RoleOwner); err != nil {
 		t.Errorf("second OWNER of a business: %v", err)
 	}
 	if _, err := e.svc.AddMember(ctx, admin, other, "owner@example.com", "SUPERADMIN"); err == nil {
 		t.Error("unknown role accepted")
+	}
+}
+
+func TestManageMembers(t *testing.T) {
+	ctx := context.Background()
+	e := newEnv()
+	for _, email := range []string{"ana@example.com", "bob@example.com", "carla@example.com", "otro@example.com"} {
+		e.register(t, email)
+		if err := e.svc.VerifyEmail(ctx, e.sendAndExtract(t)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	id := func(email string) uuid.UUID { return e.store.User(email).ID() }
+	p := func(email string) contract.Principal { return contract.Principal{UserID: id(email)} }
+	biz := uuid.Must(uuid.NewV7())
+	admin := contract.Principal{UserID: uuid.Must(uuid.NewV7()), IsPlatformAdmin: true}
+	if _, err := e.svc.AddMember(ctx, admin, biz, "ana@example.com", contract.RoleOwner); err != nil {
+		t.Fatal(err)
+	}
+	ana := p("ana@example.com")
+	if _, err := e.svc.AddMember(ctx, ana, biz, "bob@example.com", contract.RoleManager); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.svc.AddMember(ctx, ana, biz, "carla@example.com", contract.RoleProfessional); err != nil {
+		t.Fatal(err)
+	}
+	e.store.GrantMembership(id("otro@example.com"), uuid.Must(uuid.NewV7()), contract.RoleOwner)
+
+	// List: OWNER and MANAGER; PROFESSIONAL 403; owner of another business 404.
+	ms, err := e.svc.ListMembers(ctx, p("bob@example.com"), biz)
+	if err != nil || len(ms) != 3 || ms[0].Role != contract.RoleOwner || ms[0].Email != "ana@example.com" {
+		t.Fatalf("members = %+v %v", ms, err)
+	}
+	if _, err := e.svc.ListMembers(ctx, p("carla@example.com"), biz); !errors.Is(err, contract.ErrForbidden) {
+		t.Errorf("professional list: %v", err)
+	}
+	if _, err := e.svc.ListMembers(ctx, p("otro@example.com"), biz); !errors.Is(err, contract.ErrNotFound) {
+		t.Errorf("other business list: %v", err)
+	}
+
+	// Only OWNERs manage members.
+	if err := e.svc.ChangeMemberRole(ctx, p("bob@example.com"), biz, id("carla@example.com"), contract.RoleManager); !errors.Is(err, contract.ErrForbidden) {
+		t.Errorf("manager changes a role: %v", err)
+	}
+	if _, err := e.svc.AddMember(ctx, p("bob@example.com"), biz, "otro@example.com", contract.RoleProfessional); !errors.Is(err, contract.ErrForbidden) {
+		t.Errorf("manager adds a member: %v", err)
+	}
+
+	// The only OWNER can be neither demoted nor removed.
+	if err := e.svc.ChangeMemberRole(ctx, ana, biz, id("ana@example.com"), contract.RoleManager); !errors.Is(err, contract.ErrLastOwner) {
+		t.Errorf("demote the last owner: %v", err)
+	}
+	if err := e.svc.RemoveMember(ctx, ana, biz, id("ana@example.com")); !errors.Is(err, contract.ErrLastOwner) {
+		t.Errorf("remove the last owner: %v", err)
+	}
+
+	// Change of owner: Bob becomes OWNER, then Ana steps down and leaves.
+	if err := e.svc.ChangeMemberRole(ctx, ana, biz, id("bob@example.com"), contract.RoleOwner); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.svc.ChangeMemberRole(ctx, ana, biz, id("ana@example.com"), contract.RoleManager); err != nil {
+		t.Fatalf("demote with another owner: %v", err)
+	}
+	if err := e.svc.RemoveMember(ctx, p("bob@example.com"), biz, id("ana@example.com")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.svc.RequireBusinessRole(ctx, ana, biz, contract.RolesStaff...); !errors.Is(err, contract.ErrNotFound) {
+		t.Errorf("removed member still has access: %v", err)
+	}
+	// Removed member can be added again (reactivated).
+	if _, err := e.svc.AddMember(ctx, p("bob@example.com"), biz, "ana@example.com", contract.RoleProfessional); err != nil {
+		t.Errorf("re-add a removed member: %v", err)
+	}
+	// Unknown member, unknown role, no-op.
+	if err := e.svc.RemoveMember(ctx, p("bob@example.com"), biz, uuid.Must(uuid.NewV7())); !errors.Is(err, contract.ErrMemberNotFound) {
+		t.Errorf("remove a non-member: %v", err)
+	}
+	if err := e.svc.ChangeMemberRole(ctx, p("bob@example.com"), biz, id("carla@example.com"), "BOSS"); err == nil {
+		t.Error("unknown role accepted")
+	}
+	before := len(e.store.AuditActions())
+	if err := e.svc.ChangeMemberRole(ctx, p("bob@example.com"), biz, id("carla@example.com"), contract.RoleProfessional); err != nil || len(e.store.AuditActions()) != before {
+		t.Errorf("same role: %v, audited %d", err, len(e.store.AuditActions())-before)
+	}
+	var changed, revoked int
+	for _, a := range e.store.AuditActions() {
+		switch a {
+		case application.AuditMembershipRoleChanged + ":SUCCESS":
+			changed++
+		case application.AuditMembershipRevoked + ":SUCCESS":
+			revoked++
+		}
+	}
+	if changed != 2 || revoked != 1 {
+		t.Errorf("audit: %d role changes, %d revocations; want 2 and 1", changed, revoked)
 	}
 }

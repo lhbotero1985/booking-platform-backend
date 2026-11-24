@@ -186,7 +186,10 @@ func TestDeletingUserCascadesSessions(t *testing.T) {
 	}
 }
 
-func TestOneActiveOwnerPerBusiness(t *testing.T) {
+// TestMembershipConstraints: several active OWNERs are allowed since migration 00008 (the "at
+// least one OWNER" rule lives in the use cases); one membership per user and business; roles
+// restricted by CHECK.
+func TestMembershipConstraints(t *testing.T) {
 	ctx := t.Context()
 	business := uuid.Must(uuid.NewV7())
 	if err := pgtest.InsertBusiness(ctx, pool, business); err != nil {
@@ -197,8 +200,8 @@ func TestOneActiveOwnerPerBusiness(t *testing.T) {
 	if _, err := q.CreateMembership(ctx, sqlcgen.CreateMembershipParams{ID: uuid.Must(uuid.NewV7()), UserID: owner.ID, BusinessID: business, Role: "OWNER"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := q.CreateMembership(ctx, sqlcgen.CreateMembershipParams{ID: uuid.Must(uuid.NewV7()), UserID: other.ID, BusinessID: business, Role: "OWNER"}); !db.IsUniqueViolation(err) {
-		t.Fatalf("second active OWNER accepted: %v", err)
+	if _, err := q.CreateMembership(ctx, sqlcgen.CreateMembershipParams{ID: uuid.Must(uuid.NewV7()), UserID: other.ID, BusinessID: business, Role: "OWNER"}); err != nil {
+		t.Fatalf("second active OWNER rejected: %v", err)
 	}
 	if _, err := q.CreateMembership(ctx, sqlcgen.CreateMembershipParams{ID: uuid.Must(uuid.NewV7()), UserID: manager.ID, BusinessID: business, Role: "MANAGER"}); err != nil {
 		t.Fatalf("MANAGER rejected: %v", err)

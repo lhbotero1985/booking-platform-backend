@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/google/uuid"
+
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/domain"
@@ -29,6 +31,10 @@ type Service interface {
 	ResetPassword(ctx context.Context, in application.ResetPasswordInput) error
 	ChangePassword(ctx context.Context, p contract.Principal, in application.ChangePasswordInput) error
 	MyMemberships(ctx context.Context, p contract.Principal) ([]contract.Membership, error)
+	ListMembers(ctx context.Context, p contract.Principal, businessID uuid.UUID) ([]contract.Member, error)
+	AddMember(ctx context.Context, p contract.Principal, businessID uuid.UUID, email string, role contract.Role) (uuid.UUID, error)
+	ChangeMemberRole(ctx context.Context, p contract.Principal, businessID, userID uuid.UUID, role contract.Role) error
+	RemoveMember(ctx context.Context, p contract.Principal, businessID, userID uuid.UUID) error
 }
 
 // Options configures the handler.
@@ -70,6 +76,7 @@ func (h *Handler) Routes(rt *httpx.Router) {
 	rt.Handle("GET /api/v1/me", h.RequireAuth(http.HandlerFunc(h.me)))
 	rt.Handle("POST /api/v1/me/password", strict(h.RequireAuth(http.HandlerFunc(h.changePassword))))
 	rt.Handle("GET /api/v1/me/memberships", h.RequireAuth(http.HandlerFunc(h.myMemberships)))
+	h.memberRoutes(rt)
 }
 
 type registerRequest struct {

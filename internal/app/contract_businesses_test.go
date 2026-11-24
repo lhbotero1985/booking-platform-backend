@@ -155,3 +155,41 @@ func uuidOf(t *testing.T, s string) uuid.UUID {
 	}
 	return id
 }
+
+func TestContractBusinessMembers(t *testing.T) {
+	c := loadContract(t)
+	e := newGeoServer(t)
+	ownerTok := e.signIn(t, "dueno@example.com")
+	barberTok := e.signIn(t, "barbero@example.com")
+	e.signIn(t, "socio@example.com")
+	cali := geotest.CaliID.String()
+	body := c.callAuth(t, e.srv, http.MethodPost, "/api/v1/businesses", `{"name":"Barbería Miembros","contactPhone":"3001234567","cityId":"`+cali+`","addressLine":"Calle 1"}`, ownerTok, http.StatusCreated)
+	id := regexp.MustCompile(`"id":"([^"]+)"`).FindStringSubmatch(body)[1]
+	base := "/api/v1/business/" + id + "/members"
+
+	added := c.callAuth(t, e.srv, http.MethodPost, base, `{"email":"barbero@example.com","role":"PROFESSIONAL"}`, ownerTok, http.StatusCreated)
+	barber := regexp.MustCompile(`"userId":"([^"]+)"`).FindStringSubmatch(added)[1]
+	c.callAuth(t, e.srv, http.MethodPost, base, `{"email":"socio@example.com","role":"OWNER"}`, ownerTok, http.StatusCreated)
+	c.callAuth(t, e.srv, http.MethodPost, base, `{"email":"barbero@example.com","role":"MANAGER"}`, ownerTok, http.StatusConflict)
+	c.callAuth(t, e.srv, http.MethodPost, base, `{"email":"nadie@example.com","role":"MANAGER"}`, ownerTok, http.StatusBadRequest)
+	c.callAuth(t, e.srv, http.MethodPost, base, `{"email":"socio@example.com","role":"BOSS"}`, ownerTok, http.StatusBadRequest)
+
+	list := c.callAuth(t, e.srv, http.MethodGet, base, "", ownerTok, http.StatusOK)
+	if strings.Count(list, `"role":"OWNER"`) != 2 || !strings.Contains(list, `"email":"barbero@example.com"`) {
+		t.Errorf("members = %s", list)
+	}
+	c.callAuth(t, e.srv, http.MethodGet, base, "", barberTok, http.StatusForbidden)
+	c.callAuth(t, e.srv, http.MethodPatch, base+"/"+barber, `{"role":"MANAGER"}`, ownerTok, http.StatusNoContent)
+	c.callAuth(t, e.srv, http.MethodPatch, base+"/00000000-0000-0000-0000-000000000001", `{"role":"MANAGER"}`, ownerTok, http.StatusNotFound)
+	c.callAuth(t, e.srv, http.MethodDelete, base+"/"+barber, "", ownerTok, http.StatusNoContent)
+	c.callAuth(t, e.srv, http.MethodGet, base, "", barberTok, http.StatusNotFound) // removed: no longer a member
+
+	// The last OWNER cannot leave: remove the partner first, then try to remove oneself.
+	socio := e.users.User("socio@example.com").ID().String()
+	dueno := e.users.User("dueno@example.com").ID().String()
+	c.callAuth(t, e.srv, http.MethodDelete, base+"/"+socio, "", ownerTok, http.StatusNoContent)
+	if b := c.callAuth(t, e.srv, http.MethodDelete, base+"/"+dueno, "", ownerTok, http.StatusConflict); !strings.Contains(b, `"LAST_OWNER"`) {
+		t.Errorf("last owner removal: %s", b)
+	}
+	c.callAuth(t, e.srv, http.MethodPatch, base+"/"+dueno, `{"role":"MANAGER"}`, ownerTok, http.StatusConflict)
+}
