@@ -17,6 +17,7 @@ type Querier interface {
 	InsertSubscription(ctx context.Context, arg InsertSubscriptionParams) error
 	SubscriptionByBusiness(ctx context.Context, businessID uuid.UUID) (Subscription, error)
 	SubscriptionByBusinessForUpdate(ctx context.Context, businessID uuid.UUID) (Subscription, error)
+	SubscriptionsOf(ctx context.Context, businessIds []uuid.UUID) ([]Subscription, error)
 	UpdateSubscription(ctx context.Context, arg UpdateSubscriptionParams) error
 }
 

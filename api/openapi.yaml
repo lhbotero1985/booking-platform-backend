@@ -856,6 +856,50 @@ paths:
           $ref: "#/components/responses/NotFound"
 
   /api/v1/businesses:
+    get:
+      tags: [Businesses]
+      operationId: searchBusinesses
+      summary: Search businesses customers can book (public)
+      description: |
+        `ACTIVE` businesses of a city whose demo is running or whose subscription is paid
+        (ADR-0018), ordered by name; optional text filter on the name. Keyset pagination with
+        `cursor` (opaque). A page may hold fewer than `limit` items and still have `nextCursor`.
+      security: []
+      parameters:
+        - name: cityId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: q
+          in: query
+          description: 2–60 characters contained in the name (case-insensitive).
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: A page of businesses.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicBusinessList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
     post:
       tags: [Businesses]
       operationId: createOwnBusiness
@@ -894,6 +938,34 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "429":
           $ref: "#/components/responses/TooManyRequests"
+
+  /api/v1/businesses/{slug}:
+    get:
+      tags: [Businesses]
+      operationId: getPublicBusiness
+      summary: A business customers can book, by slug (public)
+      description: |
+        404 when the business does not exist, is not `ACTIVE` or its demo/subscription is not
+        valid (indistinguishable).
+      security: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The business.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicBusiness"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/v1/admin/businesses/{id}/subscription:
     get:
@@ -2030,6 +2102,54 @@ components:
       properties:
         role:
           $ref: "#/components/schemas/MemberRole"
+
+    PublicBusiness:
+      type: object
+      additionalProperties: false
+      required: [id, name, slug, description, contactPhone, location, timeZone, currency, bookingPolicy]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        contactPhone:
+          type: string
+        location:
+          $ref: "#/components/schemas/BusinessLocation"
+        timeZone:
+          type: string
+        currency:
+          type: string
+        bookingPolicy:
+          type: object
+          additionalProperties: false
+          required: [minLeadMinutes, maxAdvanceDays, cancellationCutoffHours, rescheduleCutoffHours]
+          properties:
+            minLeadMinutes:
+              type: integer
+            maxAdvanceDays:
+              type: integer
+            cancellationCutoffHours:
+              type: integer
+            rescheduleCutoffHours:
+              type: integer
+
+    PublicBusinessList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicBusiness"
+        nextCursor:
+          type: string
 
   responses:
     Unauthorized:

@@ -644,3 +644,21 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `tests/security` `TestMembersAreTenantScoped` | ✅ | 4 operaciones sobre miembros de otro negocio → 404 idéntico a inexistente; barbero no se autopromueve (403); retiro inmediato (misma sesión → 404); último OWNER no sale; 4 rutas en la matriz de credenciales inválidas |
 | `task check` / `sqlc:check` / `shellcheck` / `secrets` / unitarias + integración completas | ✅ | govulncheck reintentado por DNS local |
 | Despliegue y E2E en QA | ⏳ | Tras el merge |
+
+## 2026-11-24 · Fase 4 · T4.5 — CI, despliegue y E2E
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| PR #37 — ci + security | ✅ 6/6 | Squash `78ebf6f`; `release-qa` ✅ (migración 8) |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **87/87** | Barbero registrado y verificado; agregado como PROFESSIONAL, cambio a MANAGER, retirado; último OWNER no sale (409 `LAST_OWNER`) |
+
+## 2026-11-24 · Fase 4 · T4.6 — Búsqueda pública
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `public_test.go` (application) | ✅ | Solo activos con demo válida, orden sin distinguir mayúsculas, filtro de texto, otra ciudad vacía, comodines literales; **paginación con un tercio de demos vencidas** (todas las visibles exactamente una vez, páginas ≤ límite); 7 validaciones (ciudad, texto, cursor inválido o falsificado, límites); detalle por slug: vencido, suspendido, inexistente, `../etc` → 404. Application **90,2 %** |
+| `TestPublicSearchOnPostgres` | ✅ | SQL real + filtro de subscriptions: vencido y suspendido ocultos, paginado de a 2, orden por intercalación (ñ con n), `50%` literal, `_` no es comodín, búsqueda sin distinguir mayúsculas con tildes (`ÑANDÚ`), detalle por slug |
+| `TestContractPublicBusinesses` | ✅ | 2 operaciones públicas contra OpenAPI: 200 (cursor), 400, 404 |
+| `tests/security` | ✅ | Sin campos internos en la vista pública; suspendido → 404 idéntico a inexistente; `%%`, `_%`, `' OR 1=1--` no coinciden |
+| `task check` / `sqlc:check` / `shellcheck` / `secrets` / unitarias + integración completas | ✅ | |
+| Despliegue y E2E en QA | ⏳ | Tras el merge |

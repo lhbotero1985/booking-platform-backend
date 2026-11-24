@@ -241,3 +241,55 @@ func TestMembersAreTenantScoped(t *testing.T) {
 		t.Errorf("last owner leaves: %d %s", r.status, r.body)
 	}
 }
+
+// TestPublicSearchExposesOnlyBookableBusinesses (T4.6): customers see only ACTIVE businesses
+// with a valid demo/subscription, with no internal fields; hidden ones are a plain 404; the
+// text filter cannot be used as a pattern.
+func TestPublicSearchExposesOnlyBookableBusinesses(t *testing.T) {
+	h := startAuth(t)
+	for _, email := range []string{suiteEmail, "bob@example.com", "admin@example.com"} {
+		h.account(t, email)
+	}
+	ana, bob, admin := h.bearerToken(t, suiteEmail), h.bearerToken(t, "bob@example.com"), h.bearerToken(t, "admin@example.com")
+	if err := h.svc.SetPlatformAdmin(context.Background(), "admin@example.com", true); err != nil {
+		t.Fatal(err)
+	}
+	cali := geotest.CaliID.String()
+	mk := func(tok, name string) string {
+		r := h.call(t, http.MethodPost, "/api/v1/businesses", `{"name":"`+name+`","contactPhone":"3001234567","cityId":"`+cali+`","addressLine":"Calle 1"}`, bearerH(tok))
+		var b struct{ ID string }
+		if r.status != http.StatusCreated || json.Unmarshal([]byte(r.body), &b) != nil {
+			t.Fatalf("create: %d %s", r.status, r.body)
+		}
+		return b.ID
+	}
+	mk(ana, "Barbería Visible")
+	hidden := mk(bob, "Barbería Suspendida")
+	if r := h.call(t, http.MethodPost, "/api/v1/admin/businesses/"+hidden+"/suspend", "", bearerH(admin)); r.status != http.StatusOK {
+		t.Fatalf("suspend: %d", r.status)
+	}
+
+	r := h.call(t, http.MethodGet, "/api/v1/businesses?cityId="+cali, "", nil)
+	var page struct{ Items []map[string]any }
+	if r.status != http.StatusOK || json.Unmarshal([]byte(r.body), &page) != nil || len(page.Items) != 1 || page.Items[0]["name"] != "Barbería Visible" {
+		t.Fatalf("public list: %d %s", r.status, r.body)
+	}
+	for k := range page.Items[0] {
+		switch k {
+		case "id", "name", "slug", "description", "contactPhone", "location", "timeZone", "currency", "bookingPolicy":
+		default:
+			t.Errorf("internal field %q exposed publicly", k)
+		}
+	}
+	notFound := h.call(t, http.MethodGet, "/api/v1/businesses/no-existe", "", nil)
+	suspended := h.call(t, http.MethodGet, "/api/v1/businesses/barberia-suspendida", "", nil)
+	if suspended.status != http.StatusNotFound || normalizeReply(t, suspended) != normalizeReply(t, notFound) {
+		t.Errorf("suspended business detail: %d %s", suspended.status, suspended.body)
+	}
+	for _, q := range []string{"%25%25", "_%25", "%27%20OR%201%3D1--"} {
+		r := h.call(t, http.MethodGet, "/api/v1/businesses?cityId="+cali+"&q="+q, "", nil)
+		if r.status != http.StatusOK || strings.Contains(r.body, "Visible") {
+			t.Errorf("q=%s: %d %s (must match literally, nothing here)", q, r.status, r.body)
+		}
+	}
+}

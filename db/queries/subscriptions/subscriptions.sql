@@ -31,3 +31,8 @@ WHERE s.business_id IN (
     LIMIT sqlc.arg(max_rows)
     FOR UPDATE SKIP LOCKED)
 RETURNING s.business_id;
+
+-- name: SubscriptionsOf :many
+SELECT business_id, status, trial_ends_at, expired_at, created_at, updated_at
+FROM subscriptions
+WHERE business_id = ANY(sqlc.arg(business_ids)::uuid[]);

@@ -93,7 +93,7 @@ su negocio con una demo de 7 días (T4.3b); `PLATFORM_ADMIN` puede todo sobre to
 | T4.3b ✅ | Alta autoservicio con demo de 7 días: módulo `subscriptions` (`TRIALING`…), una demo por cuenta, vencimiento automático (River), extensión por el administrador | Negocio + OWNER + suscripción atómicos; demo vencida → no visible; auditoría |
 | T4.4 ✅ | Gestión del negocio (datos, ubicación, políticas, avisos) | OWNER sí, MANAGER 403 en lo exclusivo, otro negocio 404 |
 | T4.5 ✅ | Miembros: listar, agregar por email, cambiar rol, revocar | Solo OWNER (el responsable; puede haber varios); siempre al menos un OWNER; efecto inmediato |
-| T4.6 | Búsqueda pública por ciudad y texto, detalle por slug | Solo activos; sin datos internos |
+| T4.6 ✅ | Búsqueda pública por ciudad y texto, detalle por slug | Solo activos; sin datos internos |
 | T4.7 | Suite cross-tenant/IDOR, contrato, E2E en QA, cierre de fase | Suite verde; cierre aprobado |
 
 Las fases 5–13 se desglosarán en tareas al iniciar cada una.

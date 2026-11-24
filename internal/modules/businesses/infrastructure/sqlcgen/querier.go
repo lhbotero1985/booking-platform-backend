@@ -22,6 +22,10 @@ type Querier interface {
 	// Administrator list: optional status and city filters, keyset pagination by id (UUIDv7, so
 	// roughly by creation time).
 	ListBusinesses(ctx context.Context, arg ListBusinessesParams) ([]ListBusinessesRow, error)
+	// Public search (T4.6): ACTIVE businesses of a city, optional name filter (the caller escapes
+	// LIKE wildcards), keyset pagination after (lower(name), id). Entitlement (demo or payment) is
+	// filtered by the subscriptions module. sort_name is the keyset (PostgreSQL's lower()).
+	SearchActiveBusinesses(ctx context.Context, arg SearchActiveBusinessesParams) ([]SearchActiveBusinessesRow, error)
 	SlugTaken(ctx context.Context, slug string) (bool, error)
 	// Everything but id, slug, currency and created_at (slug changes and moves between countries
 	// are separate, audited operations).

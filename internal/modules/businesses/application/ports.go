@@ -46,6 +46,8 @@ type Tx interface {
 	BusinessBySlug(ctx context.Context, slug domain.Slug) (*domain.Business, error)
 	SlugTaken(ctx context.Context, slug domain.Slug) (bool, error)
 	ListBusinesses(ctx context.Context, f ListFilter) ([]*domain.Business, error)
+	// SearchActive returns up to f.Limit ACTIVE businesses of f.CityID after the keyset.
+	SearchActive(ctx context.Context, f SearchFilter) ([]SearchHit, error)
 	AppendAudit(ctx context.Context, e *audit.Entry) error
 }
 

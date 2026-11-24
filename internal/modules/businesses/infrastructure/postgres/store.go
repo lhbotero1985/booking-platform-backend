@@ -143,6 +143,38 @@ func (t *txStore) ListBusinesses(ctx context.Context, f application.ListFilter) 
 	return out, nil
 }
 
+func (t *txStore) SearchActive(ctx context.Context, f application.SearchFilter) ([]application.SearchHit, error) {
+	p := sqlcgen.SearchActiveBusinessesParams{CityID: f.CityID, MaxRows: int32(f.Limit)} //nolint:gosec // bounded by the caller
+	if f.NameLike != "" {
+		p.NameLike = &f.NameLike
+	}
+	if f.AfterName != "" {
+		p.AfterName, p.AfterID = &f.AfterName, &f.AfterID
+	}
+	rows, err := t.q.SearchActiveBusinesses(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]application.SearchHit, 0, len(rows))
+	for _, r := range rows {
+		b, err := toDomain(sqlcgen.BusinessByIDRow{
+			ID: r.ID, Name: r.Name, Slug: r.Slug, Status: r.Status, ContactPhone: r.ContactPhone, Description: r.Description,
+			CountryCode: r.CountryCode, DivisionID: r.DivisionID, CityID: r.CityID, AddressLine: r.AddressLine,
+			Latitude: r.Latitude, Longitude: r.Longitude, TimeZone: r.TimeZone, Currency: r.Currency,
+			SlotIntervalMinutes: r.SlotIntervalMinutes, BufferMinutes: r.BufferMinutes, MinLeadMinutes: r.MinLeadMinutes,
+			MaxAdvanceDays: r.MaxAdvanceDays, CancellationCutoffHours: r.CancellationCutoffHours,
+			RescheduleCutoffHours: r.RescheduleCutoffHours, RequireCustomerConfirmation: r.RequireCustomerConfirmation,
+			RemindersEnabled: r.RemindersEnabled, ReminderHoursBefore: r.ReminderHoursBefore,
+			CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, application.SearchHit{Business: b, SortName: r.SortName})
+	}
+	return out, nil
+}
+
 func (t *txStore) AppendAudit(ctx context.Context, e *audit.Entry) error {
 	return audit.Append(ctx, t.tx, e)
 }

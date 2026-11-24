@@ -359,6 +359,114 @@ func (q *Queries) ListBusinesses(ctx context.Context, arg ListBusinessesParams) 
 	return items, nil
 }
 
+const searchActiveBusinesses = `-- name: SearchActiveBusinesses :many
+SELECT lower(name) AS sort_name, id, name, slug::text AS slug, status, contact_phone, description, country_code, division_id,
+       city_id, address_line, latitude, longitude, time_zone, currency, slot_interval_minutes,
+       buffer_minutes, min_lead_minutes, max_advance_days, cancellation_cutoff_hours,
+       reschedule_cutoff_hours, require_customer_confirmation, reminders_enabled,
+       reminder_hours_before, created_at, updated_at
+FROM businesses
+WHERE status = 'ACTIVE'
+  AND city_id = $1
+  AND ($2::text IS NULL OR name ILIKE $2::text ESCAPE '\')
+  AND ($3::text IS NULL OR (lower(name), id) > ($3::text, $4::uuid))
+ORDER BY lower(name), id
+LIMIT $5
+`
+
+type SearchActiveBusinessesParams struct {
+	CityID    uuid.UUID
+	NameLike  *string
+	AfterName *string
+	AfterID   *uuid.UUID
+	MaxRows   int32
+}
+
+type SearchActiveBusinessesRow struct {
+	SortName                    string
+	ID                          uuid.UUID
+	Name                        string
+	Slug                        string
+	Status                      string
+	ContactPhone                string
+	Description                 string
+	CountryCode                 string
+	DivisionID                  uuid.UUID
+	CityID                      uuid.UUID
+	AddressLine                 string
+	Latitude                    *float64
+	Longitude                   *float64
+	TimeZone                    string
+	Currency                    string
+	SlotIntervalMinutes         int16
+	BufferMinutes               int16
+	MinLeadMinutes              int32
+	MaxAdvanceDays              int16
+	CancellationCutoffHours     int16
+	RescheduleCutoffHours       int16
+	RequireCustomerConfirmation bool
+	RemindersEnabled            bool
+	ReminderHoursBefore         int16
+	CreatedAt                   time.Time
+	UpdatedAt                   time.Time
+}
+
+// Public search (T4.6): ACTIVE businesses of a city, optional name filter (the caller escapes
+// LIKE wildcards), keyset pagination after (lower(name), id). Entitlement (demo or payment) is
+// filtered by the subscriptions module. sort_name is the keyset (PostgreSQL's lower()).
+func (q *Queries) SearchActiveBusinesses(ctx context.Context, arg SearchActiveBusinessesParams) ([]SearchActiveBusinessesRow, error) {
+	rows, err := q.db.Query(ctx, searchActiveBusinesses,
+		arg.CityID,
+		arg.NameLike,
+		arg.AfterName,
+		arg.AfterID,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchActiveBusinessesRow{}
+	for rows.Next() {
+		var i SearchActiveBusinessesRow
+		if err := rows.Scan(
+			&i.SortName,
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.Status,
+			&i.ContactPhone,
+			&i.Description,
+			&i.CountryCode,
+			&i.DivisionID,
+			&i.CityID,
+			&i.AddressLine,
+			&i.Latitude,
+			&i.Longitude,
+			&i.TimeZone,
+			&i.Currency,
+			&i.SlotIntervalMinutes,
+			&i.BufferMinutes,
+			&i.MinLeadMinutes,
+			&i.MaxAdvanceDays,
+			&i.CancellationCutoffHours,
+			&i.RescheduleCutoffHours,
+			&i.RequireCustomerConfirmation,
+			&i.RemindersEnabled,
+			&i.ReminderHoursBefore,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const slugTaken = `-- name: SlugTaken :one
 SELECT EXISTS (SELECT 1 FROM businesses WHERE slug = $1) AS taken
 `

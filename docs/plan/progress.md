@@ -466,6 +466,19 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 4 · T4.6 — Búsqueda pública de negocios
+
+- **Previo:** PR #37 (T4.5) → `qa`: 6/6 ✅, `78ebf6f`, desplegado (migración 8); E2E en QA
+  **87/87** (barbero agregado, cambio de rol, retiro, último OWNER).
+- **Estado:** ✅ en `feature/t4.6-public-search` (commit y push; PR pendiente).
+- **Archivos:** migración `00009_business_search.sql`, query `SearchActiveBusinesses`,
+  subscriptions `EntitledAmong` (+ query `SubscriptionsOf`), businesses `application/public.go`
+  (búsqueda con cursor y filtro por lote), `interfaces/http/public.go`, wiring, OpenAPI (2
+  operaciones), pruebas, E2E.
+- **Problemas:** el cursor se basaba en `strings.ToLower` de Go → se cambió a la clave que
+  calcula PostgreSQL (`lower(name)`) para que coincida siempre; dos expectativas de prueba
+  corregidas (orden por intercalación de la base; un ejemplo de `_` que sí aparecía en el texto).
+
 ## 2026-11-24 · Fase 4 · T4.5 — Miembros del negocio
 
 - **Previo:** PR #36 (T4.4) → `qa`: 6/6 ✅, `ffb2eae`, desplegado; E2E en QA **79/79**.

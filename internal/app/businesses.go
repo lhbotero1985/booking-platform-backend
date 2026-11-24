@@ -24,7 +24,7 @@ type IdentityForBusinesses interface {
 func NewBusinessesService(pool *pgxpool.Pool, identity IdentityForBusinesses, places geocontract.Places, subs SubscriptionsForBusinesses) *application.Service {
 	return application.NewService(application.Deps{
 		Store: postgres.NewStore(pool), Authz: identity, Members: identity, Owners: identity, Trials: subs,
-		Summaries: subs, Places: places, Clock: clock.System{},
+		Summaries: subs, Entitlements: subs, Places: places, Clock: clock.System{},
 	})
 }
 
@@ -32,4 +32,5 @@ func NewBusinessesService(pool *pgxpool.Pool, identity IdentityForBusinesses, pl
 type SubscriptionsForBusinesses interface {
 	subscriptionscontract.Trials
 	subscriptionscontract.Summaries
+	subscriptionscontract.Entitlements
 }
