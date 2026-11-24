@@ -49,7 +49,7 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 		}
 		return b.ID
 	}
-	create(ana, "Barbería Ana")
+	anaBiz := create(ana, "Barbería Ana")
 	bobBiz := create(bob, "Barbería Bob")
 	if r := h.call(t, http.MethodPost, "/api/v1/business/"+bobBiz+"/members", `{"email":"staff@example.com","role":"PROFESSIONAL"}`, bearerH(bob)); r.status != http.StatusCreated {
 		t.Fatalf("bob adds staff: %d %s", r.status, r.body)
@@ -134,6 +134,54 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 	if tested < 26 {
 		t.Fatalf("only %d business-scoped operations found in the contract", tested)
 	}
+
+	// IDOR inside the caller's own business (T5.8): Ana uses HER businessId with the ids of
+	// Bob's professional, absence, category, service and member. Every operation with a child
+	// id must answer exactly as if those ids did not exist.
+	children := 0
+	for path, item := range model.Model.Paths.PathItems.FromOldest() {
+		if !strings.Contains(path, "{businessId}/") || !strings.Contains(strings.SplitN(path, "{businessId}", 2)[1], "{") {
+			continue
+		}
+		for method := range item.GetOperations().FromOldest() {
+			method = strings.ToUpper(method)
+			op := method + " " + path
+			body, ok := tenantBodies[op]
+			if !ok && method != http.MethodGet && method != http.MethodDelete {
+				body = "{}"
+			}
+			url := func(child func(string) string) string {
+				return strings.NewReplacer("{businessId}", anaBiz, "{userId}", child(staffID), "{professionalId}", child(prof.ID),
+					"{absenceId}", child(absence.ID), "{categoryId}", child(categoryID), "{serviceId}", child(serviceID)).Replace(path)
+			}
+			foreign := h.call(t, method, url(func(id string) string { return id }), body, bearerH(ana))
+			none := h.call(t, method, url(func(string) string { return missing }), body, bearerH(ana))
+			if foreign.status != http.StatusNotFound || normalizeReply(t, foreign) != normalizeReply(t, none) {
+				t.Errorf("%s with Bob's ids in Ana's business: %d %s\n  vs nonexistent: %d %s", op, foreign.status, foreign.body, none.status, none.body)
+			}
+			children++
+		}
+	}
+	if children < 12 {
+		t.Fatalf("only %d operations with child ids found in the contract", children)
+	}
+
+	// Foreign ids inside request bodies: Ana cannot assign Bob's service to her barber, nor file
+	// her service under Bob's category.
+	ap := h.call(t, http.MethodPost, "/api/v1/business/"+anaBiz+"/professionals", `{"email":"`+suiteEmail+`","displayName":"Ana"}`, bearerH(ana))
+	var anaProf struct{ ID string }
+	if ap.status != http.StatusCreated || json.Unmarshal([]byte(ap.body), &anaProf) != nil {
+		t.Fatalf("ana registers herself as a professional: %d %s", ap.status, ap.body)
+	}
+	if r := h.call(t, http.MethodPut, "/api/v1/business/"+anaBiz+"/professionals/"+anaProf.ID+"/services", `{"serviceIds":["`+serviceID+`"]}`, bearerH(ana)); r.status != http.StatusBadRequest || !strings.Contains(r.body, "SERVICE_NOT_FOUND") {
+		t.Errorf("assigning Bob's service: %d %s", r.status, r.body)
+	}
+	if r := h.call(t, http.MethodPost, "/api/v1/business/"+anaBiz+"/services", `{"name":"Corte","durationMinutes":30,"priceMinor":100,"categoryId":"`+categoryID+`"}`, bearerH(ana)); r.status < 400 || r.status >= 500 {
+		t.Errorf("service under Bob's category: %d %s", r.status, r.body)
+	}
+	if r := h.call(t, http.MethodGet, "/api/v1/business/"+anaBiz+"/services", "", bearerH(ana)); r.status != http.StatusOK || strings.Contains(r.body, "Corte") {
+		t.Errorf("Ana's services after the rejected attempts: %d %s", r.status, r.body)
+	}
 	// Nothing changed in Bob's business, and every attempt was audited as a denial.
 	if after := h.call(t, http.MethodGet, "/api/v1/business/"+bobBiz, "", bearerH(bob)).body; after != before {
 		t.Errorf("Bob's business changed:\n%s\n%s", before, after)
@@ -158,7 +206,7 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 	if denied := countAction(h.store.AuditActions(), application.AuditAuthzDenied+":DENIED") - deniedBefore; denied < tested {
 		t.Errorf("authz.denied entries = %d, want at least %d (one per cross-tenant attempt)", denied, tested)
 	}
-	t.Logf("%d business-scoped operations checked", tested)
+	t.Logf("%d business-scoped operations checked, %d with foreign child ids", tested, children)
 }
 
 func countAction(actions []string, want string) int {

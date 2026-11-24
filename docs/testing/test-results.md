@@ -796,4 +796,17 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `TestPublicSearchExposesOnlyBookableBusinesses` (seguridad) | ✅ | Negocio sin barberos oculto; catálogo público sin campos internos; suspendido → 404 idéntico a inexistente |
 | `TestContractPublicBusinesses` / `TestEveryRouteIsDocumented` | ✅ | **60 rutas documentadas**; catálogo público contra OpenAPI 200/404 |
 | `task check` (lint 0, vuln) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
-| Despliegue y E2E en QA | ⏳ | Tras el merge (búsqueda: no aparece recién creado, aparece con oferta; catálogo público) |
+| PR #46 — ci + security | ✅ 6/6 | Squash `acceb44` |
+| `release-qa` | ✅ | Smoke test ✅ |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **135/135** | Negocio nuevo no aparece en la búsqueda (0); tras asignar "Corte + barba" al barbero aparece (1), sin campos internos; catálogo público 200 con "Corte + barba 4000000 Barbero E2E" y sin campos internos; slug inexistente 404 |
+
+## 2026-11-24 · Fase 5 · T5.8 — Suite de aislamiento y cierre de la Fase 5
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestEveryBusinessRouteIsTenantIsolated` | ✅ | **26** operaciones `{businessId}` contra otro negocio + **16** operaciones con ids de hijos de otro negocio usados en el propio (404 idéntico a inexistente); asignar un servicio ajeno → 400 `SERVICE_NOT_FOUND`; servicio bajo categoría ajena rechazado; nada cambió en el negocio ajeno |
+| Mutación: `ServiceByID` sin filtro por negocio | ✅ detectada | La prueba falla con 200 en GET y PATCH del servicio ajeno; código restaurado |
+| `task check` (build, vet, lint 0, test, vuln) | ✅ | govulncheck: un fallo DNS, reintento sin vulnerabilidades |
+| `task test:integration` | ✅ | 36 paquetes, 0 fallos |
+| Cobertura | ✅ | professionals domain 99,2 % / application 94,1 %; catalog domain 100 % / application 93,9 %; businesses domain 95,1 % / application 90,4 %; identity application 83,6 % |
+| Despliegue y E2E en QA | ⏳ | Tras el merge |
