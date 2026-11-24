@@ -59,3 +59,31 @@ INSERT INTO professional_breaks (id, business_id, professional_id, weekday, star
 VALUES (@id, @business_id, @professional_id, @weekday,
         time '00:00' + make_interval(mins => @start_minute::int),
         time '00:00' + make_interval(mins => @end_minute::int));
+
+-- Absences (T5.4).
+
+-- name: InsertAbsence :exec
+INSERT INTO professional_absences (id, business_id, professional_id, starts_at, ends_at, reason, created_by, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8);
+
+-- name: UpdateAbsence :exec
+UPDATE professional_absences
+SET starts_at = $4, ends_at = $5, reason = $6, updated_at = $7
+WHERE business_id = $1 AND professional_id = $2 AND id = $3;
+
+-- name: DeleteAbsence :exec
+DELETE FROM professional_absences WHERE business_id = $1 AND professional_id = $2 AND id = $3;
+
+-- name: AbsenceByID :one
+SELECT id, business_id, professional_id, starts_at, ends_at, reason, created_by, created_at, updated_at
+FROM professional_absences
+WHERE business_id = $1 AND professional_id = $2 AND id = $3;
+
+-- name: ListAbsences :many
+SELECT id, business_id, professional_id, starts_at, ends_at, reason, created_by, created_at, updated_at
+FROM professional_absences
+WHERE business_id = @business_id AND professional_id = @professional_id
+  AND ends_at > @from_time
+  AND starts_at < @to_time
+ORDER BY starts_at
+LIMIT @max_rows;

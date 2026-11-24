@@ -73,8 +73,11 @@ professional_breaks(id, business_id, professional_id, weekday, start_time, end_t
   -- T5.3 (00012): FK compuesta (business_id, professional_id) → professionals ON DELETE CASCADE;
   -- weekday 0 = domingo … 6 = sábado; solapes y contención validados por el dominio con la
   -- fila del profesional bloqueada (reemplazo de la semana completa en una transacción).
-professional_absences(id, business_id, professional_id, period tstzrange not null, reason,
-                      exclude using gist (professional_id with =, period with &&))
+professional_absences(id, business_id, professional_id, starts_at, ends_at, reason, created_by,
+                      exclude using gist (professional_id with =,
+                                          tstzrange(starts_at, ends_at, '[)') with &&))
+  -- T5.4 (00013): FK compuesta → professionals ON DELETE CASCADE; starts_at < ends_at;
+  -- máx. 366 días; motivo ≤ 200.
 ```
 
 ### Catalog

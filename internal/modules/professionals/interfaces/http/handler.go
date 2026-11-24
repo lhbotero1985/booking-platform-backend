@@ -1,5 +1,5 @@
 // Package httpapi exposes the professionals endpoints under /api/v1/business/{businessId}
-// (T5.2; weekly schedule T5.3). The businessId is checked against the caller's memberships on every request; another
+// (T5.2; weekly schedule T5.3; absences T5.4). The businessId is checked against the caller's memberships on every request; another
 // business is a 404 identical to a missing one.
 package httpapi
 
@@ -27,6 +27,7 @@ type Service interface {
 	Get(ctx context.Context, p contract.Principal, businessID, id uuid.UUID) (application.View, error)
 	Update(ctx context.Context, p contract.Principal, businessID, id uuid.UUID, in application.UpdateInput) (application.View, error)
 	ScheduleService
+	AbsenceService
 }
 
 // Handler serves the professionals endpoints.
@@ -50,6 +51,10 @@ func (h *Handler) Routes(rt *httpx.Router) {
 	rt.Handle("PATCH /api/v1/business/{businessId}/professionals/{professionalId}", auth(h.update))
 	rt.Handle("GET /api/v1/business/{businessId}/professionals/{professionalId}/schedule", auth(h.getSchedule))
 	rt.Handle("PUT /api/v1/business/{businessId}/professionals/{professionalId}/schedule", auth(h.replaceSchedule))
+	rt.Handle("GET /api/v1/business/{businessId}/professionals/{professionalId}/absences", auth(h.listAbsences))
+	rt.Handle("POST /api/v1/business/{businessId}/professionals/{professionalId}/absences", auth(h.createAbsence))
+	rt.Handle("PATCH /api/v1/business/{businessId}/professionals/{professionalId}/absences/{absenceId}", auth(h.updateAbsence))
+	rt.Handle("DELETE /api/v1/business/{businessId}/professionals/{professionalId}/absences/{absenceId}", auth(h.deleteAbsence))
 }
 
 type professionalDTO struct {
@@ -192,6 +197,8 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 		httpx.WriteProblem(w, r, p)
 	case errors.Is(err, application.ErrNotFound):
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusNotFound, httpx.CodeNotFound, ""))
+	case errors.Is(err, application.ErrAbsenceOverlap):
+		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeAbsenceOverlap, "the absence overlaps another absence of the professional"))
 	case errors.Is(err, application.ErrAlreadyExists):
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeAlreadyProfessional, "that account already has a professional profile in this business"))
 	default:

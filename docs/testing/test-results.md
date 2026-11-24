@@ -738,4 +738,18 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `TestContractProfessionals` | ✅ | `GET/PUT …/schedule` contra OpenAPI: 200/400/403/404 |
 | `task check` (build, vet, lint 0, test, vuln) / `sqlc:check` / `shellcheck` / `secrets` | ✅ | govulncheck tras reintento por DNS local |
 | Integración completa (`-tags integration -p 2 ./...`) | ✅ | |
-| Despliegue y E2E en QA | ⏳ | Tras el merge (E2E ampliado con 10 comprobaciones de horario) |
+| PR #42 — ci + security | ✅ 6/6 | Squash `14a4b39` |
+| `release-qa` | ✅ | Migración 12 aplicada, smoke test ✅ |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **110/110** | Horario: OWNER define, 400 descanso fuera de franja, barbero edita el suyo, 403 el del responsable, lectura permitida |
+
+## 2026-11-24 · Fase 5 · T5.4 — Ausencias e incapacidades
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `go test ./internal/modules/professionals/...` | ✅ | domain **99,2 %** (periodo: igual/invertido/sub-segundo/cero/>366 días; motivo ≤ 200 de una línea); application **94,0 %**: OWNER registra para el barbero, barbero las suyas con zona horaria → UTC, solape 409, contiguas permitidas, otro profesional mismo periodo OK, 403 sobre las del compañero, lectura del equipo, ventana `from/to` e invertida 400, edición con auditoría de campos y `self`, no-op sin auditoría, borrar dos veces 404, admin, extraños/otro negocio 404, barbero retirado 404 |
+| `TestProfessionalAbsencesOnPostgres` | ✅ | UTC; solape rechazado por la **restricción de exclusión** (alta y edición); FK compuesta, `starts_at < ends_at`, máx. 366 días; auditoría; **8 altas simultáneas que se solapan → exactamente 1 guardada y 7 `ABSENCE_OVERLAP`** |
+| Prueba de mutación de la exclusión | ✅ detecta | Sin `professional_absences_no_overlap` la prueba falla (solapes aceptados); restaurada |
+| `TestEveryRouteIsDocumented` / `TestEveryBusinessRouteIsTenantIsolated` | ✅ | **49 rutas documentadas**; **16 operaciones `{businessId}`** aisladas; las ausencias de Bob no cambian |
+| `TestContractProfessionals` | ✅ | Ausencias contra OpenAPI: 201/200/204/400/403/404/409 |
+| `task check` (lint 0) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | govulncheck tras reintento por DNS local |
+| Despliegue y E2E en QA | ⏳ | Tras el merge (E2E ampliado con 9 comprobaciones de ausencias) |

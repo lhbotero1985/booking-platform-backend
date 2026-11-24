@@ -466,6 +466,18 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 5 · T5.4 — Ausencias e incapacidades
+
+- **Previo:** PR #42 (T5.3) → `qa`: CI 6/6 ✅, squash `14a4b39`, rama borrada; `release-qa` ✅ al
+  primer intento (migración 12); E2E en QA **110/110**.
+- **Decisión del usuario:** ausencia = fecha y hora de inicio y fin + motivo; OWNER para todos,
+  barbero las suyas; sin solapes garantizado por la BD; citas manuales en Fase 6.
+- **Estado:** ✅ en `feature/t5.4-absences` (commit y push; PR pendiente).
+- **Archivos:** migración `00013_professional_absences.sql`, `domain/absence.go`,
+  `application/absences.go`, `postgres/absences.go`, `http/absences.go`, queries, proftest,
+  OpenAPI (4 operaciones + 3 esquemas), pruebas de contrato/aislamiento/integración, E2E, docs.
+- **Problemas:** la prueba del CHECK de 366 días usaba marzo→marzo (365 días) → 367 días.
+
 ## 2026-11-24 · Fase 5 · T5.3 — Horario semanal y descansos
 
 - **Previo:** PR #41 (T5.2) → `qa`: CI 6/6 ✅, squash `1c05c0c`, rama borrada. `release-qa`: el

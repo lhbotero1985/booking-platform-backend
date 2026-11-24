@@ -1,8 +1,8 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T5.3 — Horario semanal y descansos (2026-11-24), en `feature/t5.3-weekly-schedule` (commit y
-push; PR y merge pendientes de autorización).
+T5.4 — Ausencias e incapacidades (2026-11-24), en `feature/t5.4-absences` (commit y push; PR y
+merge pendientes de autorización).
 
 **Fase 5 en curso** (desglose aprobado 2026-11-24, ver `roadmap.md`).
 
@@ -11,12 +11,11 @@ push; PR y merge pendientes de autorización).
 `feature/*` (nace de `qa`) → PR → `qa` → despliegue automático a QA → validación. `qa` → `main`
 solo al pasar a producción.
 
-## Próxima tarea: T5.4 — Ausencias e incapacidades
+## Próxima tarea: T5.5 — Catálogo de servicios
 
-- Ausencias de un profesional con inicio y fin (`tstzrange` en UTC; vacaciones, incapacidad,
-  diligencia) y motivo opcional.
-- Permisos (decisión 2026-11-24): OWNER para cualquier barbero; el barbero registra, modifica y
-  elimina las suyas; los demás del equipo las ven.
-- Sin solapes por profesional: `EXCLUDE USING gist (professional_id WITH =, period WITH &&)`
-  (extensión `btree_gist`), FK compuesta `(business_id, professional_id)`.
-- Las citas manuales del barbero quedan para la Fase 6 (motor de reservas).
+- Categorías opcionales (nombre único por negocio, orden, activa).
+- Servicios: nombre (único por negocio), descripción, duración en minutos y precio en COP
+  (enteros en unidades menores + `currency` del negocio), activo/inactivo, orden.
+- "Corte + barba" es un servicio normal con su propio precio y duración (decisión 2026-11-24);
+  la duración la da el servicio y es igual para todos los barberos.
+- Solo el OWNER (o PLATFORM_ADMIN) gestiona; el equipo lo consulta; otro negocio 404; auditoría.
