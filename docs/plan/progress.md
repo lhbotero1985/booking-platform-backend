@@ -466,6 +466,19 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 5 · T5.8 — Suite de aislamiento, E2E y cierre de la Fase 5
+
+- **Previo:** PR #46 (T5.7) → `qa`: CI 6/6 ✅, squash `acceb44`, rama borrada; `release-qa` ✅.
+  E2E en QA **135/135** (no aparece recién creado, aparece con oferta, catálogo público).
+- **Estado:** ✅ en `feature/t5.8-phase5-closure` (commit y push; PR pendiente). **Fase 5 aprobada por el
+  usuario (2026-11-24)**; siguiente: desglose de la Fase 6.
+- **Archivos:** `tests/security/tenant_isolation_test.go` (IDOR dentro del propio negocio en las
+  16 operaciones con ids de hijos + referencias ajenas en el cuerpo), `docs/plan/phase-5-closure.md`,
+  roadmap, decisiones, resultados de pruebas.
+- **Verificación:** mutación temporal (`ServiceByID` sin filtro por negocio) → la prueba nueva
+  falla con 200 en GET/PATCH del servicio ajeno; restaurado.
+- **Problemas:** govulncheck falló una vez por DNS (conocido); reintento OK.
+
 ## 2026-11-24 · Fase 5 · T5.7 — Vista pública de profesionales y servicios
 
 - **Previo:** PR #45 (T5.6) → `qa`: CI 6/6 ✅, squash `1f9c95b`, rama borrada; `release-qa` ✅

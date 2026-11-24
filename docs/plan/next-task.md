@@ -1,19 +1,18 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T5.7 — Vista pública de profesionales y servicios (2026-11-24), en
-`feature/t5.7-public-catalog` (commit y push; PR y merge pendientes de autorización).
+T5.8 — Suite de aislamiento, E2E y cierre de la Fase 5 (2026-11-24), en
+`feature/t5.8-phase5-closure` (commit y push; PR y merge pendientes de autorización).
 
-**Fase 5 en curso** (desglose aprobado 2026-11-24, ver `roadmap.md`).
+**Fase 5 aprobada por el usuario (2026-11-24):** ver `docs/plan/phase-5-closure.md`.
 
 ## Flujo de ramas (ADR-0017)
 
 `feature/*` (nace de `qa`) → PR → `qa` → despliegue automático a QA → validación. `qa` → `main`
 solo al pasar a producción.
 
-## Próxima tarea: T5.8 — Cierre de la Fase 5
+## Próxima tarea
 
-- Revisar la suite de aislamiento (todas las rutas `{businessId}` y las públicas nuevas).
-- E2E completo en QA con el flujo del responsable: negocio → barberos → horario → ausencia →
-  catálogo → asignación → aparece en la búsqueda pública con su catálogo.
-- Documento `docs/plan/phase-5-closure.md` para aprobación del usuario.
+Fase 6 — Motor de reservas: proponer el desglose en tareas (disponibilidad a partir de horario,
+descansos, ausencias y duración del servicio; creación de citas sin doble reserva según ADR-0004;
+citas manuales del barbero; P11 ausencia sobre citas existentes) para aprobación del usuario.
