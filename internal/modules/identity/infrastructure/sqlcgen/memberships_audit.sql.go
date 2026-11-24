@@ -13,6 +13,36 @@ import (
 	"github.com/google/uuid"
 )
 
+const activeMembersAmong = `-- name: ActiveMembersAmong :many
+SELECT user_id FROM memberships
+WHERE business_id = $1 AND status = 'ACTIVE' AND user_id = ANY($2::uuid[])
+`
+
+type ActiveMembersAmongParams struct {
+	BusinessID uuid.UUID
+	UserIds    []uuid.UUID
+}
+
+func (q *Queries) ActiveMembersAmong(ctx context.Context, arg ActiveMembersAmongParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, activeMembersAmong, arg.BusinessID, arg.UserIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []uuid.UUID{}
+	for rows.Next() {
+		var user_id uuid.UUID
+		if err := rows.Scan(&user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, user_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const activeMembershipRole = `-- name: ActiveMembershipRole :one
 SELECT role FROM memberships
 WHERE business_id = $1 AND user_id = $2 AND status = 'ACTIVE'

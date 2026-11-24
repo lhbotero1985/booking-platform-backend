@@ -1,0 +1,313 @@
+// Package application holds the professionals use cases (T5.2).
+//
+// Rules (enforced by depguard): may import domain, the identity contract and platform packages;
+// no HTTP, database drivers or River.
+package application
+
+import (
+	"context"
+	"errors"
+	"sort"
+	"strings"
+
+	"github.com/google/uuid"
+
+	identity "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/domain"
+	"github.com/lhbotero1985/booking-platform-backend/internal/platform/audit"
+	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
+)
+
+// Audited actions.
+const (
+	AuditProfessionalCreated = "professional.created"
+	AuditProfessionalUpdated = "professional.updated"
+)
+
+// Errors.
+var (
+	ErrNotFound      = errors.New("professionals: not found")
+	ErrAlreadyExists = errors.New("professionals: the account already has a profile in this business")
+)
+
+// Field error codes.
+const (
+	CodeRequired           = "REQUIRED"
+	CodeInvalidDisplayName = "INVALID_DISPLAY_NAME"
+	CodeInvalidBio         = "INVALID_BIO"
+	CodeInvalidStatus      = "INVALID_STATUS"
+	CodeInvalidSortOrder   = "INVALID_SORT_ORDER"
+	CodeAccountNotEligible = "ACCOUNT_NOT_ELIGIBLE"
+)
+
+// FieldError is a validation failure on one input field.
+type FieldError struct{ Field, Code string }
+
+// ValidationError groups every invalid field of a request.
+type ValidationError struct{ Fields []FieldError }
+
+func (e *ValidationError) Error() string {
+	parts := make([]string, 0, len(e.Fields))
+	for _, f := range e.Fields {
+		parts = append(parts, f.Field+":"+f.Code)
+	}
+	return "professionals: validation failed (" + strings.Join(parts, ", ") + ")"
+}
+
+func (e *ValidationError) add(field, code string) {
+	e.Fields = append(e.Fields, FieldError{field, code})
+}
+
+func (e *ValidationError) orNil() error {
+	if len(e.Fields) == 0 {
+		return nil
+	}
+	return e
+}
+
+// Store runs a unit of work; fn receives a context carrying the transaction so other modules'
+// contracts called with it join it.
+type Store interface {
+	WithinTx(ctx context.Context, fn func(ctx context.Context, tx Tx) error) error
+}
+
+// Tx is the persistence available inside a transaction (always scoped by business).
+type Tx interface {
+	// InsertProfessional returns ErrAlreadyExists if the account already has a profile here.
+	InsertProfessional(ctx context.Context, p domain.Professional) error
+	UpdateProfessional(ctx context.Context, p domain.Professional) error
+	// ProfessionalByID returns ErrNotFound when absent in that business.
+	ProfessionalByID(ctx context.Context, businessID, id uuid.UUID) (domain.Professional, error)
+	ListProfessionals(ctx context.Context, businessID uuid.UUID) ([]domain.Professional, error)
+	AppendAudit(ctx context.Context, e *audit.Entry) error
+}
+
+// Identity is what this module needs from the identity contract.
+type Identity interface {
+	RequireBusinessRole(ctx context.Context, p identity.Principal, businessID uuid.UUID, allowed ...identity.Role) (identity.Role, error)
+	identity.MemberEnsurer
+	identity.MembershipChecker
+}
+
+// Service implements the professionals use cases.
+type Service struct {
+	store    Store
+	identity Identity
+	clock    clock.Clock
+}
+
+// NewService builds the service; a nil clock defaults to the system clock.
+func NewService(store Store, id Identity, clk clock.Clock) *Service {
+	if clk == nil {
+		clk = clock.System{}
+	}
+	return &Service{store: store, identity: id, clock: clk}
+}
+
+// View is a professional with its effective state: Bookable is false when the profile is
+// INACTIVE or the account is no longer a member of the business.
+type View struct {
+	domain.Professional
+	MemberActive bool
+	Bookable     bool
+}
+
+// CreateInput creates a professional for the account with Email (T5.2).
+type CreateInput struct {
+	Email, DisplayName, Bio string
+	SortOrder               *int
+}
+
+// Create adds a professional (OWNER or PLATFORM_ADMIN). If the account is not a member yet it
+// becomes a PROFESSIONAL member in the same transaction; an existing member (e.g. an OWNER who
+// also serves customers) keeps its role. One profile per account and business.
+func (s *Service) Create(ctx context.Context, p identity.Principal, businessID uuid.UUID, in CreateInput) (View, error) {
+	if _, err := s.identity.RequireBusinessRole(ctx, p, businessID, identity.RolesOwner...); err != nil {
+		return View{}, err
+	}
+	var verr ValidationError
+	if strings.TrimSpace(in.Email) == "" {
+		verr.add("email", CodeRequired)
+	}
+	name, err := domain.ParseDisplayName(in.DisplayName)
+	if err != nil {
+		verr.add("displayName", required(in.DisplayName, CodeInvalidDisplayName))
+	}
+	bio, err := domain.ParseBio(in.Bio)
+	if err != nil {
+		verr.add("bio", CodeInvalidBio)
+	}
+	order := 0
+	if in.SortOrder != nil {
+		if domain.ValidateSortOrder(*in.SortOrder) != nil {
+			verr.add("sortOrder", CodeInvalidSortOrder)
+		}
+		order = *in.SortOrder
+	}
+	if err := verr.orNil(); err != nil {
+		return View{}, err
+	}
+	var prof domain.Professional
+	err = s.store.WithinTx(ctx, func(ctx context.Context, tx Tx) error {
+		userID, err := s.identity.EnsureMember(ctx, p, businessID, in.Email, identity.RoleProfessional)
+		if errors.Is(err, identity.ErrAccountNotEligible) {
+			return &ValidationError{Fields: []FieldError{{"email", CodeAccountNotEligible}}}
+		}
+		if err != nil {
+			return err
+		}
+		now := s.clock.Now()
+		prof = domain.Professional{
+			ID: uuid.Must(uuid.NewV7()), BusinessID: businessID, UserID: userID, DisplayName: name, Bio: bio,
+			Status: domain.StatusActive, SortOrder: order, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := tx.InsertProfessional(ctx, prof); err != nil {
+			return err
+		}
+		return tx.AppendAudit(ctx, s.audit(ctx, p, AuditProfessionalCreated, prof).Meta("user", userID.String()))
+	})
+	if err != nil {
+		return View{}, err
+	}
+	return View{Professional: prof, MemberActive: true, Bookable: true}, nil
+}
+
+// List returns the professionals of a business to its staff (OWNER, PROFESSIONAL) and
+// PLATFORM_ADMIN, ordered by sort order and name.
+func (s *Service) List(ctx context.Context, p identity.Principal, businessID uuid.UUID) ([]View, error) {
+	if _, err := s.identity.RequireBusinessRole(ctx, p, businessID, identity.RolesStaff...); err != nil {
+		return nil, err
+	}
+	var profs []domain.Professional
+	err := s.store.WithinTx(ctx, func(ctx context.Context, tx Tx) (err error) {
+		profs, err = tx.ListProfessionals(ctx, businessID)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return s.views(ctx, businessID, profs)
+}
+
+// Get returns one professional to the staff of its business (or PLATFORM_ADMIN).
+func (s *Service) Get(ctx context.Context, p identity.Principal, businessID, id uuid.UUID) (View, error) {
+	if _, err := s.identity.RequireBusinessRole(ctx, p, businessID, identity.RolesStaff...); err != nil {
+		return View{}, err
+	}
+	var prof domain.Professional
+	err := s.store.WithinTx(ctx, func(ctx context.Context, tx Tx) (err error) {
+		prof, err = tx.ProfessionalByID(ctx, businessID, id)
+		return err
+	})
+	if err != nil {
+		return View{}, err
+	}
+	vs, err := s.views(ctx, businessID, []domain.Professional{prof})
+	if err != nil {
+		return View{}, err
+	}
+	return vs[0], nil
+}
+
+// UpdateInput changes the given fields (nil = unchanged).
+type UpdateInput struct {
+	DisplayName, Bio, Status *string
+	SortOrder                *int
+}
+
+// Update changes a professional (OWNER or PLATFORM_ADMIN). Audited with the changed fields; a
+// request that changes nothing is a no-op.
+func (s *Service) Update(ctx context.Context, p identity.Principal, businessID, id uuid.UUID, in UpdateInput) (View, error) {
+	if _, err := s.identity.RequireBusinessRole(ctx, p, businessID, identity.RolesOwner...); err != nil {
+		return View{}, err
+	}
+	var verr ValidationError
+	var name, bio string
+	var status domain.Status
+	var err error
+	if in.DisplayName != nil {
+		if name, err = domain.ParseDisplayName(*in.DisplayName); err != nil {
+			verr.add("displayName", required(*in.DisplayName, CodeInvalidDisplayName))
+		}
+	}
+	if in.Bio != nil {
+		if bio, err = domain.ParseBio(*in.Bio); err != nil {
+			verr.add("bio", CodeInvalidBio)
+		}
+	}
+	if in.Status != nil {
+		if status, err = domain.ParseStatus(*in.Status); err != nil {
+			verr.add("status", CodeInvalidStatus)
+		}
+	}
+	if in.SortOrder != nil && domain.ValidateSortOrder(*in.SortOrder) != nil {
+		verr.add("sortOrder", CodeInvalidSortOrder)
+	}
+	if err := verr.orNil(); err != nil {
+		return View{}, err
+	}
+	var prof domain.Professional
+	err = s.store.WithinTx(ctx, func(ctx context.Context, tx Tx) error {
+		var err error
+		if prof, err = tx.ProfessionalByID(ctx, businessID, id); err != nil {
+			return err
+		}
+		var changed []string
+		set := func(cond bool, field string, apply func()) {
+			if cond {
+				apply()
+				changed = append(changed, field)
+			}
+		}
+		set(in.DisplayName != nil && name != prof.DisplayName, "displayName", func() { prof.DisplayName = name })
+		set(in.Bio != nil && bio != prof.Bio, "bio", func() { prof.Bio = bio })
+		set(in.Status != nil && status != prof.Status, "status", func() { prof.Status = status })
+		set(in.SortOrder != nil && *in.SortOrder != prof.SortOrder, "sortOrder", func() { prof.SortOrder = *in.SortOrder })
+		if len(changed) == 0 {
+			return nil
+		}
+		prof.UpdatedAt = s.clock.Now()
+		if err := tx.UpdateProfessional(ctx, prof); err != nil {
+			return err
+		}
+		sort.Strings(changed)
+		return tx.AppendAudit(ctx, s.audit(ctx, p, AuditProfessionalUpdated, prof).Meta("fields", strings.Join(changed, ",")))
+	})
+	if err != nil {
+		return View{}, err
+	}
+	vs, err := s.views(ctx, businessID, []domain.Professional{prof})
+	if err != nil {
+		return View{}, err
+	}
+	return vs[0], nil
+}
+
+// views adds the membership state (one query to identity).
+func (s *Service) views(ctx context.Context, businessID uuid.UUID, profs []domain.Professional) ([]View, error) {
+	ids := make([]uuid.UUID, len(profs))
+	for i, p := range profs {
+		ids[i] = p.UserID
+	}
+	active, err := s.identity.ActiveMembersAmong(ctx, businessID, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]View, len(profs))
+	for i, p := range profs {
+		out[i] = View{Professional: p, MemberActive: active[p.UserID], Bookable: p.Bookable(active[p.UserID])}
+	}
+	return out, nil
+}
+
+func (s *Service) audit(ctx context.Context, p identity.Principal, action string, prof domain.Professional) *audit.Entry {
+	return audit.New(ctx, s.clock.Now(), action, audit.Success).Actor(p.UserID).Business(prof.BusinessID).
+		Resource("professional", prof.ID.String())
+}
+
+func required(raw, code string) string {
+	if strings.TrimSpace(raw) == "" {
+		return CodeRequired
+	}
+	return code
+}

@@ -11,6 +11,7 @@ import (
 )
 
 type Querier interface {
+	ActiveMembersAmong(ctx context.Context, arg ActiveMembersAmongParams) ([]uuid.UUID, error)
 	ActiveMembershipRole(ctx context.Context, arg ActiveMembershipRoleParams) (string, error)
 	// Atomically marks a valid token as used and returns its user (single use).
 	ConsumeEmailVerificationToken(ctx context.Context, arg ConsumeEmailVerificationTokenParams) (uuid.UUID, error)

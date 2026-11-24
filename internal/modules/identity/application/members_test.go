@@ -163,3 +163,55 @@ func TestManageMembers(t *testing.T) {
 		t.Errorf("audit: %d role changes, %d revocations; want 2 and 1", changed, revoked)
 	}
 }
+
+func TestEnsureMemberAndActiveMembersAmong(t *testing.T) {
+	ctx := context.Background()
+	e := newEnv()
+	for _, email := range []string{"ana@example.com", "barbero@example.com"} {
+		e.register(t, email)
+		if err := e.svc.VerifyEmail(ctx, e.sendAndExtract(t)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	e.register(t, "pendiente@example.com")
+	biz := uuid.Must(uuid.NewV7())
+	ana := contract.Principal{UserID: e.store.User("ana@example.com").ID()}
+	e.store.GrantMembership(ana.UserID, biz, contract.RoleOwner)
+
+	// A new account becomes PROFESSIONAL; an existing member keeps its role.
+	barber, err := e.svc.EnsureMember(ctx, ana, biz, "barbero@example.com", contract.RoleProfessional)
+	if err != nil || barber != e.store.User("barbero@example.com").ID() {
+		t.Fatalf("ensure barber: %v %v", barber, err)
+	}
+	if id, err := e.svc.EnsureMember(ctx, ana, biz, "ana@example.com", contract.RoleProfessional); err != nil || id != ana.UserID {
+		t.Fatalf("ensure owner: %v %v", id, err)
+	}
+	if r, _ := e.svc.RequireBusinessRole(ctx, ana, biz, contract.RolesOwner...); r != contract.RoleOwner {
+		t.Errorf("owner role changed to %q", r)
+	}
+	if _, err := e.svc.EnsureMember(ctx, ana, biz, "barbero@example.com", contract.RoleProfessional); err != nil {
+		t.Errorf("ensure again: %v", err)
+	}
+	for _, email := range []string{"pendiente@example.com", "nadie@example.com", "x"} {
+		if _, err := e.svc.EnsureMember(ctx, ana, biz, email, contract.RoleProfessional); !errors.Is(err, contract.ErrAccountNotEligible) {
+			t.Errorf("%s: %v", email, err)
+		}
+	}
+	if _, err := e.svc.EnsureMember(ctx, contract.Principal{UserID: barber}, biz, "ana@example.com", contract.RoleProfessional); !errors.Is(err, contract.ErrForbidden) {
+		t.Errorf("professional ensures: %v", err)
+	}
+
+	got, err := e.svc.ActiveMembersAmong(ctx, biz, []uuid.UUID{ana.UserID, barber, uuid.Must(uuid.NewV7())})
+	if err != nil || len(got) != 2 || !got[barber] || !got[ana.UserID] {
+		t.Errorf("active members = %v %v", got, err)
+	}
+	if err := e.svc.RemoveMember(ctx, ana, biz, barber); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := e.svc.ActiveMembersAmong(ctx, biz, []uuid.UUID{barber}); got[barber] {
+		t.Error("removed member still active")
+	}
+	if got, err := e.svc.ActiveMembersAmong(ctx, biz, nil); err != nil || len(got) != 0 {
+		t.Errorf("empty batch: %v %v", got, err)
+	}
+}

@@ -466,6 +466,19 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 5 · T5.2 — Profesionales
+
+- **Previo:** PR #40 (T5.1) → `qa`: 6/6 ✅, `a92de2c`, desplegado (migración 10: en QA quedan
+  solo OWNER y PROFESSIONAL); E2E **95/95**.
+- **Estado:** ✅ en `feature/t5.2-professionals` (commit y push; PR pendiente).
+- **Archivos:** migración `00011_professionals.sql`, módulo `internal/modules/professionals/`
+  (domain, application + proftest con doble de identity por contrato, store, HTTP), identity
+  contract `MemberEnsurer` y `MembershipChecker` (+ query `ActiveMembersAmong`),
+  `internal/app/professionals.go`, `cmd/api`, `.golangci.yml`, `sqlc.yaml`, OpenAPI (4
+  operaciones), pruebas, E2E, docs.
+- **Problemas:** depguard bloqueó que las pruebas de professionals importaran la aplicación de
+  identity → doble de identity solo por contrato en `proftest`.
+
 ## 2026-11-24 · Fase 5 · T5.1 — Quitar el rol MANAGER
 
 - **Previo:** PR #39 (T4.7) → `qa`: 6/6 ✅, `5a9843e`, desplegado; flujo del dueño validado en

@@ -20,9 +20,11 @@ import (
 // tenantBodies are valid request bodies for the business-scoped write operations, so a 404
 // cannot come from body validation. Unknown operations default to "{}" and still must be 404.
 var tenantBodies = map[string]string{
-	"PATCH /api/v1/business/{businessId}":                  `{"name":"Hackeada","description":"x"}`,
-	"POST /api/v1/business/{businessId}/members":           `{"email":"intruso@example.com","role":"OWNER"}`,
-	"PATCH /api/v1/business/{businessId}/members/{userId}": `{"role":"OWNER"}`,
+	"PATCH /api/v1/business/{businessId}":                                `{"name":"Hackeada","description":"x"}`,
+	"POST /api/v1/business/{businessId}/members":                         `{"email":"intruso@example.com","role":"OWNER"}`,
+	"PATCH /api/v1/business/{businessId}/members/{userId}":               `{"role":"OWNER"}`,
+	"POST /api/v1/business/{businessId}/professionals":                   `{"email":"intruso@example.com","displayName":"Intruso"}`,
+	"PATCH /api/v1/business/{businessId}/professionals/{professionalId}": `{"displayName":"Hackeado"}`,
 }
 
 func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
@@ -45,6 +47,12 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 		t.Fatalf("bob adds staff: %d %s", r.status, r.body)
 	}
 	staffID := h.store.User("staff@example.com").ID().String()
+	pr := h.call(t, http.MethodPost, "/api/v1/business/"+bobBiz+"/professionals", `{"email":"staff@example.com","displayName":"Staff de Bob"}`, bearerH(bob))
+	var prof struct{ ID string }
+	if pr.status != http.StatusCreated || json.Unmarshal([]byte(pr.body), &prof) != nil {
+		t.Fatalf("bob adds a professional: %d %s", pr.status, pr.body)
+	}
+	profsBefore := h.call(t, http.MethodGet, "/api/v1/business/"+bobBiz+"/professionals", "", bearerH(bob)).body
 	before := h.call(t, http.MethodGet, "/api/v1/business/"+bobBiz, "", bearerH(bob)).body
 	membersBefore := h.call(t, http.MethodGet, "/api/v1/business/"+bobBiz+"/members", "", bearerH(bob)).body
 	deniedBefore := countAction(h.store.AuditActions(), application.AuditAuthzDenied+":DENIED")
@@ -71,7 +79,7 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 				body = "{}"
 			}
 			url := func(biz string) string {
-				return strings.NewReplacer("{businessId}", biz, "{userId}", staffID).Replace(path)
+				return strings.NewReplacer("{businessId}", biz, "{userId}", staffID, "{professionalId}", prof.ID).Replace(path)
 			}
 			cross := h.call(t, method, url(bobBiz), body, bearerH(ana))
 			none := h.call(t, method, url(missing), body, bearerH(ana))
@@ -81,7 +89,7 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 			tested++
 		}
 	}
-	if tested < 6 {
+	if tested < 10 {
 		t.Fatalf("only %d business-scoped operations found in the contract", tested)
 	}
 	// Nothing changed in Bob's business, and every attempt was audited as a denial.
@@ -90,6 +98,9 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 	}
 	if after := h.call(t, http.MethodGet, "/api/v1/business/"+bobBiz+"/members", "", bearerH(bob)).body; after != membersBefore {
 		t.Errorf("Bob's members changed:\n%s\n%s", membersBefore, after)
+	}
+	if after := h.call(t, http.MethodGet, "/api/v1/business/"+bobBiz+"/professionals", "", bearerH(bob)).body; after != profsBefore {
+		t.Errorf("Bob's professionals changed:\n%s\n%s", profsBefore, after)
 	}
 	if denied := countAction(h.store.AuditActions(), application.AuditAuthzDenied+":DENIED") - deniedBefore; denied < tested {
 		t.Errorf("authz.denied entries = %d, want at least %d (one per cross-tenant attempt)", denied, tested)

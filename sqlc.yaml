@@ -101,3 +101,19 @@ sql:
         emit_empty_slices: true
         emit_pointers_for_null_types: true
         omit_unused_structs: true
+
+  # Professionals module (T5.2).
+  - name: professionals
+    engine: postgresql
+    schema: db/migrations
+    queries: db/queries/professionals
+    gen:
+      go:
+        package: sqlcgen
+        out: internal/modules/professionals/infrastructure/sqlcgen
+        sql_package: pgx/v5
+        emit_interface: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        omit_unused_structs: true
+

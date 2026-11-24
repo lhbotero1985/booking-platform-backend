@@ -151,3 +151,59 @@ func (s *Service) RemoveMember(ctx context.Context, actor contract.Principal, bu
 			actor(actor.UserID).business(businessID).resource("user", userID).meta("role", string(current)))
 	})
 }
+
+// EnsureMember implements contract.MemberEnsurer (T5.2): the account with email ends up an
+// active member of businessID; an existing membership (any role) is kept as it is.
+func (s *Service) EnsureMember(ctx context.Context, actor contract.Principal, businessID uuid.UUID, rawEmail string, role contract.Role) (uuid.UUID, error) {
+	if _, err := s.RequireBusinessRole(ctx, actor, businessID, contract.RolesOwner...); err != nil {
+		return uuid.Nil, err
+	}
+	if _, err := domain.ParseRole(string(role)); err != nil {
+		return uuid.Nil, err
+	}
+	email, err := domain.ParseEmail(rawEmail)
+	if err != nil {
+		return uuid.Nil, contract.ErrAccountNotEligible
+	}
+	var userID uuid.UUID
+	err = s.store.WithinTx(ctx, func(tx Tx) error {
+		u, err := tx.UserByEmail(ctx, email)
+		if errors.Is(err, ErrNotFound) {
+			return contract.ErrAccountNotEligible
+		}
+		if err != nil {
+			return err
+		}
+		if u.Status() != domain.UserActive {
+			return contract.ErrAccountNotEligible
+		}
+		userID = u.ID()
+		if _, err := tx.ActiveRole(ctx, businessID, userID); err == nil {
+			return nil // already a member: keep the role
+		} else if !errors.Is(err, contract.ErrMemberNotFound) {
+			return err
+		}
+		if err := tx.InsertMembership(ctx, uuid.Must(uuid.NewV7()), userID, businessID, role, s.clock.Now()); err != nil {
+			return err
+		}
+		return tx.AppendAudit(ctx, *s.newAudit(ctx, AuditMembershipGranted, OutcomeSuccess).
+			actor(actor.UserID).business(businessID).resource("user", userID).meta("role", string(role)))
+	})
+	return userID, err
+}
+
+// ActiveMembersAmong implements contract.MembershipChecker.
+func (s *Service) ActiveMembersAmong(ctx context.Context, businessID uuid.UUID, userIDs []uuid.UUID) (map[uuid.UUID]bool, error) {
+	out := make(map[uuid.UUID]bool, len(userIDs))
+	if len(userIDs) == 0 {
+		return out, nil
+	}
+	err := s.store.WithinTx(ctx, func(tx Tx) error {
+		ids, err := tx.ActiveMembersAmong(ctx, businessID, userIDs)
+		for _, id := range ids {
+			out[id] = true
+		}
+		return err
+	})
+	return out, err
+}

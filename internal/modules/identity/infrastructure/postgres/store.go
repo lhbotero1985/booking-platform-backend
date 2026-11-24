@@ -156,6 +156,10 @@ func (t *txStore) ActiveMembers(ctx context.Context, businessID uuid.UUID) ([]co
 	return out, nil
 }
 
+func (t *txStore) ActiveMembersAmong(ctx context.Context, businessID uuid.UUID, userIDs []uuid.UUID) ([]uuid.UUID, error) {
+	return t.q.ActiveMembersAmong(ctx, sqlcgen.ActiveMembersAmongParams{BusinessID: businessID, UserIds: userIDs})
+}
+
 func (t *txStore) ActiveRole(ctx context.Context, businessID, userID uuid.UUID) (contract.Role, error) {
 	r, err := t.q.ActiveMembershipRole(ctx, sqlcgen.ActiveMembershipRoleParams{BusinessID: businessID, UserID: userID})
 	if errors.Is(err, pgx.ErrNoRows) {
