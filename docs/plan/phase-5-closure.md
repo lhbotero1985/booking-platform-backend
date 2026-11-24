@@ -1,6 +1,6 @@
 # Cierre de la Fase 5 — Profesionales y servicios
 
-Fecha: 2026-11-24 · Estado: **⏳ Pendiente de aprobación del usuario**
+Fecha: 2026-11-24 · Estado: **✅ Aprobada por el usuario (2026-11-24)**
 
 ## 1. Entregables
 
@@ -96,4 +96,4 @@ pruebas de contrato, de seguridad y el E2E.
 
 ## 6. Aprobación
 
-- [ ] Usuario aprueba el cierre de la Fase 5.
+- [x] Usuario aprueba el cierre de la Fase 5 (2026-11-24); pide desglosar la Fase 6.

@@ -470,8 +470,8 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 
 - **Previo:** PR #46 (T5.7) → `qa`: CI 6/6 ✅, squash `acceb44`, rama borrada; `release-qa` ✅.
   E2E en QA **135/135** (no aparece recién creado, aparece con oferta, catálogo público).
-- **Estado:** ✅ en `feature/t5.8-phase5-closure` (commit y push; PR pendiente). Cierre de fase
-  **pendiente de aprobación del usuario**.
+- **Estado:** ✅ en `feature/t5.8-phase5-closure` (commit y push; PR pendiente). **Fase 5 aprobada por el
+  usuario (2026-11-24)**; siguiente: desglose de la Fase 6.
 - **Archivos:** `tests/security/tenant_isolation_test.go` (IDOR dentro del propio negocio en las
   16 operaciones con ids de hijos + referencias ajenas en el cuerpo), `docs/plan/phase-5-closure.md`,
   roadmap, decisiones, resultados de pruebas.
