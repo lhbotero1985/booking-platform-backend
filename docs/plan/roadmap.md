@@ -9,7 +9,7 @@ Orden obligatorio. **No se avanza de fase sin aprobación explícita del usuario
 | 2 | Autenticación y autorización | Usuarios, sesiones, Argon2id, RBAC, auditoría | ✅ Aprobada 2026-11-19 (`phase-2-closure.md`) |
 | 3 | DigitalOcean QA | Droplet QA, HTTPS, backups, deploy QA (requiere autorización de costos) | ✅ Aprobada 2026-11-23 (`phase-3-closure.md`) |
 | 4 | Geografía y negocios | Países/divisiones/ciudades, negocios, aislamiento | ✅ Aprobada 2026-11-24 (`phase-4-closure.md`) |
-| 5 | Profesionales y servicios | Profesionales, horarios, descansos, ausencias, catálogo | 🟡 En curso (desglose aprobado 2026-11-24) |
+| 5 | Profesionales y servicios | Profesionales, horarios, descansos, ausencias, catálogo | ✅ Aprobada 2026-11-24 (`phase-5-closure.md`) |
 | 6 | Disponibilidad y reservas | Motor de slots, citas, estados, concurrencia | ⏳ |
 | 7 | WhatsApp y push | Meta Cloud API, Expo, River jobs, webhooks | ⏳ |
 | 8 | Portal del negocio | Next.js | ⏳ |
