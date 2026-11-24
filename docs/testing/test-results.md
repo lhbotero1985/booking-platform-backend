@@ -662,3 +662,19 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `tests/security` | ✅ | Sin campos internos en la vista pública; suspendido → 404 idéntico a inexistente; `%%`, `_%`, `' OR 1=1--` no coinciden |
 | `task check` / `sqlc:check` / `shellcheck` / `secrets` / unitarias + integración completas | ✅ | |
 | Despliegue y E2E en QA | ⏳ | Tras el merge |
+
+## 2026-11-24 · Fase 4 · T4.6 — CI, despliegue y E2E
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| PR #38 — ci + security | ✅ 6/6 | Squash `f4db9ea`; `release-qa` ✅ (migración 9) |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **92/92** | Búsqueda pública encuentra el negocio autoservicio, sin campos internos; detalle por slug; slug inexistente 404; sin ciudad 400 |
+
+## 2026-11-24 · Fase 4 · T4.7 — Cierre
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestEveryRouteIsDocumented` | ✅ | 39 rutas registradas = 39 operaciones del contrato (ninguna sin documentar, ninguna documentada sin ruta) |
+| `TestEveryBusinessRouteIsTenantIsolated` | ✅ | Las 6 operaciones `{businessId}` del contrato: usuario de otro negocio → 404 idéntico a negocio inexistente; datos y miembros del otro negocio sin cambios; ≥ 6 `authz.denied` auditados |
+| `TestSummaryAndEntitledAmong` (subscriptions) | ✅ | Lote: solo la demo extendida habilitada; lote vacío; resumen con y sin suscripción. Application **89,2 %** |
+| `task check` / `sqlc:check` / `secrets` / integración completa | ✅ | govulncheck reintentado por DNS local |

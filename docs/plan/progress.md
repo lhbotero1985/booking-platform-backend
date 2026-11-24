@@ -466,6 +466,16 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 4 · T4.7 — Cierre de la fase
+
+- **Previo:** PR #38 (T4.6) → `qa`: 6/6 ✅, `f4db9ea`, desplegado (migración 9); E2E en QA
+  **92/92**.
+- **Estado:** ✅ en `feature/t4.7-phase-4-closure` (commit y push; PR y aprobación pendientes).
+- **Archivos:** `httpx.Router.Patterns()`, `internal/app/http.go` (`newRouter`),
+  `internal/app/contract_routes_test.go`, `tests/security/tenant_isolation_test.go`, pruebas
+  de `subscriptions` (`SummaryOf`, `EntitledAmong`), `docs/plan/phase-4-closure.md`.
+- **Resultado:** 39 rutas, todas documentadas; 6 operaciones `{businessId}` aisladas.
+
 ## 2026-11-24 · Fase 4 · T4.6 — Búsqueda pública de negocios
 
 - **Previo:** PR #37 (T4.5) → `qa`: 6/6 ✅, `78ebf6f`, desplegado (migración 8); E2E en QA

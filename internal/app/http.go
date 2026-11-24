@@ -39,14 +39,7 @@ type Deps struct {
 
 // NewHTTPHandler builds the complete API handler with its middleware chain.
 func NewHTTPHandler(cfg config.Config, logger *slog.Logger, deps Deps) http.Handler {
-	rt := httpx.NewRouter()
-	rt.HandleFunc("GET /healthz", healthz)
-	rt.Handle("GET /readyz", readyz(logger, deps.Readiness))
-	for _, m := range deps.Modules {
-		m.Routes(rt)
-	}
-
-	return httpx.Chain(rt,
+	return httpx.Chain(newRouter(logger, deps),
 		// First: every later middleware (request ID, rate limit, audit) sees the real client.
 		httpx.RealIP(cfg.HTTP.TrustedProxies),
 		httpx.RequestID,
@@ -109,4 +102,15 @@ func exemptProbes(mw httpx.Middleware) httpx.Middleware {
 			limited.ServeHTTP(w, r)
 		})
 	}
+}
+
+// newRouter registers the health probes and every module's routes.
+func newRouter(logger *slog.Logger, deps Deps) *httpx.Router {
+	rt := httpx.NewRouter()
+	rt.HandleFunc("GET /healthz", healthz)
+	rt.Handle("GET /readyz", readyz(logger, deps.Readiness))
+	for _, m := range deps.Modules {
+		m.Routes(rt)
+	}
+	return rt
 }

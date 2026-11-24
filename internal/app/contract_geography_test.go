@@ -36,6 +36,7 @@ type geoEnv struct {
 	geo      *geotest.Store
 	biz      *biztest.Store
 	subs     *subtest.Store
+	modules  []RouteRegistrar // as wired in cmd/api
 }
 
 // newGeoServer wires identity (authentication, authorizer) and geography like cmd/api does.
@@ -59,10 +60,11 @@ func newGeoServer(t *testing.T) geoEnv {
 	e.biz, e.subs = biztest.NewStore(), subtest.NewStore()
 	subs := subapp.NewService(e.subs, e.identity, clk)
 	biz := bizapp.NewService(bizapp.Deps{Store: e.biz, Authz: e.identity, Members: e.identity, Owners: e.identity, Trials: subs, Summaries: subs, Entitlements: subs, Places: geo, Clock: clk})
-	e.srv = httptest.NewServer(NewHTTPHandler(cfg, logger, Deps{Modules: []RouteRegistrar{
+	e.modules = []RouteRegistrar{
 		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),
 		subscriptionshttp.New(subs, logger, idh.RequireAuth),
-	}}))
+	}
+	e.srv = httptest.NewServer(NewHTTPHandler(cfg, logger, Deps{Modules: e.modules}))
 	t.Cleanup(e.srv.Close)
 	return e
 }

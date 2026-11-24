@@ -126,3 +126,37 @@ func TestAdminOperations(t *testing.T) {
 		t.Errorf("unknown: %v", err)
 	}
 }
+
+func TestSummaryAndEntitledAmong(t *testing.T) {
+	ctx := context.Background()
+	svc, _, clk := newService()
+	running, expired, none := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
+	for _, id := range []uuid.UUID{running, expired} {
+		if err := svc.StartTrial(ctx, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	clk.Advance(3 * 24 * time.Hour)
+	if _, err := svc.ExtendTrial(ctx, admin, running, 30); err != nil {
+		t.Fatal(err)
+	}
+	clk.Advance(5 * 24 * time.Hour) // "expired" passed its 7 days; "running" was extended
+
+	got, err := svc.EntitledAmong(ctx, []uuid.UUID{running, expired, none})
+	if err != nil || len(got) != 1 || !got[running] {
+		t.Errorf("EntitledAmong = %v, %v; want only the running demo", got, err)
+	}
+	if got, err := svc.EntitledAmong(ctx, nil); err != nil || len(got) != 0 {
+		t.Errorf("empty batch: %v %v", got, err)
+	}
+	s, err := svc.SummaryOf(ctx, running)
+	if err != nil || s.Status != "TRIALING" || !s.Entitled || s.TrialEndsAt == nil {
+		t.Errorf("summary running = %+v %v", s, err)
+	}
+	if s, _ := svc.SummaryOf(ctx, expired); s.Entitled {
+		t.Errorf("summary expired = %+v", s)
+	}
+	if s, err := svc.SummaryOf(ctx, none); err != nil || s.Status != "" || s.Entitled {
+		t.Errorf("summary without subscription = %+v %v", s, err)
+	}
+}
