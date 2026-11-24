@@ -24,14 +24,33 @@ type Store struct {
 	divisions map[uuid.UUID]domain.Division
 	cities    map[uuid.UUID]domain.City
 	Audit     []audit.Entry
+	// ActiveBusinesses simulates businesses per area (key: country code, division or city ID
+	// string) for the BusinessUsage port implemented by Store.
+	ActiveBusinesses map[string]int
+}
+
+// ActiveBusinessesInCountry implements application.BusinessUsage.
+func (s *Store) ActiveBusinessesInCountry(_ context.Context, code string) (int, error) {
+	return s.ActiveBusinesses[code], nil
+}
+
+// ActiveBusinessesInDivision implements application.BusinessUsage.
+func (s *Store) ActiveBusinessesInDivision(_ context.Context, id uuid.UUID) (int, error) {
+	return s.ActiveBusinesses[id.String()], nil
+}
+
+// ActiveBusinessesInCity implements application.BusinessUsage.
+func (s *Store) ActiveBusinessesInCity(_ context.Context, id uuid.UUID) (int, error) {
+	return s.ActiveBusinesses[id.String()], nil
 }
 
 // NewStore returns an empty store.
 func NewStore() *Store {
 	return &Store{
-		countries: map[domain.CountryCode]domain.Country{},
-		divisions: map[uuid.UUID]domain.Division{},
-		cities:    map[uuid.UUID]domain.City{},
+		countries:        map[domain.CountryCode]domain.Country{},
+		divisions:        map[uuid.UUID]domain.Division{},
+		cities:           map[uuid.UUID]domain.City{},
+		ActiveBusinesses: map[string]int{},
 	}
 }
 

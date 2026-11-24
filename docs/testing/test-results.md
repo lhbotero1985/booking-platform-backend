@@ -554,3 +554,15 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `api admin grant-platform-admin admin@booking-qa.test` en QA | ✅ | Cuenta sintética (Mailpit) verificada; `is_platform_admin=t`; auditoría `admin.platform_admin_granted` `source=cli` |
 | Escrituras admin en QA | ✅ | Ciudad duplicada → 409; zona inválida → 400; desactivar Yumbo → desaparece de la lista pública; reactivar → vuelve; 2 entradas `geography.city_updated` con IP real |
 | `scripts/e2e-qa.sh` en `0449274` | ✅ **62/62** | 1.ª corrida 61/62: la comparación por regex del script no escapaba `+57` (error del script, no del API) → corregido |
+
+## 2026-11-24 · Fase 4 · T4.2 — Dominio y persistencia de negocios
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `go test ./internal/modules/businesses/...` | ✅ | domain **93,9 %** (nombres, descripción, dirección, slug y derivación con tildes/ñ/reservados/longitud, teléfonos CO móvil y fijo y E.164 internacional, coordenadas, zona horaria, moneda, rangos de política, recordatorios, invariantes del agregado, suspender/activar idempotente); application **100 %** (`AllocateSlug`: libre, `-3` tras colisiones, agotado, error del store) |
+| Geografía: `TestDeactivationBlockedByActiveBusinesses`, `TestPlaceOfCity` | ✅ | País/división/ciudad con negocios activos → `ErrInUse`; renombrar sí; `PlaceOfCity` con padres inactivos → `Active=false` |
+| Integración businesses (PostgreSQL) | ✅ | Ida y vuelta completa (coordenadas, `location` PostGIS derivada `POINT(-76.532 3.4516)`), actualización/traslado de ciudad; slug duplicado → `ErrSlugTaken`; slug en mayúsculas rechazado; `AllocateSlug` → `-2`; ciudad de otra división → FK; CHECK de teléfono, intervalo, coordenadas a medias, estado y `--`; membresía de negocio inexistente → FK; borrar negocio con miembros → RESTRICT; auditoría de negocio inexistente aceptada |
+| `TestGeographyCannotDeactivateAreasInUse` (composition root, PostgreSQL) | ✅ | Ciudad/división/país con negocio activo → `IN_USE`; tras suspender el negocio se desactiva la ciudad |
+| Contrato | ✅ | `PATCH` ciudad y país en uso → 409 `IN_USE` conforme a OpenAPI |
+| Hallazgos corregidos | ⚠️→✅ | Slug de respaldo reservado; CHECK de coordenadas con NULL; prueba que cruzaba módulos (depguard) |
+| `task check` / `sqlc:check` / `shellcheck` / `secrets` / integración completa (`-p 2`) | ✅ | govulncheck reintentado por DNS local; imagen 36,6 MB (antes 28,5 MB: metadatos de teléfonos) |

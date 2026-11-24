@@ -8,8 +8,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/domain"
-	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
+	identity "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/audit"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
 )
@@ -28,15 +29,61 @@ const (
 type Service struct {
 	store Store
 	authz Authorizer
+	usage BusinessUsage
 	clock clock.Clock
 }
 
-// NewService builds the service; a nil clock defaults to the system clock.
-func NewService(store Store, authz Authorizer, clk clock.Clock) *Service {
+// NewService builds the service; a nil clock defaults to the system clock and a nil usage
+// disables the "in use by active businesses" check.
+func NewService(store Store, authz Authorizer, usage BusinessUsage, clk clock.Clock) *Service {
 	if clk == nil {
 		clk = clock.System{}
 	}
-	return &Service{store: store, authz: authz, clock: clk}
+	return &Service{store: store, authz: authz, usage: usage, clock: clk}
+}
+
+// PlaceOfCity implements the geography contract: the city with its division, country, time
+// zone and currency. Active is true only if the city and its parents are all active.
+func (s *Service) PlaceOfCity(ctx context.Context, cityID uuid.UUID) (contract.Place, error) {
+	var out contract.Place
+	err := s.store.WithinTx(ctx, func(tx Tx) error {
+		c, err := tx.CityByID(ctx, cityID)
+		if err != nil {
+			return err
+		}
+		d, err := tx.DivisionByID(ctx, c.DivisionID)
+		if err != nil {
+			return err
+		}
+		co, err := tx.CountryByCode(ctx, d.CountryCode)
+		if err != nil {
+			return err
+		}
+		out = contract.Place{
+			CityID: c.ID, DivisionID: d.ID, CountryCode: string(co.Code), TimeZone: c.TimeZone,
+			Currency: co.DefaultCurrency, Active: c.Active && d.Active && co.Active,
+		}
+		return nil
+	})
+	if errors.Is(err, ErrNotFound) {
+		return contract.Place{}, contract.ErrCityNotFound
+	}
+	return out, err
+}
+
+// checkNotInUse refuses to deactivate an area that still has active businesses.
+func (s *Service) checkNotInUse(deactivating bool, count func(BusinessUsage) (int, error)) error {
+	if !deactivating || s.usage == nil {
+		return nil
+	}
+	n, err := count(s.usage)
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		return ErrInUse
+	}
+	return nil
 }
 
 // --- public reads (active data only) ----------------------------------------------------
@@ -109,7 +156,7 @@ type CountryPatch struct {
 }
 
 // CreateCountry adds a country (PLATFORM_ADMIN).
-func (s *Service) CreateCountry(ctx context.Context, p contract.Principal, in CountryInput) (domain.Country, error) {
+func (s *Service) CreateCountry(ctx context.Context, p identity.Principal, in CountryInput) (domain.Country, error) {
 	if err := s.authz.RequirePlatformAdmin(ctx, p); err != nil {
 		return domain.Country{}, err
 	}
@@ -136,7 +183,7 @@ func (s *Service) CreateCountry(ctx context.Context, p contract.Principal, in Co
 }
 
 // UpdateCountry changes a country (PLATFORM_ADMIN). Unknown code: ErrNotFound.
-func (s *Service) UpdateCountry(ctx context.Context, p contract.Principal, rawCode string, in CountryPatch) (domain.Country, error) {
+func (s *Service) UpdateCountry(ctx context.Context, p identity.Principal, rawCode string, in CountryPatch) (domain.Country, error) {
 	if err := s.authz.RequirePlatformAdmin(ctx, p); err != nil {
 		return domain.Country{}, err
 	}
@@ -168,6 +215,11 @@ func (s *Service) UpdateCountry(ctx context.Context, p contract.Principal, rawCo
 		setIfChanged(&c.Name, in.Name != nil, name, "name", &changed)
 		setIfChanged(&c.PhoneCode, in.PhoneCode != nil, phone, "phoneCode", &changed)
 		setIfChanged(&c.DefaultCurrency, in.DefaultCurrency != nil, currency, "defaultCurrency", &changed)
+		if err := s.checkNotInUse(c.Active && in.Active != nil && !*in.Active, func(u BusinessUsage) (int, error) {
+			return u.ActiveBusinessesInCountry(ctx, string(c.Code))
+		}); err != nil {
+			return err
+		}
 		setIfChanged(&c.Active, in.Active != nil, valueOr(in.Active, false), "active", &changed)
 		if len(changed) == 0 {
 			return nil
@@ -194,7 +246,7 @@ type DivisionPatch struct {
 }
 
 // CreateDivision adds a division to an existing country (PLATFORM_ADMIN).
-func (s *Service) CreateDivision(ctx context.Context, p contract.Principal, in DivisionInput) (domain.Division, error) {
+func (s *Service) CreateDivision(ctx context.Context, p identity.Principal, in DivisionInput) (domain.Division, error) {
 	if err := s.authz.RequirePlatformAdmin(ctx, p); err != nil {
 		return domain.Division{}, err
 	}
@@ -228,7 +280,7 @@ func (s *Service) CreateDivision(ctx context.Context, p contract.Principal, in D
 }
 
 // UpdateDivision changes a division (PLATFORM_ADMIN). It cannot move to another country.
-func (s *Service) UpdateDivision(ctx context.Context, p contract.Principal, id uuid.UUID, in DivisionPatch) (domain.Division, error) {
+func (s *Service) UpdateDivision(ctx context.Context, p identity.Principal, id uuid.UUID, in DivisionPatch) (domain.Division, error) {
 	if err := s.authz.RequirePlatformAdmin(ctx, p); err != nil {
 		return domain.Division{}, err
 	}
@@ -260,6 +312,11 @@ func (s *Service) UpdateDivision(ctx context.Context, p contract.Principal, id u
 		}
 		setIfChanged(&d.Name, in.Name != nil, name, "name", &changed)
 		setIfChanged(&d.Type, in.Type != nil, typ, "type", &changed)
+		if err := s.checkNotInUse(d.Active && in.Active != nil && !*in.Active, func(u BusinessUsage) (int, error) {
+			return u.ActiveBusinessesInDivision(ctx, d.ID)
+		}); err != nil {
+			return err
+		}
 		setIfChanged(&d.Active, in.Active != nil, valueOr(in.Active, false), "active", &changed)
 		if len(changed) == 0 {
 			return nil
@@ -287,7 +344,7 @@ type CityPatch struct {
 }
 
 // CreateCity adds a city to an existing division (PLATFORM_ADMIN).
-func (s *Service) CreateCity(ctx context.Context, p contract.Principal, in CityInput) (domain.City, error) {
+func (s *Service) CreateCity(ctx context.Context, p identity.Principal, in CityInput) (domain.City, error) {
 	if err := s.authz.RequirePlatformAdmin(ctx, p); err != nil {
 		return domain.City{}, err
 	}
@@ -318,9 +375,10 @@ func (s *Service) CreateCity(ctx context.Context, p contract.Principal, in CityI
 	return c, err
 }
 
-// UpdateCity changes a city (PLATFORM_ADMIN). It cannot move to another division.
-// Deactivating a city with active businesses is blocked once businesses exist (T4.2).
-func (s *Service) UpdateCity(ctx context.Context, p contract.Principal, id uuid.UUID, in CityPatch) (domain.City, error) {
+// UpdateCity changes a city (PLATFORM_ADMIN). It cannot move to another division, and it
+// cannot be deactivated while it has active businesses (ErrInUse). The same rule applies to
+// divisions and countries.
+func (s *Service) UpdateCity(ctx context.Context, p identity.Principal, id uuid.UUID, in CityPatch) (domain.City, error) {
 	if err := s.authz.RequirePlatformAdmin(ctx, p); err != nil {
 		return domain.City{}, err
 	}
@@ -344,6 +402,11 @@ func (s *Service) UpdateCity(ctx context.Context, p contract.Principal, id uuid.
 		var changed []string
 		setIfChanged(&c.Name, in.Name != nil, name, "name", &changed)
 		setIfChanged(&c.TimeZone, in.TimeZone != nil, tz, "timeZone", &changed)
+		if err := s.checkNotInUse(c.Active && in.Active != nil && !*in.Active, func(u BusinessUsage) (int, error) {
+			return u.ActiveBusinessesInCity(ctx, c.ID)
+		}); err != nil {
+			return err
+		}
 		setIfChanged(&c.Active, in.Active != nil, valueOr(in.Active, false), "active", &changed)
 		if len(changed) == 0 {
 			return nil
@@ -359,7 +422,7 @@ func (s *Service) UpdateCity(ctx context.Context, p contract.Principal, id uuid.
 
 // --- helpers -----------------------------------------------------------------------------
 
-func (s *Service) audit(ctx context.Context, p contract.Principal, action, kind, id string) *audit.Entry {
+func (s *Service) audit(ctx context.Context, p identity.Principal, action, kind, id string) *audit.Entry {
 	return audit.New(ctx, s.clock.Now(), action, audit.Success).Actor(p.UserID).Resource(kind, id)
 }
 

@@ -47,7 +47,7 @@ func newGeoServer(t *testing.T) geoEnv {
 		Config: application.Config{PublicAppURL: "https://app.example.test"}, Logger: logger,
 	})
 	idh := identityhttp.New(e.identity, logger, identityhttp.Options{})
-	geo := geoapp.NewService(e.geo, e.identity, clk)
+	geo := geoapp.NewService(e.geo, e.identity, e.geo, clk)
 	e.srv = httptest.NewServer(NewHTTPHandler(cfg, logger, Deps{Modules: []RouteRegistrar{
 		idh, geographyhttp.New(geo, logger, idh.RequireAuth),
 	}}))
@@ -112,6 +112,12 @@ func TestContractGeographyEndpoints(t *testing.T) {
 	}
 	c.callAuth(t, e.srv, http.MethodPatch, "/api/v1/admin/cities/"+cali, `{"timeZone":"Mars/Olympus"}`, adminTok, http.StatusBadRequest)
 	c.callAuth(t, e.srv, http.MethodPatch, "/api/v1/admin/cities/"+cali, `{"name":"Santiago de Cali"}`, adminTok, http.StatusOK)
+	e.geo.ActiveBusinesses[cali] = 1
+	e.geo.ActiveBusinesses["CO"] = 1
+	if body := c.callAuth(t, e.srv, http.MethodPatch, "/api/v1/admin/cities/"+cali, `{"active":false}`, adminTok, http.StatusConflict); !strings.Contains(body, `"IN_USE"`) {
+		t.Errorf("city in use: %s", body)
+	}
+	c.callAuth(t, e.srv, http.MethodPatch, "/api/v1/admin/countries/CO", `{"active":false}`, adminTok, http.StatusConflict)
 
 	// Authentication and authorization.
 	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/admin/cities", `{"divisionId":"`+valle+`","name":"Palmira","timeZone":"America/Bogota"}`, "", http.StatusUnauthorized)

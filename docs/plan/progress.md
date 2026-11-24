@@ -466,6 +466,20 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 4 · T4.2 — Dominio y persistencia de negocios
+
+- **Estado:** ✅ en `feature/t4.2-businesses` (commit y push; PR pendiente de autorización).
+- **Archivos:** `db/migrations/00006_businesses.sql`, `db/queries/businesses/`, módulo
+  `internal/modules/businesses/` (domain, application: puertos + `AllocateSlug`, infrastructure),
+  `internal/modules/geography/contract` (`Places`), geography (`PlaceOfCity`, regla `IN_USE`,
+  puerto `BusinessUsage`), `internal/app/geography.go`, `internal/platform/pgtest/fixtures.go`,
+  `.golangci.yml`, `sqlc.yaml`, `go.mod` (`nyaruka/phonenumbers`), OpenAPI (409 `IN_USE`),
+  pruebas, docs.
+- **Hallazgos de las pruebas (corregidos):** el slug de respaldo `negocio` estaba en la lista de
+  reservados → `mi-negocio`; el CHECK de coordenadas aceptaba solo latitud (un CHECK que da NULL
+  pasa) → "ambas o ninguna" explícito; depguard bloqueó una prueba que cruzaba módulos → movida
+  al composition root.
+
 ## 2026-11-23 · Fase 4 · T4.1 — Geografía
 
 - **Desglose de la Fase 4 aprobado** (T4.1–T4.7). Decisiones: Colombia con Valle del Cauca

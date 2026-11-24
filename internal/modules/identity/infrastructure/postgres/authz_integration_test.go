@@ -10,6 +10,7 @@ import (
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
+	"github.com/lhbotero1985/booking-platform-backend/internal/platform/pgtest"
 )
 
 func grant(t *testing.T, userID, businessID uuid.UUID, role contract.Role) uuid.UUID {
@@ -29,6 +30,11 @@ func TestAuthorizationOnPostgres(t *testing.T) {
 	ana, _, _ := userRow(t, e.activeUser(t))
 	bob, _, _ := userRow(t, e.activeUser(t))
 	bizA, bizB := uuid.New(), uuid.New()
+	for _, b := range []uuid.UUID{bizA, bizB} {
+		if err := pgtest.InsertBusiness(ctx, pool, b); err != nil {
+			t.Fatal(err)
+		}
+	}
 	anaInA := grant(t, ana, bizA, contract.RoleManager)
 	grant(t, ana, bizB, contract.RoleProfessional)
 	grant(t, bob, bizA, contract.RoleOwner)
