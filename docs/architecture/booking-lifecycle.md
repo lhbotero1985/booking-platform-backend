@@ -83,7 +83,7 @@ sequenceDiagram
 3. **Reprogramación**: misma cita (mismo `id`), nuevo `startAt`/`endAt`; se registra en
    `appointment_events`; se invalidan recordatorios y tokens de acción anteriores (por `version`).
    Se puede cambiar de profesional dentro del mismo negocio si está habilitado para el servicio.
-   No cambia el servicio (para eso: cancelar y reservar). ❓ Estado tras reprogramar: propuesta
+   No cambia el servicio (para eso: cancelar y reservar). Estado tras reprogramar (P7, decidido 2026-11-24):
    → vuelve a `PENDING_CONFIRMATION` si reprograma el negocio; queda `CONFIRMED` si reprograma
    el propio cliente.
 4. **Cancelación**: registra quién, por qué y cuándo. Libera el horario inmediatamente (el

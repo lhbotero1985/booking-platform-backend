@@ -809,4 +809,19 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `task check` (build, vet, lint 0, test, vuln) | ✅ | govulncheck: un fallo DNS, reintento sin vulnerabilidades |
 | `task test:integration` | ✅ | 36 paquetes, 0 fallos |
 | Cobertura | ✅ | professionals domain 99,2 % / application 94,1 %; catalog domain 100 % / application 93,9 %; businesses domain 95,1 % / application 90,4 %; identity application 83,6 % |
-| Despliegue y E2E en QA | ⏳ | Tras el merge |
+| PR #47 — ci + security | ✅ 6/6 | Squash `7a04094` |
+| `release-qa` | ✅ | Smoke test ✅ |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **135/135** | Flujo completo del responsable |
+
+## 2026-11-24 · Fase 6 · T6.1 — Motor de disponibilidad
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestAvailable` (11 casos) | ✅ | Ejemplo del diseño; preparación nueva y existente; la preparación no necesita caber antes del cierre; descanso con rejilla anclada; ausencia parcial y total; antelación mínima; dos franjas sin cruzar el hueco; servicio más largo que el día; día sin horario |
+| `TestAvailableBookingWindow` | ✅ | Ventana en el calendario local (23:30 en Bogotá ya es mañana en UTC); hoy y hoy+60 válidos; ayer y hoy+61 rechazados; entradas inválidas |
+| `TestAvailableAcrossDST` | ✅ | Nueva York (marzo: 01:00–04:00 = 2 h reales; franja que empieza en el hueco arranca a las 03:00; noviembre: 01:00 ofrecida dos veces como instantes distintos) y Madrid (marzo y octubre) |
+| `TestResolveLocal` | ✅ | Cada media hora de 2026 en Bogotá, Ciudad de México, Santiago, Nueva York y Madrid: nunca retrocede; hora ambigua → primera ocurrencia; hueco → salto (≤ 1 h); huecos solo en zonas con DST |
+| `TestAvailableMatchesNaive` | ✅ | 3000 días aleatorios (semilla fija) idénticos a una referencia minuto a minuto |
+| Mutaciones (ignorar la preparación de la cita existente; rejilla anclada al segmento) | ✅ detectadas | Ambas hacen fallar `TestAvailable` y `TestAvailableMatchesNaive`; código restaurado |
+| Cobertura `scheduling/domain` | ✅ 100 % | |
+| `task check` (lint 0, vuln) | ✅ | |
