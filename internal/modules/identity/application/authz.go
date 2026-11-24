@@ -16,9 +16,15 @@ var _ contract.Authorizer = (*Service)(nil)
 
 // RequireBusinessRole implements contract.Authorizer. Memberships are loaded on every call
 // (indexed query, no cache) so revocations take effect on the next request (ADR-0007).
+//
+// PLATFORM_ADMIN passes for any business and acts with OWNER powers (ADR-0018); its changes
+// are audited by each use case with the administrator as actor.
 func (s *Service) RequireBusinessRole(ctx context.Context, p contract.Principal, businessID uuid.UUID, allowed ...contract.Role) (contract.Role, error) {
 	if p.UserID == uuid.Nil {
 		return "", ErrUnauthenticated
+	}
+	if contract.CheckPlatformAdmin(p) == nil && businessID != uuid.Nil {
+		return contract.RoleOwner, nil
 	}
 	ms, err := s.activeMemberships(ctx, p.UserID)
 	if err != nil {

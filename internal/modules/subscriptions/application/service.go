@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
+	subscriptions "github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/domain"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/audit"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
@@ -101,6 +102,23 @@ func (s *Service) Entitled(ctx context.Context, businessID uuid.UUID) (bool, err
 		return nil
 	})
 	return ok, err
+}
+
+// SummaryOf implements contract.Summaries (the caller has authorized the request).
+func (s *Service) SummaryOf(ctx context.Context, businessID uuid.UUID) (subscriptions.Summary, error) {
+	var out subscriptions.Summary
+	err := s.store.WithinTx(ctx, func(tx Tx) error {
+		sub, err := tx.SubscriptionByBusiness(ctx, businessID, false)
+		if errors.Is(err, ErrNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		out = subscriptions.Summary{Status: string(sub.Status), TrialEndsAt: sub.TrialEndsAt, Entitled: sub.Entitled(s.clock.Now())}
+		return nil
+	})
+	return out, err
 }
 
 // Get returns a business's subscription (PLATFORM_ADMIN).

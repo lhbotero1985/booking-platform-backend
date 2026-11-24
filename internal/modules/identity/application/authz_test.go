@@ -72,3 +72,27 @@ func TestRequirePlatformAdminUsesPrincipalFlag(t *testing.T) {
 		t.Errorf("non admin: %v", err)
 	}
 }
+
+// TestPlatformAdminActsOnAnyBusiness (ADR-0018): PLATFORM_ADMIN passes every business check
+// with OWNER powers and leaves no denial in the audit; the flag is read from the principal, so
+// revoking it (next request) removes the access.
+func TestPlatformAdminActsOnAnyBusiness(t *testing.T) {
+	svc, store := newAuthzService()
+	admin := contract.Principal{UserID: uuid.New(), IsPlatformAdmin: true}
+	before := len(store.AuditActions())
+	for _, allowed := range [][]contract.Role{contract.RolesOwner, contract.RolesManagement, contract.RolesStaff} {
+		if r, err := svc.RequireBusinessRole(context.Background(), admin, uuid.New(), allowed...); err != nil || r != contract.RoleOwner {
+			t.Errorf("admin on %v: %q %v", allowed, r, err)
+		}
+	}
+	if got := store.AuditActions()[before:]; len(got) != 0 {
+		t.Errorf("admin access audited as denial: %v", got)
+	}
+	if _, err := svc.RequireBusinessRole(context.Background(), admin, uuid.Nil, contract.RolesStaff...); err == nil {
+		t.Error("nil business must still be refused")
+	}
+	revoked := contract.Principal{UserID: admin.UserID}
+	if _, err := svc.RequireBusinessRole(context.Background(), revoked, uuid.New(), contract.RolesStaff...); !errors.Is(err, contract.ErrNotFound) {
+		t.Errorf("without the flag: %v, want ErrNotFound", err)
+	}
+}

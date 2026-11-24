@@ -73,7 +73,9 @@ func TestMultipleBusinessesAreIndependent(t *testing.T) {
 	}
 }
 
-func TestPlatformAdminHasNoImplicitBusinessRole(t *testing.T) {
+// The pure membership policy ignores the admin flag; the Authorizer grants PLATFORM_ADMIN on
+// top of it (ADR-0018, see application.TestPlatformAdminActsOnAnyBusiness).
+func TestPlatformAdminFlagIsNotAMembership(t *testing.T) {
 	admin := contract.Principal{UserID: uuid.New(), IsPlatformAdmin: true}
 	if err := contract.CheckPlatformAdmin(admin); err != nil {
 		t.Fatalf("admin: %v", err)

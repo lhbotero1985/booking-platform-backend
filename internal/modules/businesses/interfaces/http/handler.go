@@ -37,6 +37,8 @@ type Service interface {
 	ListBusinesses(ctx context.Context, p contract.Principal, status string, cityID, after uuid.UUID, limit int) ([]*domain.Business, uuid.UUID, error)
 	ActivateBusiness(ctx context.Context, p contract.Principal, id uuid.UUID) (*domain.Business, error)
 	SuspendBusiness(ctx context.Context, p contract.Principal, id uuid.UUID) (*domain.Business, error)
+	GetManaged(ctx context.Context, p contract.Principal, businessID uuid.UUID) (application.ManagedBusiness, error)
+	UpdateBusiness(ctx context.Context, p contract.Principal, businessID uuid.UUID, in application.UpdateInput) (*domain.Business, error)
 }
 
 // Handler serves the businesses endpoints.
@@ -62,6 +64,7 @@ func (h *Handler) Routes(rt *httpx.Router) {
 	rt.Handle("GET /api/v1/admin/businesses/{id}", auth(h.get))
 	rt.Handle("POST /api/v1/admin/businesses/{id}/activate", auth(h.activate))
 	rt.Handle("POST /api/v1/admin/businesses/{id}/suspend", auth(h.suspend))
+	h.manageRoutes(rt)
 }
 
 // --- representation ----------------------------------------------------------------------

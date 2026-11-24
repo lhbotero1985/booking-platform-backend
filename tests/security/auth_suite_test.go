@@ -73,7 +73,7 @@ func startAuth(t *testing.T) authHarness {
 	idh := identityhttp.New(h.svc, logger, identityhttp.Options{AllowedOrigins: cfg.HTTP.CORSAllowedOrigins})
 	geo := geoapp.NewService(h.geo, h.svc, h.geo, h.clock)
 	subs := subapp.NewService(h.subs, h.svc, h.clock)
-	biz := bizapp.NewService(bizapp.Deps{Store: h.biz, Authz: h.svc, Members: h.svc, Owners: h.svc, Trials: subs, Places: geo, Clock: h.clock})
+	biz := bizapp.NewService(bizapp.Deps{Store: h.biz, Authz: h.svc, Members: h.svc, Owners: h.svc, Trials: subs, Summaries: subs, Places: geo, Clock: h.clock})
 	h.srv = httptest.NewServer(app.NewHTTPHandler(cfg, logger, app.Deps{Modules: []app.RouteRegistrar{
 		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),
 		subscriptionshttp.New(subs, logger, idh.RequireAuth),
@@ -192,6 +192,10 @@ var businessAdminRoutes = []struct{ method, path, body string }{
 func init() {
 	authenticatedRoutes = append(authenticatedRoutes, geographyAdminRoutes...)
 	authenticatedRoutes = append(authenticatedRoutes, businessAdminRoutes...)
+	authenticatedRoutes = append(authenticatedRoutes,
+		struct{ method, path, body string }{http.MethodGet, "/api/v1/business/01a20aae-7e5d-73d7-b7d3-a11c5afb9655", ""},
+		struct{ method, path, body string }{http.MethodPatch, "/api/v1/business/01a20aae-7e5d-73d7-b7d3-a11c5afb9655", `{"name":"Nuevo"}`},
+	)
 	authenticatedRoutes = append(authenticatedRoutes, struct{ method, path, body string }{
 		http.MethodPost, "/api/v1/businesses", `{"name":"Mía","contactPhone":"3001234567","cityId":"` + geotest.CaliID.String() + `","addressLine":"Calle 1"}`,
 	})

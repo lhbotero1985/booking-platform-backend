@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	bizapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/domain"
 	idapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application"
@@ -90,6 +92,30 @@ func TestSelfServiceOnboardingOnPostgres(t *testing.T) {
 		t.Errorf("entitled during the demo: %v %v", entitled, err)
 	}
 
+	// The OWNER manages it: moving to Medellín takes Antioquia as division (location FKs).
+	medellin := uuid.MustParse("01a20aae-7e61-7c3f-898e-2a023921bf54")
+	updated, err := biz.UpdateBusiness(ctx, owner, b.ID(), bizapp.UpdateInput{CityID: &medellin, AddressLine: ptrTo("Cra 70 # 1-1")})
+	if err != nil || updated.Location().CityID != medellin {
+		t.Fatalf("owner update: %v %v", updated, err)
+	}
+	var division uuid.UUID
+	if err := pool.QueryRow(ctx, `SELECT division_id FROM businesses WHERE id = $1`, b.ID()).Scan(&division); err != nil ||
+		division != uuid.MustParse("01a20aae-7e5a-7f3e-953c-9ec690399d8d") {
+		t.Errorf("division after moving = %v, %v", division, err)
+	}
+	m, err := biz.GetManaged(ctx, owner, b.ID())
+	if err != nil || m.Subscription.Status != "TRIALING" || !m.Subscription.Entitled {
+		t.Errorf("managed view: %+v %v", m.Subscription, err)
+	}
+	stranger, _ := activeUser(t, pool, "ACTIVE")
+	if _, err := biz.UpdateBusiness(ctx, identitycontract.Principal{UserID: stranger}, b.ID(), bizapp.UpdateInput{Name: ptrTo("Ajena")}); !errors.Is(err, identitycontract.ErrNotFound) {
+		t.Errorf("stranger update: %v, want ErrNotFound", err)
+	}
+	if n := count(t, pool, `SELECT count(*) FROM audit_log WHERE business_id = $1 AND action = 'business.updated'
+		AND metadata->>'fields' = 'location'`, b.ID()); n != 1 {
+		t.Errorf("business.updated entries = %d", n)
+	}
+
 	// The demo ends: the hourly job's SQL expires it.
 	if _, err := pool.Exec(ctx, `UPDATE subscriptions SET trial_ends_at = now() - interval '1 minute' WHERE business_id = $1`, b.ID()); err != nil {
 		t.Fatal(err)
@@ -113,3 +139,5 @@ func TestSelfServiceOnboardingOnPostgres(t *testing.T) {
 		t.Error("a business with an OWNER must not be deletable")
 	}
 }
+
+func ptrTo[T any](v T) *T { return &v }

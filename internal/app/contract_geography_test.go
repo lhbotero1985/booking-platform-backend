@@ -58,7 +58,7 @@ func newGeoServer(t *testing.T) geoEnv {
 	geo := geoapp.NewService(e.geo, e.identity, e.geo, clk)
 	e.biz, e.subs = biztest.NewStore(), subtest.NewStore()
 	subs := subapp.NewService(e.subs, e.identity, clk)
-	biz := bizapp.NewService(bizapp.Deps{Store: e.biz, Authz: e.identity, Members: e.identity, Owners: e.identity, Trials: subs, Places: geo, Clock: clk})
+	biz := bizapp.NewService(bizapp.Deps{Store: e.biz, Authz: e.identity, Members: e.identity, Owners: e.identity, Trials: subs, Summaries: subs, Places: geo, Clock: clk})
 	e.srv = httptest.NewServer(NewHTTPHandler(cfg, logger, Deps{Modules: []RouteRegistrar{
 		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),
 		subscriptionshttp.New(subs, logger, idh.RequireAuth),

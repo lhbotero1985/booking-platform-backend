@@ -139,6 +139,12 @@ check "business list as normal user" 403 "$(status GET /api/v1/admin/businesses 
 own="{\"name\":\"QA E2E propia $(date +%s)\",\"contactPhone\":\"3001234567\",\"cityId\":\"$cali\",\"addressLine\":\"Calle 1\"}"
 check "self-service business" 201 "$(status POST /api/v1/businesses "$own" "$T1")"
 check "  ACTIVE at once (demo)" ACTIVE "$(json .status)"
+mine=$(json .id)
+check "owner views the business" 200 "$(status GET "/api/v1/business/$mine" "" "$T1")"
+check "  demo running" "TRIALING true" "$(json '"\(.subscription.status) \(.subscription.entitled)"')"
+check "owner edits the business" 200 "$(status PATCH "/api/v1/business/$mine" '{"description":"Cortes y barba","bookingPolicy":{"slotIntervalMinutes":15}}' "$T1")"
+check "  changes applied" "Cortes y barba 15" "$(json '"\(.description) \(.bookingPolicy.slotIntervalMinutes)"')"
+check "another business -> 404" 404 "$(status GET /api/v1/business/01a20aae-0000-7000-8000-000000000000 "" "$T1")"
 check "  one per account" 409 "$(status POST /api/v1/businesses "$own" "$T1")"
 check "  code ALREADY_OWNER" ALREADY_OWNER "$(json .code)"
 if [[ -n ${ADMIN_EMAIL:-} && -n ${ADMIN_PASSWORD:-} ]]; then
