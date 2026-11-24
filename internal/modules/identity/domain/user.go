@@ -35,14 +35,13 @@ type Role string
 // Business roles (matches the memberships_role_valid CHECK).
 const (
 	RoleOwner        Role = "OWNER"
-	RoleManager      Role = "MANAGER"
 	RoleProfessional Role = "PROFESSIONAL"
 )
 
 // ParseRole validates a stored role.
 func ParseRole(s string) (Role, error) {
 	switch r := Role(s); r {
-	case RoleOwner, RoleManager, RoleProfessional:
+	case RoleOwner, RoleProfessional:
 		return r, nil
 	default:
 		return "", ErrInvalidRole

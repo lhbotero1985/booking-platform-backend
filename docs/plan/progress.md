@@ -466,6 +466,18 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 5 · T5.1 — Quitar el rol MANAGER
+
+- **Previo:** PR #39 (T4.7) → `qa`: 6/6 ✅, `5a9843e`, desplegado; flujo del dueño validado en
+  vivo sin administrador; E2E **93/93**. **Fase 4 aprobada.** Desglose de la Fase 5 aprobado con
+  las decisiones del usuario (actores, cuenta obligatoria del barbero, permisos del barbero,
+  precio y duración únicos, combos como servicio).
+- **Estado:** ✅ en `feature/t5.1-remove-manager-role` (commit y push; PR pendiente).
+- **Archivos:** migración `00010_remove_manager_role.sql` (MANAGER → PROFESSIONAL, CHECK solo
+  OWNER/PROFESSIONAL), identity contract/domain (sin `RoleManager` ni `RolesManagement`;
+  `RolesStaff` = OWNER, PROFESSIONAL), listado de miembros solo OWNER, query de orden, OpenAPI
+  (enums), pruebas, E2E, docs de seguridad, dominio y API.
+
 ## 2026-11-24 · Fase 4 · T4.7 — Cierre de la fase
 
 - **Previo:** PR #38 (T4.6) → `qa`: 6/6 ✅, `f4db9ea`, desplegado (migración 9); E2E en QA

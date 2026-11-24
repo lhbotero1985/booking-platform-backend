@@ -196,8 +196,8 @@ func init() {
 		struct{ method, path, body string }{http.MethodGet, "/api/v1/business/01a20aae-7e5d-73d7-b7d3-a11c5afb9655", ""},
 		struct{ method, path, body string }{http.MethodPatch, "/api/v1/business/01a20aae-7e5d-73d7-b7d3-a11c5afb9655", `{"name":"Nuevo"}`},
 		struct{ method, path, body string }{http.MethodGet, "/api/v1/business/01a20aae-7e5d-73d7-b7d3-a11c5afb9655/members", ""},
-		struct{ method, path, body string }{http.MethodPost, "/api/v1/business/01a20aae-7e5d-73d7-b7d3-a11c5afb9655/members", `{"email":"x@example.com","role":"MANAGER"}`},
-		struct{ method, path, body string }{http.MethodPatch, "/api/v1/business/01a20aae-7e5d-73d7-b7d3-a11c5afb9655/members/01a20aae-7e5d-73d7-b7d3-a11c5afb9655", `{"role":"MANAGER"}`},
+		struct{ method, path, body string }{http.MethodPost, "/api/v1/business/01a20aae-7e5d-73d7-b7d3-a11c5afb9655/members", `{"email":"x@example.com","role":"PROFESSIONAL"}`},
+		struct{ method, path, body string }{http.MethodPatch, "/api/v1/business/01a20aae-7e5d-73d7-b7d3-a11c5afb9655/members/01a20aae-7e5d-73d7-b7d3-a11c5afb9655", `{"role":"PROFESSIONAL"}`},
 		struct{ method, path, body string }{http.MethodDelete, "/api/v1/business/01a20aae-7e5d-73d7-b7d3-a11c5afb9655/members/01a20aae-7e5d-73d7-b7d3-a11c5afb9655", ""},
 	)
 	authenticatedRoutes = append(authenticatedRoutes, struct{ method, path, body string }{

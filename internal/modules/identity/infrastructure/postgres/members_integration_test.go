@@ -86,7 +86,7 @@ func TestBusinessAlwaysKeepsAnOwner(t *testing.T) {
 	if rows != 1 {
 		t.Errorf("membership rows for the re-added user = %d, want 1 (reactivated)", rows)
 	}
-	if _, err := e.svc.AddMember(ctx, admin, biz, email, contract.RoleManager); !errors.Is(err, contract.ErrAlreadyMember) {
+	if _, err := e.svc.AddMember(ctx, admin, biz, email, contract.RoleProfessional); !errors.Is(err, contract.ErrAlreadyMember) {
 		t.Errorf("adding an active member again: %v", err)
 	}
 }

@@ -29,7 +29,7 @@ type ManagedBusiness struct {
 	Subscription subscriptions.Summary
 }
 
-// GetManaged returns a business to its OWNER, MANAGER or PROFESSIONAL (or PLATFORM_ADMIN).
+// GetManaged returns a business to its OWNERs and PROFESSIONALs (or PLATFORM_ADMIN).
 // Another business answers 404, identical to a business that does not exist (ADR-0007).
 func (s *Service) GetManaged(ctx context.Context, p identity.Principal, businessID uuid.UUID) (ManagedBusiness, error) {
 	if _, err := s.authz.RequireBusinessRole(ctx, p, businessID, identity.RolesStaff...); err != nil {
@@ -78,8 +78,7 @@ type UpdateInput struct {
 	Reminders                                    *RemindersPatch
 }
 
-// UpdateBusiness changes a business (OWNER or PLATFORM_ADMIN; MANAGER only reads, decision of
-// 2026-11-24). Audited with the changed fields; a request that changes nothing is a no-op.
+// UpdateBusiness changes a business (OWNER or PLATFORM_ADMIN; a PROFESSIONAL only reads). Audited with the changed fields; a request that changes nothing is a no-op.
 func (s *Service) UpdateBusiness(ctx context.Context, p identity.Principal, businessID uuid.UUID, in UpdateInput) (*domain.Business, error) {
 	if _, err := s.authz.RequireBusinessRole(ctx, p, businessID, identity.RolesOwner...); err != nil {
 		return nil, err

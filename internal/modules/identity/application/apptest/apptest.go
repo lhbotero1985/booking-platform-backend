@@ -346,7 +346,7 @@ func (t *storeTx) InsertMembership(_ context.Context, _, userID, businessID uuid
 }
 
 func (t *storeTx) ActiveMembers(_ context.Context, businessID uuid.UUID) ([]contract.Member, error) {
-	order := map[contract.Role]int{contract.RoleOwner: 0, contract.RoleManager: 1, contract.RoleProfessional: 2}
+	order := map[contract.Role]int{contract.RoleOwner: 0, contract.RoleProfessional: 1}
 	var out []contract.Member
 	for userID, ms := range t.s.memberships {
 		for _, m := range ms {

@@ -207,9 +207,9 @@ func TestAuditAuthorizationDenials(t *testing.T) {
 	if a.Metadata["reason"] != "insufficient_role" || a.Metadata["required_roles"] != "OWNER" || a.BusinessID == nil || *a.BusinessID != biz {
 		t.Fatalf("forbidden audit: %+v", a)
 	}
-	_, _ = e.svc.RequireBusinessRole(ctx, p, other, contract.RolesManagement...)
+	_, _ = e.svc.RequireBusinessRole(ctx, p, other, contract.RolesOwner...)
 	a = lastAudit(t, e, application.AuditAuthzDenied, application.OutcomeDenied)
-	if a.Metadata["reason"] != "no_membership" || *a.BusinessID != other || a.Metadata["required_roles"] != "OWNER,MANAGER" {
+	if a.Metadata["reason"] != "no_membership" || *a.BusinessID != other || a.Metadata["required_roles"] != "OWNER" {
 		t.Fatalf("cross-tenant audit: %+v", a)
 	}
 	_ = e.svc.RequirePlatformAdmin(ctx, p)

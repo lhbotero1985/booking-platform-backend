@@ -686,3 +686,20 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Flujo del dueño en vivo en QA (`f4db9ea`), **sin la cuenta administradora** | ✅ | Registro 202 → verificación 200 → login → crea barbería: `ACTIVE`, demo `TRIALING` hasta 2026-12-01, `entitled=true`, es OWNER → la búsqueda pública la encuentra sin login → detalle por slug 200 |
 | Alta por el administrador nace `ACTIVE` (unitarias, contrato, seguridad, integración) | ✅ | Suspender → reactivar → idempotencias sin auditoría; reactivación con ubicación inactiva → `LOCATION_INACTIVE`; filtros por estado |
 | `task check` / `shellcheck` / unitarias + integración completas | ✅ | |
+
+## 2026-11-24 · Fase 4 · T4.7 — Despliegue final
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| PR #39 — ci + security | ✅ 6/6 | Squash `5a9843e`; `release-qa` ✅ |
+| Flujo del dueño sin administrador en QA | ✅ | Registro → verificación → barbería `ACTIVE` → demo `TRIALING` → OWNER → visible en la búsqueda pública → detalle por slug |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **93/93** | Alta del administrador nace `ACTIVE`; suspender, reactivar, suspender |
+
+## 2026-11-24 · Fase 5 · T5.1 — Quitar el rol MANAGER
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| Unitarias (identity, businesses, contrato, seguridad) | ✅ | Matriz de roles con OWNER y PROFESSIONAL; listado de miembros solo OWNER (PROFESSIONAL 403); revocación inmediata con `RolesStaff`; auditoría con `required_roles=OWNER` |
+| Integración (PostgreSQL) | ✅ | Migración 00010 aplicada; `MANAGER` y roles desconocidos rechazados por el CHECK; autorización con profesional |
+| `task check` / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
+| Despliegue y E2E en QA | ⏳ | Tras el merge (incluye "MANAGER ya no existe" → 400) |

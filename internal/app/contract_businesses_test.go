@@ -116,7 +116,7 @@ func TestContractBusinessManagement(t *testing.T) {
 	id := regexp.MustCompile(`"id":"([^"]+)"`).FindStringSubmatch(body)[1]
 	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/businesses", `{"name":"Otra","contactPhone":"3001234567","cityId":"`+cali+`","addressLine":"Calle 2"}`, otherTok, http.StatusCreated)
 	admin := identityPrincipalOf(t, e, "admin-mgmt@example.com")
-	if _, err := e.identity.AddMember(ctx, admin, uuidOf(t, id), "gerente@example.com", "MANAGER"); err != nil {
+	if _, err := e.identity.AddMember(ctx, admin, uuidOf(t, id), "gerente@example.com", "PROFESSIONAL"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -171,8 +171,8 @@ func TestContractBusinessMembers(t *testing.T) {
 	added := c.callAuth(t, e.srv, http.MethodPost, base, `{"email":"barbero@example.com","role":"PROFESSIONAL"}`, ownerTok, http.StatusCreated)
 	barber := regexp.MustCompile(`"userId":"([^"]+)"`).FindStringSubmatch(added)[1]
 	c.callAuth(t, e.srv, http.MethodPost, base, `{"email":"socio@example.com","role":"OWNER"}`, ownerTok, http.StatusCreated)
-	c.callAuth(t, e.srv, http.MethodPost, base, `{"email":"barbero@example.com","role":"MANAGER"}`, ownerTok, http.StatusConflict)
-	c.callAuth(t, e.srv, http.MethodPost, base, `{"email":"nadie@example.com","role":"MANAGER"}`, ownerTok, http.StatusBadRequest)
+	c.callAuth(t, e.srv, http.MethodPost, base, `{"email":"barbero@example.com","role":"PROFESSIONAL"}`, ownerTok, http.StatusConflict)
+	c.callAuth(t, e.srv, http.MethodPost, base, `{"email":"nadie@example.com","role":"PROFESSIONAL"}`, ownerTok, http.StatusBadRequest)
 	c.callAuth(t, e.srv, http.MethodPost, base, `{"email":"socio@example.com","role":"BOSS"}`, ownerTok, http.StatusBadRequest)
 
 	list := c.callAuth(t, e.srv, http.MethodGet, base, "", ownerTok, http.StatusOK)
@@ -180,8 +180,8 @@ func TestContractBusinessMembers(t *testing.T) {
 		t.Errorf("members = %s", list)
 	}
 	c.callAuth(t, e.srv, http.MethodGet, base, "", barberTok, http.StatusForbidden)
-	c.callAuth(t, e.srv, http.MethodPatch, base+"/"+barber, `{"role":"MANAGER"}`, ownerTok, http.StatusNoContent)
-	c.callAuth(t, e.srv, http.MethodPatch, base+"/00000000-0000-0000-0000-000000000001", `{"role":"MANAGER"}`, ownerTok, http.StatusNotFound)
+	c.callAuth(t, e.srv, http.MethodPatch, base+"/"+barber, `{"role":"PROFESSIONAL"}`, ownerTok, http.StatusNoContent)
+	c.callAuth(t, e.srv, http.MethodPatch, base+"/00000000-0000-0000-0000-000000000001", `{"role":"PROFESSIONAL"}`, ownerTok, http.StatusNotFound)
 	c.callAuth(t, e.srv, http.MethodDelete, base+"/"+barber, "", ownerTok, http.StatusNoContent)
 	c.callAuth(t, e.srv, http.MethodGet, base, "", barberTok, http.StatusNotFound) // removed: no longer a member
 
@@ -192,7 +192,7 @@ func TestContractBusinessMembers(t *testing.T) {
 	if b := c.callAuth(t, e.srv, http.MethodDelete, base+"/"+dueno, "", ownerTok, http.StatusConflict); !strings.Contains(b, `"LAST_OWNER"`) {
 		t.Errorf("last owner removal: %s", b)
 	}
-	c.callAuth(t, e.srv, http.MethodPatch, base+"/"+dueno, `{"role":"MANAGER"}`, ownerTok, http.StatusConflict)
+	c.callAuth(t, e.srv, http.MethodPatch, base+"/"+dueno, `{"role":"PROFESSIONAL"}`, ownerTok, http.StatusConflict)
 }
 
 func TestContractPublicBusinesses(t *testing.T) {

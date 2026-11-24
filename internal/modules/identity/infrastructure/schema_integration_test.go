@@ -203,17 +203,19 @@ func TestMembershipConstraints(t *testing.T) {
 	if _, err := q.CreateMembership(ctx, sqlcgen.CreateMembershipParams{ID: uuid.Must(uuid.NewV7()), UserID: other.ID, BusinessID: business, Role: "OWNER"}); err != nil {
 		t.Fatalf("second active OWNER rejected: %v", err)
 	}
-	if _, err := q.CreateMembership(ctx, sqlcgen.CreateMembershipParams{ID: uuid.Must(uuid.NewV7()), UserID: manager.ID, BusinessID: business, Role: "MANAGER"}); err != nil {
-		t.Fatalf("MANAGER rejected: %v", err)
+	if _, err := q.CreateMembership(ctx, sqlcgen.CreateMembershipParams{ID: uuid.Must(uuid.NewV7()), UserID: manager.ID, BusinessID: business, Role: "PROFESSIONAL"}); err != nil {
+		t.Fatalf("PROFESSIONAL rejected: %v", err)
 	}
 	if _, err := q.CreateMembership(ctx, sqlcgen.CreateMembershipParams{ID: uuid.Must(uuid.NewV7()), UserID: manager.ID, BusinessID: business, Role: "PROFESSIONAL"}); !db.IsUniqueViolation(err) {
 		t.Fatalf("duplicate membership for same user/business accepted: %v", err)
 	}
-	if _, err := q.CreateMembership(ctx, sqlcgen.CreateMembershipParams{ID: uuid.Must(uuid.NewV7()), UserID: other.ID, BusinessID: business, Role: "SUPERADMIN"}); db.SQLState(err) != db.CodeCheckViolation {
-		t.Fatalf("unknown role accepted: %v", err)
+	for _, role := range []string{"SUPERADMIN", "MANAGER"} { // MANAGER removed in migration 00010
+		if _, err := q.CreateMembership(ctx, sqlcgen.CreateMembershipParams{ID: uuid.Must(uuid.NewV7()), UserID: other.ID, BusinessID: business, Role: role}); db.SQLState(err) != db.CodeCheckViolation {
+			t.Fatalf("role %s accepted: %v", role, err)
+		}
 	}
 	roles, err := q.ListActiveMembershipsByUser(ctx, manager.ID)
-	if err != nil || len(roles) != 1 || roles[0].Role != "MANAGER" {
+	if err != nil || len(roles) != 1 || roles[0].Role != "PROFESSIONAL" {
 		t.Fatalf("memberships = %+v, %v", roles, err)
 	}
 }

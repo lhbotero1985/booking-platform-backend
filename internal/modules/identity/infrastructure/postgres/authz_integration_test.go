@@ -35,7 +35,7 @@ func TestAuthorizationOnPostgres(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	anaInA := grant(t, ana, bizA, contract.RoleManager)
+	anaInA := grant(t, ana, bizA, contract.RoleProfessional)
 	grant(t, ana, bizB, contract.RoleProfessional)
 	grant(t, bob, bizA, contract.RoleOwner)
 	pAna := contract.Principal{UserID: ana}
@@ -44,14 +44,14 @@ func TestAuthorizationOnPostgres(t *testing.T) {
 	if err != nil || len(ms) != 2 {
 		t.Fatalf("memberships = %+v, %v", ms, err)
 	}
-	if r, err := e.svc.RequireBusinessRole(ctx, pAna, bizA, contract.RolesManagement...); err != nil || r != contract.RoleManager {
-		t.Errorf("manager in A: %q %v", r, err)
+	if r, err := e.svc.RequireBusinessRole(ctx, pAna, bizA, contract.RolesStaff...); err != nil || r != contract.RoleProfessional {
+		t.Errorf("professional in A: %q %v", r, err)
 	}
 	if _, err := e.svc.RequireBusinessRole(ctx, pAna, bizA, contract.RolesOwner...); !errors.Is(err, contract.ErrForbidden) {
 		t.Errorf("owner action in A: %v", err)
 	}
-	if _, err := e.svc.RequireBusinessRole(ctx, pAna, bizB, contract.RolesManagement...); !errors.Is(err, contract.ErrForbidden) {
-		t.Errorf("management action in B as professional: %v", err)
+	if _, err := e.svc.RequireBusinessRole(ctx, pAna, bizB, contract.RolesOwner...); !errors.Is(err, contract.ErrForbidden) {
+		t.Errorf("owner action in B as professional: %v", err)
 	}
 	if _, err := e.svc.RequireBusinessRole(ctx, pAna, uuid.New(), contract.RolesStaff...); !errors.Is(err, contract.ErrNotFound) {
 		t.Errorf("unrelated business: %v", err)

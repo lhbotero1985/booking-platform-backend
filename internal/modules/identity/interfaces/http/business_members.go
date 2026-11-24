@@ -143,7 +143,7 @@ func (h *Handler) removeMember(w http.ResponseWriter, r *http.Request) {
 
 func parseRole(s string) (contract.Role, bool) {
 	switch r := contract.Role(s); r {
-	case contract.RoleOwner, contract.RoleManager, contract.RoleProfessional:
+	case contract.RoleOwner, contract.RoleProfessional:
 		return r, true
 	default:
 		return "", false

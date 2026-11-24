@@ -13,19 +13,18 @@ import (
 // matrix, docs/architecture/security.md §2).
 func TestCheckBusinessRoleMatrix(t *testing.T) {
 	bizA, bizB := uuid.New(), uuid.New()
+	// Roles of a business (T5.1): OWNER (person in charge) and PROFESSIONAL (barber/stylist).
 	actions := map[string][]contract.Role{
-		"owner-only (settings, memberships)": contract.RolesOwner,
-		"management (catalog, any agenda)":   contract.RolesManagement,
-		"staff (own agenda)":                 contract.RolesStaff,
+		"owner-only (settings, members, catalog, schedules)": contract.RolesOwner,
+		"staff (own agenda, own breaks and absences)":        contract.RolesStaff,
 	}
 	// want[action][role] for the caller's own business.
 	allowed := map[string]map[contract.Role]bool{
-		"owner-only (settings, memberships)": {contract.RoleOwner: true},
-		"management (catalog, any agenda)":   {contract.RoleOwner: true, contract.RoleManager: true},
-		"staff (own agenda)":                 {contract.RoleOwner: true, contract.RoleManager: true, contract.RoleProfessional: true},
+		"owner-only (settings, members, catalog, schedules)": {contract.RoleOwner: true},
+		"staff (own agenda, own breaks and absences)":        {contract.RoleOwner: true, contract.RoleProfessional: true},
 	}
 	for action, roles := range actions {
-		for _, role := range []contract.Role{contract.RoleOwner, contract.RoleManager, contract.RoleProfessional} {
+		for _, role := range []contract.Role{contract.RoleOwner, contract.RoleProfessional} {
 			ms := []contract.Membership{{BusinessID: bizA, Role: role}}
 
 			got, err := contract.CheckBusinessRole(ms, bizA, roles...)

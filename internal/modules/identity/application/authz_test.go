@@ -22,13 +22,13 @@ func TestRevokedMembershipLosesAccessOnNextCall(t *testing.T) {
 	ctx := context.Background()
 	p := contract.Principal{UserID: uuid.New()}
 	biz := uuid.New()
-	store.GrantMembership(p.UserID, biz, contract.RoleManager)
+	store.GrantMembership(p.UserID, biz, contract.RoleProfessional)
 
-	if r, err := svc.RequireBusinessRole(ctx, p, biz, contract.RolesManagement...); err != nil || r != contract.RoleManager {
+	if r, err := svc.RequireBusinessRole(ctx, p, biz, contract.RolesStaff...); err != nil || r != contract.RoleProfessional {
 		t.Fatalf("granted: %q %v", r, err)
 	}
 	store.RevokeMembership(p.UserID, biz)
-	if _, err := svc.RequireBusinessRole(ctx, p, biz, contract.RolesManagement...); !errors.Is(err, contract.ErrNotFound) {
+	if _, err := svc.RequireBusinessRole(ctx, p, biz, contract.RolesStaff...); !errors.Is(err, contract.ErrNotFound) {
 		t.Fatalf("after revoke: %v, want ErrNotFound", err)
 	}
 }
@@ -80,7 +80,7 @@ func TestPlatformAdminActsOnAnyBusiness(t *testing.T) {
 	svc, store := newAuthzService()
 	admin := contract.Principal{UserID: uuid.New(), IsPlatformAdmin: true}
 	before := len(store.AuditActions())
-	for _, allowed := range [][]contract.Role{contract.RolesOwner, contract.RolesManagement, contract.RolesStaff} {
+	for _, allowed := range [][]contract.Role{contract.RolesOwner, contract.RolesOwner, contract.RolesStaff} {
 		if r, err := svc.RequireBusinessRole(context.Background(), admin, uuid.New(), allowed...); err != nil || r != contract.RoleOwner {
 			t.Errorf("admin on %v: %q %v", allowed, r, err)
 		}

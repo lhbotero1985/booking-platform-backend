@@ -16,9 +16,8 @@ type Role string
 
 // Business roles.
 const (
-	RoleOwner        Role = "OWNER"
-	RoleManager      Role = "MANAGER"
-	RoleProfessional Role = "PROFESSIONAL"
+	RoleOwner        Role = "OWNER"        // person in charge of the business (several, at least one)
+	RoleProfessional Role = "PROFESSIONAL" // barber or stylist
 )
 
 // Role sets for the policy matrix (docs/architecture/security.md §2). Use cases pick the set
@@ -26,11 +25,9 @@ const (
 var (
 	// RolesOwner: business configuration, memberships, suspension.
 	RolesOwner = []Role{RoleOwner}
-	// RolesManagement: day-to-day operation (catalog, staff schedules, any agenda, customers).
-	RolesManagement = []Role{RoleOwner, RoleManager}
 	// RolesStaff: any member of the business (e.g. read its own agenda). Use cases restricted
 	// to "own" resources must additionally compare the resource owner with the principal.
-	RolesStaff = []Role{RoleOwner, RoleManager, RoleProfessional}
+	RolesStaff = []Role{RoleOwner, RoleProfessional}
 )
 
 // Membership is an active role of a user in a business.
