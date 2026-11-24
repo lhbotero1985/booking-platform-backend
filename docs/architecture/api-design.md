@@ -90,6 +90,11 @@ sin centavos) + `currency` del negocio. `categoryId: null` en PATCH quita la cat
 `CATEGORY_NAME_TAKEN` / `SERVICE_NAME_TAKEN`; campos `INVALID_DURATION`, `INVALID_PRICE`,
 `CATEGORY_NOT_FOUND`, `INVALID_ID`.
 
+### Servicios por profesional (T5.6)
+`GET …/professionals/{professionalId}/services` (OWNER, PROFESSIONAL) y `PUT` con
+`{"serviceIds": [...]}` (OWNER) que reemplaza la lista completa; `SERVICE_NOT_FOUND` en
+`serviceIds[i]` si el servicio no es del negocio; profesional inexistente o ajeno → 404.
+
 ### Búsqueda pública (T4.6)
 `GET /businesses?cityId=&q=&cursor=&limit=` y `GET /businesses/{slug}` (sin autenticación):
 solo negocios `ACTIVE` con demo vigente o pagada; vista reducida sin datos internos.

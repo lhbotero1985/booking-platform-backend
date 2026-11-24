@@ -183,3 +183,15 @@ func fmtErr(err error) string {
 	}
 	return err.Error()
 }
+
+func TestIsProfessionalOf(t *testing.T) {
+	ctx := context.Background()
+	e := newEnv(t)
+	v, _ := e.svc.Create(ctx, e.owner, e.biz, application.CreateInput{Email: "barbero@example.com", DisplayName: "Juan"})
+	if ok, err := e.svc.IsProfessionalOf(ctx, e.biz, v.ID); !ok || err != nil {
+		t.Errorf("own professional: %v %v", ok, err)
+	}
+	if ok, err := e.svc.IsProfessionalOf(ctx, uuid.Must(uuid.NewV7()), v.ID); ok || err != nil {
+		t.Errorf("another business: %v %v", ok, err)
+	}
+}

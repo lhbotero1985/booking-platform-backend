@@ -466,6 +466,18 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 5 · T5.6 — Servicios que presta cada profesional
+
+- **Previo:** PR #44 (T5.5) → `qa`: CI 6/6 ✅, squash `59447a3`, rama borrada; `release-qa` ✅
+  (migración 14); E2E en QA **126/126**.
+- **Estado:** ✅ en `feature/t5.6-professional-services` (commit y push; PR pendiente).
+- **Archivos:** migración `00015_service_professionals.sql`; `professionals/contract`
+  (`Directory`) e `IsProfessionalOf`; catalog: `application/professional_services.go`,
+  `postgres/professional_services.go`, `http/professional_services.go`, queries, catalogtest;
+  wiring (`internal/app/catalog.go`, `cmd/api`, pruebas), `.golangci.yml`, OpenAPI (2
+  operaciones + 1 esquema), pruebas, E2E, docs.
+- **Problemas:** sqlc no acepta un comentario entre `-- name:` y la consulta → comentario antes.
+
 ## 2026-11-24 · Fase 5 · T5.5 — Catálogo de servicios
 
 - **Previo:** PR #43 (T5.4) → `qa`: CI 6/6 ✅, squash `facfa0c`, rama borrada; `release-qa` ✅

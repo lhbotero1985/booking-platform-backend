@@ -1,8 +1,8 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T5.5 — Catálogo de servicios (2026-11-24), en `feature/t5.5-catalog` (commit y push; PR y merge
-pendientes de autorización).
+T5.6 — Servicios que presta cada profesional (2026-11-24), en
+`feature/t5.6-professional-services` (commit y push; PR y merge pendientes de autorización).
 
 **Fase 5 en curso** (desglose aprobado 2026-11-24, ver `roadmap.md`).
 
@@ -11,10 +11,11 @@ pendientes de autorización).
 `feature/*` (nace de `qa`) → PR → `qa` → despliegue automático a QA → validación. `qa` → `main`
 solo al pasar a producción.
 
-## Próxima tarea: T5.6 — Servicios que presta cada profesional
+## Próxima tarea: T5.7 — Vista pública de profesionales y servicios
 
-- Tabla `service_professionals(business_id, service_id, professional_id)` con FK compuestas a
-  `services` y `professionals` del mismo negocio.
-- El OWNER asigna qué servicios presta cada barbero (reemplazo de la lista completa en una
-  transacción); el equipo lo consulta.
-- Solo servicios y profesionales del mismo negocio; otro negocio 404; auditoría.
+- En la ficha pública del negocio (`GET /public/businesses/{slug}`, sin login): servicios
+  activos (nombre, descripción, duración, precio, categoría) y profesionales reservables
+  (nombre visible, descripción) con los servicios que presta cada uno.
+- La búsqueda pública solo muestra negocios con al menos un servicio activo y un profesional
+  reservable que lo preste.
+- Sin datos internos (ids de usuario, emails, estado de membresía, auditoría).

@@ -218,6 +218,13 @@ check "price with cents rejected" 400 "$(status POST "/api/v1/business/$mine/ser
 check "barber cannot create services" 403 "$(status POST "/api/v1/business/$mine/services" '{"name":"Tinte","durationMinutes":30,"priceMinor":2500000}' "$TS")"
 check "barber lists services" 1 "$(status GET "/api/v1/business/$mine/services" "" "$TS" >/dev/null; json '.items | length')"
 check "owner changes the price" 4000000 "$(status PATCH "/api/v1/business/$mine/services/$svc" '{"priceMinor":4000000}' "$T1" >/dev/null; json .priceMinor)"
+
+# --- services per professional (T5.6): the OWNER assigns, the barber reads -------------------
+ps="/api/v1/business/$mine/professionals/$pbarber/services"
+check "owner assigns 'Corte + barba' to the barber" 1 "$(status PUT "$ps" "{\"serviceIds\":[\"$svc\"]}" "$T1" >/dev/null; json '.items | length')"
+check "barber sees his services" "Corte + barba" "$(status GET "$ps" "" "$TS" >/dev/null; json '.items[0].name')"
+check "barber cannot assign services" 403 "$(status PUT "$ps" '{"serviceIds":[]}' "$TS")"
+check "unknown service rejected" 400 "$(status PUT "$ps" '{"serviceIds":["01a20aae-0000-7000-8000-000000000000"]}' "$T1")"
 status POST /api/v1/auth/logout "" "$TS" >/dev/null
 check "  one per account" 409 "$(status POST /api/v1/businesses "$own" "$T1")"
 check "  code ALREADY_OWNER" ALREADY_OWNER "$(json .code)"

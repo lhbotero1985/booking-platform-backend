@@ -52,6 +52,20 @@ func (q *Queries) DeleteCategory(ctx context.Context, arg DeleteCategoryParams) 
 	return err
 }
 
+const deleteProfessionalServices = `-- name: DeleteProfessionalServices :exec
+DELETE FROM service_professionals WHERE business_id = $1 AND professional_id = $2
+`
+
+type DeleteProfessionalServicesParams struct {
+	BusinessID     uuid.UUID
+	ProfessionalID uuid.UUID
+}
+
+func (q *Queries) DeleteProfessionalServices(ctx context.Context, arg DeleteProfessionalServicesParams) error {
+	_, err := q.db.Exec(ctx, deleteProfessionalServices, arg.BusinessID, arg.ProfessionalID)
+	return err
+}
+
 const insertCategory = `-- name: InsertCategory :exec
 
 INSERT INTO service_categories (id, business_id, name, status, sort_order, created_at, updated_at)
@@ -75,6 +89,28 @@ func (q *Queries) InsertCategory(ctx context.Context, arg InsertCategoryParams) 
 		arg.Name,
 		arg.Status,
 		arg.SortOrder,
+		arg.CreatedAt,
+	)
+	return err
+}
+
+const insertProfessionalService = `-- name: InsertProfessionalService :exec
+INSERT INTO service_professionals (business_id, service_id, professional_id, created_at)
+VALUES ($1, $2, $3, $4)
+`
+
+type InsertProfessionalServiceParams struct {
+	BusinessID     uuid.UUID
+	ServiceID      uuid.UUID
+	ProfessionalID uuid.UUID
+	CreatedAt      time.Time
+}
+
+func (q *Queries) InsertProfessionalService(ctx context.Context, arg InsertProfessionalServiceParams) error {
+	_, err := q.db.Exec(ctx, insertProfessionalService,
+		arg.BusinessID,
+		arg.ServiceID,
+		arg.ProfessionalID,
 		arg.CreatedAt,
 	)
 	return err
@@ -193,6 +229,19 @@ func (q *Queries) ListServices(ctx context.Context, businessID uuid.UUID) ([]Ser
 	return items, nil
 }
 
+const lockProfessionalServices = `-- name: LockProfessionalServices :exec
+
+SELECT pg_advisory_xact_lock(hashtextextended('service_professionals:' || $1::text, 0))
+`
+
+// Services per professional (T5.6).
+// LockProfessionalServices serializes replacements of the same professional's list
+// (transaction-scoped advisory lock).
+func (q *Queries) LockProfessionalServices(ctx context.Context, professionalID string) error {
+	_, err := q.db.Exec(ctx, lockProfessionalServices, professionalID)
+	return err
+}
+
 const serviceByID = `-- name: ServiceByID :one
 SELECT id, business_id, category_id, name, description, duration_minutes, price_minor, currency,
        status, sort_order, created_at, updated_at
@@ -223,6 +272,82 @@ func (q *Queries) ServiceByID(ctx context.Context, arg ServiceByIDParams) (Servi
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const servicesByIDs = `-- name: ServicesByIDs :many
+SELECT id FROM services WHERE business_id = $1 AND id = ANY($2::uuid[])
+`
+
+type ServicesByIDsParams struct {
+	BusinessID uuid.UUID
+	Ids        []uuid.UUID
+}
+
+func (q *Queries) ServicesByIDs(ctx context.Context, arg ServicesByIDsParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, servicesByIDs, arg.BusinessID, arg.Ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []uuid.UUID{}
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const servicesOfProfessional = `-- name: ServicesOfProfessional :many
+SELECT s.id, s.business_id, s.category_id, s.name, s.description, s.duration_minutes, s.price_minor,
+       s.currency, s.status, s.sort_order, s.created_at, s.updated_at
+FROM service_professionals sp
+JOIN services s ON s.business_id = sp.business_id AND s.id = sp.service_id
+WHERE sp.business_id = $1 AND sp.professional_id = $2
+ORDER BY s.sort_order, s.name, s.id
+`
+
+type ServicesOfProfessionalParams struct {
+	BusinessID     uuid.UUID
+	ProfessionalID uuid.UUID
+}
+
+func (q *Queries) ServicesOfProfessional(ctx context.Context, arg ServicesOfProfessionalParams) ([]Service, error) {
+	rows, err := q.db.Query(ctx, servicesOfProfessional, arg.BusinessID, arg.ProfessionalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Service{}
+	for rows.Next() {
+		var i Service
+		if err := rows.Scan(
+			&i.ID,
+			&i.BusinessID,
+			&i.CategoryID,
+			&i.Name,
+			&i.Description,
+			&i.DurationMinutes,
+			&i.PriceMinor,
+			&i.Currency,
+			&i.Status,
+			&i.SortOrder,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateCategory = `-- name: UpdateCategory :exec

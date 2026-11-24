@@ -22,12 +22,13 @@ type Store struct {
 	mu         sync.Mutex
 	categories map[uuid.UUID]domain.Category
 	services   map[uuid.UUID]domain.Service
+	assigned   map[uuid.UUID][]uuid.UUID // professional → services
 	Audit      []audit.Entry
 }
 
 // NewStore returns an empty store.
 func NewStore() *Store {
-	return &Store{categories: map[uuid.UUID]domain.Category{}, services: map[uuid.UUID]domain.Service{}}
+	return &Store{categories: map[uuid.UUID]domain.Category{}, services: map[uuid.UUID]domain.Service{}, assigned: map[uuid.UUID][]uuid.UUID{}}
 }
 
 // AuditActions lists the audited actions in order.
@@ -45,11 +46,11 @@ func (s *Store) AuditActions() []string {
 func (s *Store) WithinTx(ctx context.Context, fn func(context.Context, application.Tx) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	t := &tx{categories: maps.Clone(s.categories), services: maps.Clone(s.services)}
+	t := &tx{categories: maps.Clone(s.categories), services: maps.Clone(s.services), assigned: maps.Clone(s.assigned)}
 	if err := fn(ctx, t); err != nil {
 		return err
 	}
-	s.categories, s.services = t.categories, t.services
+	s.categories, s.services, s.assigned = t.categories, t.services, t.assigned
 	s.Audit = append(s.Audit, t.audit...)
 	return nil
 }
@@ -57,7 +58,39 @@ func (s *Store) WithinTx(ctx context.Context, fn func(context.Context, applicati
 type tx struct {
 	categories map[uuid.UUID]domain.Category
 	services   map[uuid.UUID]domain.Service
+	assigned   map[uuid.UUID][]uuid.UUID
 	audit      []audit.Entry
+}
+
+func (t *tx) ServicesOfProfessional(_ context.Context, businessID, professionalID uuid.UUID) ([]domain.Service, error) {
+	out := []domain.Service{}
+	for _, id := range t.assigned[professionalID] {
+		if s, ok := t.services[id]; ok && s.BusinessID == businessID {
+			out = append(out, s)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].SortOrder != out[j].SortOrder {
+			return out[i].SortOrder < out[j].SortOrder
+		}
+		return out[i].Name < out[j].Name
+	})
+	return out, nil
+}
+
+func (t *tx) ExistingServices(_ context.Context, businessID uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
+	out := map[uuid.UUID]bool{}
+	for _, id := range ids {
+		if s, ok := t.services[id]; ok && s.BusinessID == businessID {
+			out[id] = true
+		}
+	}
+	return out, nil
+}
+
+func (t *tx) ReplaceProfessionalServices(_ context.Context, _, professionalID uuid.UUID, serviceIDs []uuid.UUID) error {
+	t.assigned[professionalID] = append([]uuid.UUID(nil), serviceIDs...)
+	return nil
 }
 
 func (t *tx) InsertCategory(_ context.Context, c domain.Category) error {
@@ -198,4 +231,20 @@ func (c Currencies) CurrencyOf(_ context.Context, businessID uuid.UUID) (string,
 		return v, nil
 	}
 	return "COP", nil
+}
+
+// Professionals is an in-memory professionals.Directory: business → professional ids.
+type Professionals map[uuid.UUID]map[uuid.UUID]bool
+
+// Add registers a professional in a business.
+func (d Professionals) Add(businessID, professionalID uuid.UUID) {
+	if d[businessID] == nil {
+		d[businessID] = map[uuid.UUID]bool{}
+	}
+	d[businessID][professionalID] = true
+}
+
+// IsProfessionalOf implements professionals.Directory.
+func (d Professionals) IsProfessionalOf(_ context.Context, businessID, professionalID uuid.UUID) (bool, error) {
+	return d[businessID][professionalID], nil
 }

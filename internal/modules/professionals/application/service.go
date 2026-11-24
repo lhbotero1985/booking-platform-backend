@@ -313,3 +313,17 @@ func required(raw, code string) string {
 	}
 	return code
 }
+
+// IsProfessionalOf implements contract.Directory (no authorization; see the contract).
+func (s *Service) IsProfessionalOf(ctx context.Context, businessID, professionalID uuid.UUID) (bool, error) {
+	found := false
+	err := s.store.WithinTx(ctx, func(ctx context.Context, tx Tx) error {
+		_, err := tx.ProfessionalByID(ctx, businessID, professionalID)
+		if errors.Is(err, ErrNotFound) {
+			return nil
+		}
+		found = err == nil
+		return err
+	})
+	return found, err
+}

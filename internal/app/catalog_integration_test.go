@@ -33,7 +33,7 @@ func TestCatalogOnPostgres(t *testing.T) {
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 	biz := NewBusinessesService(pool, identity, NewGeographyService(pool, identity), NewSubscriptionsService(pool, identity))
-	catalog := NewCatalogService(pool, identity, biz)
+	catalog := NewCatalogService(pool, identity, biz, NewProfessionalsService(pool, identity))
 
 	ownerID, _ := activeUser(t, pool, "ACTIVE")
 	owner := identitycontract.Principal{UserID: ownerID}

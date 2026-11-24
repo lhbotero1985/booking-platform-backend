@@ -21,17 +21,18 @@ type env struct {
 	svc           *application.Service
 	store         *catalogtest.Store
 	ids           *catalogtest.Identity
+	profs         catalogtest.Professionals
 	biz           uuid.UUID
 	owner, barber identity.Principal
 }
 
 func newEnv(t *testing.T) env {
 	t.Helper()
-	e := env{store: catalogtest.NewStore(), ids: catalogtest.NewIdentity(), biz: uuid.Must(uuid.NewV7()),
+	e := env{store: catalogtest.NewStore(), ids: catalogtest.NewIdentity(), profs: catalogtest.Professionals{}, biz: uuid.Must(uuid.NewV7()),
 		owner: identity.Principal{UserID: uuid.Must(uuid.NewV7())}, barber: identity.Principal{UserID: uuid.Must(uuid.NewV7())}}
 	e.ids.Grant(e.biz, e.owner.UserID, identity.RoleOwner)
 	e.ids.Grant(e.biz, e.barber.UserID, identity.RoleProfessional)
-	e.svc = application.NewService(e.store, e.ids, catalogtest.Currencies{}, clock.NewFixed(time.Date(2026, 11, 24, 12, 0, 0, 0, time.UTC)))
+	e.svc = application.NewService(e.store, e.ids, catalogtest.Currencies{}, e.profs, clock.NewFixed(time.Date(2026, 11, 24, 12, 0, 0, 0, time.UTC)))
 	return e
 }
 
@@ -229,7 +230,7 @@ func TestCatalogPermissions(t *testing.T) {
 	}
 	// The business currency comes from the businesses contract.
 	gone := uuid.Must(uuid.NewV7())
-	svc := application.NewService(catalogtest.NewStore(), e.ids, catalogtest.Currencies{gone: ""}, nil)
+	svc := application.NewService(catalogtest.NewStore(), e.ids, catalogtest.Currencies{gone: ""}, catalogtest.Professionals{}, nil)
 	if _, err := svc.CreateService(ctx, admin, gone, corteBarba(uuid.Nil)); err == nil {
 		t.Error("service for a missing business")
 	}
