@@ -71,7 +71,7 @@ func TestBusinessCreationRejectsServerControlledFields(t *testing.T) {
 	}
 
 	// An unverified account cannot become OWNER (no business is created).
-	h.call(t, http.MethodPost, "/api/v1/auth/register", `{"email":"pending@example.com","password":"`+suitePassword+`","fullName":"P"}`, nil)
+	h.call(t, http.MethodPost, "/api/v1/auth/register", `{"email":"pending@example.com","password":"`+suitePassword+`","fullName":"P","phone":"3001234567"}`, nil)
 	r = h.call(t, http.MethodPost, "/api/v1/admin/businesses", `{"name":"Otra","contactPhone":"3001234567","cityId":"`+geotest.CaliID.String()+`","addressLine":"Calle 1","ownerEmail":"pending@example.com"}`, bearerH(tok))
 	if r.status != http.StatusBadRequest || !strings.Contains(r.body, "ACCOUNT_NOT_ELIGIBLE") || h.biz.Count() != 1 {
 		t.Errorf("unverified owner: %d %s (businesses %d)", r.status, r.body, h.biz.Count())

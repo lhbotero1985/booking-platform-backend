@@ -97,10 +97,11 @@ func TestContractIdentityEndpoints(t *testing.T) {
 	c := loadContract(t)
 	e := newIdentityServer(t)
 	const js = "application/json"
-	reg := `{"email":"ana@example.com","password":"una clave suficientemente larga","fullName":"Ana Pérez"}`
+	reg := `{"email":"ana@example.com","password":"una clave suficientemente larga","fullName":"Ana Pérez","phone":"3001234567"}`
 
 	c.call(t, e.srv, "/api/v1/auth/register", reg, js, http.StatusAccepted, true)
-	c.call(t, e.srv, "/api/v1/auth/register", `{"email":"bad","password":"short","fullName":"A"}`, js, http.StatusBadRequest, false)
+	c.call(t, e.srv, "/api/v1/auth/register", `{"email":"bad","password":"short","fullName":"A","phone":"3001234567"}`, js, http.StatusBadRequest, false)
+	c.call(t, e.srv, "/api/v1/auth/register", `{"email":"sin-cel@example.com","password":"una clave suficientemente larga","fullName":"Sin Cel"}`, js, http.StatusBadRequest, false) // phone mandatory (T6.4)
 	c.call(t, e.srv, "/api/v1/auth/register", "email=a", "application/x-www-form-urlencoded", http.StatusUnsupportedMediaType, false)
 	c.call(t, e.srv, "/api/v1/auth/verify-email/resend", `{"email":"ana@example.com"}`, js, http.StatusAccepted, true)
 
@@ -153,7 +154,7 @@ func TestContractSessionEndpoints(t *testing.T) {
 	c := loadContract(t)
 	e := newIdentityServer(t)
 	const js = "application/json"
-	reg := `{"email":"ana@example.com","password":"una clave suficientemente larga","fullName":"Ana Pérez"}`
+	reg := `{"email":"ana@example.com","password":"una clave suficientemente larga","fullName":"Ana Pérez","phone":"3001234567"}`
 	login := `{"email":"ana@example.com","password":"una clave suficientemente larga","clientType":"MOBILE"}`
 
 	c.call(t, e.srv, "/api/v1/auth/register", reg, js, http.StatusAccepted, true)
@@ -184,7 +185,7 @@ func TestContractPasswordEndpoints(t *testing.T) {
 	c := loadContract(t)
 	e := newIdentityServer(t)
 	const js = "application/json"
-	reg := `{"email":"ana@example.com","password":"una clave suficientemente larga","fullName":"Ana Pérez"}`
+	reg := `{"email":"ana@example.com","password":"una clave suficientemente larga","fullName":"Ana Pérez","phone":"3001234567"}`
 	c.call(t, e.srv, "/api/v1/auth/register", reg, js, http.StatusAccepted, true)
 	if err := e.svc.SendVerificationEmail(context.Background(), e.store.Enqueued[0]); err != nil {
 		t.Fatal(err)
@@ -225,5 +226,5 @@ func TestContractRateLimited(t *testing.T) {
 	e = newIdentityServerWith(t, ratelimit.NewLimiter(fixed, ratelimit.LimiterConfig{PerMinute: 1, Burst: 1, MaxKeys: 10}), nil)
 	c.call(t, e.srv, "/api/v1/auth/password/forgot", `{"email":"ana@example.com"}`, js, http.StatusAccepted, true)
 	c.call(t, e.srv, "/api/v1/auth/password/forgot", `{"email":"ana@example.com"}`, js, http.StatusTooManyRequests, true)
-	c.call(t, e.srv, "/api/v1/auth/register", `{"email":"ana@example.com","password":"una clave suficientemente larga","fullName":"Ana"}`, js, http.StatusTooManyRequests, true)
+	c.call(t, e.srv, "/api/v1/auth/register", `{"email":"ana@example.com","password":"una clave suficientemente larga","fullName":"Ana","phone":"3001234567"}`, js, http.StatusTooManyRequests, true)
 }

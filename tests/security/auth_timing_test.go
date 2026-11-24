@@ -33,7 +33,7 @@ func TestLoginTimingDoesNotRevealAccounts(t *testing.T) {
 	})
 	ctx := context.Background()
 	const password = "una clave suficientemente larga"
-	if err := svc.Register(ctx, application.RegisterInput{Email: "ana@example.com", Password: password, FullName: "Ana"}); err != nil {
+	if err := svc.Register(ctx, application.RegisterInput{Email: "ana@example.com", Password: password, FullName: "Ana", Phone: "3001234567"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := svc.SendVerificationEmail(ctx, store.Enqueued[0]); err != nil {

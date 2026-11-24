@@ -2335,7 +2335,7 @@ components:
     RegisterRequest:
       type: object
       additionalProperties: false
-      required: [email, password, fullName]
+      required: [email, password, fullName, phone]
       properties:
         email:
           type: string
@@ -2351,6 +2351,12 @@ components:
           type: string
           minLength: 1
           maxLength: 120
+        phone:
+          type: string
+          maxLength: 32
+          description: |
+            Mobile number, mandatory (T6.4). Normalized to E.164: a 10-digit Colombian mobile
+            (`3XX XXX XXXX`) gets `+57`. Field codes `REQUIRED`, `INVALID_PHONE`.
 
     VerifyEmailRequest:
       type: object

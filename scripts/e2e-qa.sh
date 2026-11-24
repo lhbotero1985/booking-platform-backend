@@ -91,10 +91,11 @@ check "unknown route -> problem+json 404" 404 "$(status GET /api/v1/does-not-exi
 check "  content type application/problem+json" 1 "$(grep -ci '^content-type: application/problem+json' <<<"$(hdrs)")"
 
 # --- registration and email verification ---------------------------------------------------
-check "register" 202 "$(status POST /api/v1/auth/register "{\"email\":\"$EMAIL\",\"password\":\"$PW1\",\"fullName\":\"QA E2E\"}")"
-check "register again (no enumeration)" 202 "$(status POST /api/v1/auth/register "{\"email\":\"$EMAIL\",\"password\":\"$PW1\",\"fullName\":\"QA E2E\"}")"
-check "register weak password" '400|422' "$(status POST /api/v1/auth/register "{\"email\":\"x$EMAIL\",\"password\":\"password\",\"fullName\":\"QA\"}")"
-check "register unknown field" '400|422' "$(status POST /api/v1/auth/register "{\"email\":\"y$EMAIL\",\"password\":\"$PW1\",\"fullName\":\"QA\",\"role\":\"PLATFORM_ADMIN\"}")"
+check "register" 202 "$(status POST /api/v1/auth/register "{\"email\":\"$EMAIL\",\"password\":\"$PW1\",\"fullName\":\"QA E2E\",\"phone\":\"300 123 4567\"}")"
+check "register again (no enumeration)" 202 "$(status POST /api/v1/auth/register "{\"email\":\"$EMAIL\",\"password\":\"$PW1\",\"fullName\":\"QA E2E\",\"phone\":\"300 123 4567\"}")"
+check "register weak password" '400|422' "$(status POST /api/v1/auth/register "{\"email\":\"x$EMAIL\",\"password\":\"password\",\"fullName\":\"QA\",\"phone\":\"3001234567\"}")"
+check "register without phone" 400 "$(status POST /api/v1/auth/register "{\"email\":\"z$EMAIL\",\"password\":\"$PW1\",\"fullName\":\"QA\"}")"
+check "register unknown field" '400|422' "$(status POST /api/v1/auth/register "{\"email\":\"y$EMAIL\",\"password\":\"$PW1\",\"fullName\":\"QA\",\"phone\":\"3001234567\",\"role\":\"PLATFORM_ADMIN\"}")"
 check "login before verification" '401|403' "$(login "$EMAIL" "$PW1")"
 link=$(mail_link verify-email)
 check "verification email received" 1 "$([[ -n $link ]] && echo 1 || echo 0)"
@@ -159,7 +160,7 @@ check "another business -> 404" 404 "$(status GET /api/v1/business/01a20aae-0000
 
 # --- members (T4.5): the OWNER (person in charge) adds a barber, changes its role, removes it ---
 STAFF="staff-$EMAIL"
-check "register staff account" 202 "$(status POST /api/v1/auth/register "{\"email\":\"$STAFF\",\"password\":\"$PW1\",\"fullName\":\"Barbero E2E\"}")"
+check "register staff account" 202 "$(status POST /api/v1/auth/register "{\"email\":\"$STAFF\",\"password\":\"$PW1\",\"fullName\":\"Barbero E2E\",\"phone\":\"3007654321\"}")"
 slink=$(mail_link verify-email "$STAFF")
 check "  staff verified" 200 "$(status POST /api/v1/auth/verify-email "{\"token\":\"${slink##*token=}\"}")"
 check "add barber (PROFESSIONAL)" 201 "$(status POST "/api/v1/business/$mine/members" "{\"email\":\"$STAFF\",\"role\":\"PROFESSIONAL\"}" "$T1")"
@@ -260,10 +261,9 @@ book() { # start idempotency-key token
   status POST /api/v1/appointments "{\"businessId\":\"$mine\",\"serviceId\":\"$svc\",\"professionalId\":\"$pbarber\",\"startAt\":\"$1\"}" "$3" "Idempotency-Key: $2"
 }
 k1="e2e-$(date +%s)-a"
-check "book without phone -> 422" 422 "$(book "$slot" "$k1" "$T1")"
-check "  code PHONE_REQUIRED" PHONE_REQUIRED "$(json .code)"
+check "phone from the registration (E.164)" "\+573001234567" "$(status GET /api/v1/me "" "$T1" >/dev/null; json .phone)"
 check "invalid phone -> 400" 400 "$(status PUT /api/v1/me/phone '{"phone":"12345"}' "$T1")"
-check "set phone (Colombian mobile)" "\+573001234567" "$(status PUT /api/v1/me/phone '{"phone":"300 123 4567"}' "$T1" >/dev/null; json .phone)"
+check "change phone" "\+573001112233" "$(status PUT /api/v1/me/phone '{"phone":"300 111 2233"}' "$T1" >/dev/null; json .phone)"
 check "book without Idempotency-Key -> 400" 400 "$(status POST /api/v1/appointments "{\"businessId\":\"$mine\",\"serviceId\":\"$svc\",\"professionalId\":\"$pbarber\",\"startAt\":\"$slot\"}" "$T1")"
 check "book Tuesday 10:00" 201 "$(book "$slot" "$k1" "$T1")"
 appt=$(json .id)

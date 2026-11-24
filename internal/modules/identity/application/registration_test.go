@@ -42,7 +42,7 @@ const goodPassword = "una clave suficientemente larga"
 
 func (e env) register(t *testing.T, email string) {
 	t.Helper()
-	if err := e.svc.Register(context.Background(), application.RegisterInput{Email: email, Password: goodPassword, FullName: "Ana Pérez"}); err != nil {
+	if err := e.svc.Register(context.Background(), application.RegisterInput{Email: email, Password: goodPassword, FullName: "Ana Pérez", Phone: "3001234567"}); err != nil {
 		t.Fatalf("Register(%s): %v", email, err)
 	}
 }
@@ -89,7 +89,7 @@ func TestRegisterCreatesPendingUserAndSchedulesEmail(t *testing.T) {
 
 func TestRegisterValidation(t *testing.T) {
 	e := newEnv()
-	err := e.svc.Register(context.Background(), application.RegisterInput{Email: "not-an-email", Password: "short", FullName: "  "})
+	err := e.svc.Register(context.Background(), application.RegisterInput{Email: "not-an-email", Password: "short", FullName: "  ", Phone: "3001234567"})
 	var verr *application.ValidationError
 	if !errors.As(err, &verr) {
 		t.Fatalf("err = %v, want ValidationError", err)
@@ -108,7 +108,7 @@ func TestRegisterValidation(t *testing.T) {
 		t.Error("invalid input must not hash or store anything")
 	}
 
-	err = e.svc.Register(context.Background(), application.RegisterInput{Email: "a@example.com", Password: "password123", FullName: "Ana\x00"})
+	err = e.svc.Register(context.Background(), application.RegisterInput{Email: "a@example.com", Password: "password123", FullName: "Ana\x00", Phone: "3001234567"})
 	if !errors.As(err, &verr) {
 		t.Fatalf("err = %v", err)
 	}
@@ -249,7 +249,7 @@ func TestStoreFailureRollsBack(t *testing.T) {
 	e := newEnv()
 	boom := errors.New("db down")
 	e.store.FailNext = boom
-	err := e.svc.Register(context.Background(), application.RegisterInput{Email: "ana@example.com", Password: goodPassword, FullName: "Ana"})
+	err := e.svc.Register(context.Background(), application.RegisterInput{Email: "ana@example.com", Password: goodPassword, FullName: "Ana", Phone: "3001234567"})
 	if !errors.Is(err, boom) || e.store.UserCount() != 0 || len(e.store.Enqueued) != 0 {
 		t.Fatalf("err %v users %d enqueued %d", err, e.store.UserCount(), len(e.store.Enqueued))
 	}

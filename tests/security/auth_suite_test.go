@@ -143,7 +143,7 @@ func (h authHarness) lastLinkToken(t *testing.T) string {
 // account registers and verifies email, returning the verification token already used.
 func (h authHarness) account(t *testing.T, email string) string {
 	t.Helper()
-	h.call(t, http.MethodPost, "/api/v1/auth/register", `{"email":"`+email+`","password":"`+suitePassword+`","fullName":"Ana Pérez"}`, nil)
+	h.call(t, http.MethodPost, "/api/v1/auth/register", `{"email":"`+email+`","password":"`+suitePassword+`","fullName":"Ana Pérez","phone":"3001234567"}`, nil)
 	if err := h.svc.SendVerificationEmail(context.Background(), h.store.Enqueued[len(h.store.Enqueued)-1]); err != nil {
 		t.Fatal(err)
 	}
@@ -346,7 +346,7 @@ func TestCookieSessionsRequireAllowedOrigin(t *testing.T) {
 func TestMassAssignmentIsRejected(t *testing.T) {
 	h := startAuth(t)
 	for _, extra := range []string{`"isPlatformAdmin":true`, `"status":"ACTIVE"`, `"emailVerifiedAt":"2026-01-01T00:00:00Z"`, `"id":"0193f000-0000-7000-8000-000000000001"`} {
-		body := `{"email":"x@example.com","password":"` + suitePassword + `","fullName":"X",` + extra + `}`
+		body := `{"email":"x@example.com","password":"` + suitePassword + `","fullName":"X","phone":"3001234567",` + extra + `}`
 		if r := h.call(t, http.MethodPost, "/api/v1/auth/register", body, nil); r.status != http.StatusBadRequest {
 			t.Errorf("register with %s: %d", extra, r.status)
 		}
@@ -364,9 +364,9 @@ func TestMassAssignmentIsRejected(t *testing.T) {
 func TestPublicEndpointsDoNotRevealAccounts(t *testing.T) {
 	h := startAuth(t)
 	h.account(t, suiteEmail)
-	h.call(t, http.MethodPost, "/api/v1/auth/register", `{"email":"pendiente@example.com","password":"`+suitePassword+`","fullName":"P"}`, nil)
+	h.call(t, http.MethodPost, "/api/v1/auth/register", `{"email":"pendiente@example.com","password":"`+suitePassword+`","fullName":"P","phone":"3001234567"}`, nil)
 	cases := []struct{ path, body string }{
-		{"/api/v1/auth/register", `{"email":"%s","password":"` + suitePassword + `","fullName":"Otro"}`},
+		{"/api/v1/auth/register", `{"email":"%s","password":"` + suitePassword + `","fullName":"Otro","phone":"3001234567"}`},
 		{"/api/v1/auth/verify-email/resend", `{"email":"%s"}`},
 		{"/api/v1/auth/password/forgot", `{"email":"%s"}`},
 		{"/api/v1/auth/login", `{"email":"%s","password":"clave equivocada 123","clientType":"MOBILE"}`},
@@ -410,7 +410,7 @@ func TestTokensAreBoundToTheirPurpose(t *testing.T) {
 		t.Fatal(err)
 	}
 	reset := h.lastLinkToken(t)
-	h.call(t, http.MethodPost, "/api/v1/auth/register", `{"email":"nuevo@example.com","password":"`+suitePassword+`","fullName":"N"}`, nil)
+	h.call(t, http.MethodPost, "/api/v1/auth/register", `{"email":"nuevo@example.com","password":"`+suitePassword+`","fullName":"N","phone":"3001234567"}`, nil)
 	if err := h.svc.SendVerificationEmail(context.Background(), h.store.Enqueued[len(h.store.Enqueued)-1]); err != nil {
 		t.Fatal(err)
 	}

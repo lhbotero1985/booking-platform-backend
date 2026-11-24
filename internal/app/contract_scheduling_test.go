@@ -117,15 +117,13 @@ func TestContractBooking(t *testing.T) {
 		return `{"businessId":"` + biz + `","serviceId":"` + svc + `","professionalId":"` + prof + `","startAt":"` + start + `"}`
 	}
 	key := func(k string) map[string]string { return map[string]string{"Idempotency-Key": k} }
-	if p := c.callWith(t, e.srv, http.MethodPost, "/api/v1/appointments", body("2026-11-24T14:00:00Z"), ana, key("ana-cita-0001"), http.StatusUnprocessableEntity); !strings.Contains(p, "PHONE_REQUIRED") {
-		t.Errorf("without phone: %s", p)
+	// The phone comes from the registration (mandatory since T6.4); the customer can change it.
+	if me := c.callAuth(t, e.srv, http.MethodGet, "/api/v1/me", "", ana, http.StatusOK); !strings.Contains(me, `"phone":"+573001234567"`) {
+		t.Errorf("phone from the registration: %s", me)
 	}
 	c.callAuth(t, e.srv, http.MethodPut, "/api/v1/me/phone", `{"phone":"12345"}`, ana, http.StatusBadRequest)
-	if me := c.callAuth(t, e.srv, http.MethodPut, "/api/v1/me/phone", `{"phone":"300 123-4567"}`, ana, http.StatusOK); !strings.Contains(me, `"phone":"+573001234567"`) {
-		t.Errorf("set phone: %s", me)
-	}
-	if me := c.callAuth(t, e.srv, http.MethodGet, "/api/v1/me", "", tok, http.StatusOK); !strings.Contains(me, `"phone":null`) {
-		t.Errorf("owner without phone: %s", me)
+	if me := c.callAuth(t, e.srv, http.MethodPut, "/api/v1/me/phone", `{"phone":"300 765-4321"}`, ana, http.StatusOK); !strings.Contains(me, `"phone":"+573007654321"`) {
+		t.Errorf("change phone: %s", me)
 	}
 
 	c.callWith(t, e.srv, http.MethodPost, "/api/v1/appointments", body("2026-11-24T14:00:00Z"), ana, nil, http.StatusBadRequest) // no key

@@ -90,7 +90,7 @@ func (e geoEnv) signIn(t *testing.T, email string) string {
 	t.Helper()
 	ctx := context.Background()
 	pw := "una clave suficientemente larga"
-	if err := e.identity.Register(ctx, application.RegisterInput{Email: email, Password: pw, FullName: "QA"}); err != nil {
+	if err := e.identity.Register(ctx, application.RegisterInput{Email: email, Password: pw, FullName: "QA", Phone: "3001234567"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := e.identity.SendVerificationEmail(ctx, e.users.Enqueued[len(e.users.Enqueued)-1]); err != nil {
