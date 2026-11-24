@@ -8,6 +8,8 @@
 #                (ssh -N -L 18025:127.0.0.1:8025 deploy@HOST)
 #   CURL_EXTRA   optional extra curl options (e.g. --resolve host:443:IP when local DNS fails)
 #   SKIP_RATE_LIMIT=1 skips the rate-limit check (it blocks auth endpoints for this IP ~1 min)
+#   ADMIN_EMAIL / ADMIN_PASSWORD (optional) run the business onboarding checks as PLATFORM_ADMIN;
+#                each run leaves one SUSPENDED business "QA E2E <timestamp>" behind
 #
 # Exit status: number of failed checks (0 = all green).
 set -uo pipefail
@@ -126,6 +128,24 @@ check "  Itagüí, Medellín" "Itagüí,Medellín" "$(json '[.items[].name] | jo
 check "unknown country -> 404" 404 "$(status GET /api/v1/countries/ZZ/divisions)"
 check "admin write without token" 401 "$(status POST /api/v1/admin/cities "{\"divisionId\":\"$valle\",\"name\":\"Palmira\",\"timeZone\":\"America/Bogota\"}")"
 check "admin write as normal user" 403 "$(status POST /api/v1/admin/cities "{\"divisionId\":\"$valle\",\"name\":\"Palmira\",\"timeZone\":\"America/Bogota\"}" "$T1")"
+
+# --- business onboarding (Phase 4, PLATFORM_ADMIN; optional: needs ADMIN_EMAIL/ADMIN_PASSWORD) --
+cali=$(curl -s "${X[@]}" "$B/api/v1/divisions/$valle/cities" | jq -r '.items[] | select(.name=="Cali") | .id')
+check "business list as normal user" 403 "$(status GET /api/v1/admin/businesses "" "$T1")"
+if [[ -n ${ADMIN_EMAIL:-} && -n ${ADMIN_PASSWORD:-} ]]; then
+  check "admin login" 200 "$(login "$ADMIN_EMAIL" "$ADMIN_PASSWORD")"
+  TA=$(token)
+  check "create business (owner = e2e user)" 201 "$(status POST /api/v1/admin/businesses "{\"name\":\"QA E2E $(date +%s)\",\"contactPhone\":\"300 123 4567\",\"cityId\":\"$cali\",\"addressLine\":\"Calle 5 # 38-25\",\"ownerEmail\":\"$EMAIL\"}" "$TA")"
+  biz=$(json .id)
+  check "  starts PENDING_REVIEW, COP, America/Bogota" "PENDING_REVIEW COP America/Bogota \\+573001234567" "$(json '"\(.status) \(.currency) \(.timeZone) \(.contactPhone)"')"
+  check "owner sees the membership" OWNER "$(status GET /api/v1/me/memberships "" "$T1" >/dev/null; json ".items[] | select(.businessId==\"$biz\") | .role")"
+  check "activate business" ACTIVE "$(status POST "/api/v1/admin/businesses/$biz/activate" "" "$TA" >/dev/null; json .status)"
+  check "suspend business (left suspended)" SUSPENDED "$(status POST "/api/v1/admin/businesses/$biz/suspend" "" "$TA" >/dev/null; json .status)"
+  check "unverified owner rejected" 400 "$(status POST /api/v1/admin/businesses "{\"name\":\"QA E2E bad\",\"contactPhone\":\"3001234567\",\"cityId\":\"$cali\",\"addressLine\":\"Calle 1\",\"ownerEmail\":\"nobody-$EMAIL\"}" "$TA")"
+  status POST /api/v1/auth/logout "" "$TA" >/dev/null
+else
+  echo "SKIP  business onboarding (set ADMIN_EMAIL and ADMIN_PASSWORD)"
+fi
 
 # --- change password (current session stays, others revoked) -------------------------------
 login "$EMAIL" "$PW1" >/dev/null

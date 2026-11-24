@@ -17,6 +17,9 @@ import (
 	"time"
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/app"
+	bizapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/application"
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/application/biztest"
+	businesseshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/interfaces/http"
 	geoapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/application/geotest"
 	geographyhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/interfaces/http"
@@ -41,6 +44,7 @@ type authHarness struct {
 	clock  *clock.Fixed
 	logs   *syncBuffer
 	geo    *geotest.Store
+	biz    *biztest.Store
 }
 
 func startAuth(t *testing.T) authHarness {
@@ -55,7 +59,7 @@ func startAuth(t *testing.T) authHarness {
 		t.Fatal(err)
 	}
 	h := authHarness{store: apptest.NewStore(), mailer: &apptest.Mailer{}, logs: &syncBuffer{},
-		clock: clock.NewFixed(time.Date(2026, 11, 19, 12, 0, 0, 0, time.UTC)), geo: geotest.NewSeededStore()}
+		clock: clock.NewFixed(time.Date(2026, 11, 19, 12, 0, 0, 0, time.UTC)), geo: geotest.NewSeededStore(), biz: biztest.NewStore()}
 	logger := logging.New(h.logs, slog.LevelDebug)
 	h.svc = application.NewService(application.Deps{
 		Store: h.store, Hasher: &apptest.Hasher{}, Mailer: h.mailer, Clock: h.clock,
@@ -63,8 +67,10 @@ func startAuth(t *testing.T) authHarness {
 	})
 	// Same composition as cmd/api: geography uses identity's authentication and authorizer.
 	idh := identityhttp.New(h.svc, logger, identityhttp.Options{AllowedOrigins: cfg.HTTP.CORSAllowedOrigins})
+	geo := geoapp.NewService(h.geo, h.svc, h.geo, h.clock)
+	biz := bizapp.NewService(bizapp.Deps{Store: h.biz, Authz: h.svc, Members: h.svc, Places: geo, Clock: h.clock})
 	h.srv = httptest.NewServer(app.NewHTTPHandler(cfg, logger, app.Deps{Modules: []app.RouteRegistrar{
-		idh, geographyhttp.New(geoapp.NewService(h.geo, h.svc, h.geo, h.clock), logger, idh.RequireAuth),
+		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth),
 	}}))
 	t.Cleanup(h.srv.Close)
 	return h
@@ -165,7 +171,19 @@ var geographyAdminRoutes = []struct{ method, path, body string }{
 	{http.MethodPatch, "/api/v1/admin/cities/" + geotest.CaliID.String(), `{"active":false}`},
 }
 
-func init() { authenticatedRoutes = append(authenticatedRoutes, geographyAdminRoutes...) }
+// businessAdminRoutes are the PLATFORM_ADMIN endpoints of the businesses module (T4.3).
+var businessAdminRoutes = []struct{ method, path, body string }{
+	{http.MethodPost, "/api/v1/admin/businesses", `{"name":"Barbería","contactPhone":"3001234567","cityId":"` + geotest.CaliID.String() + `","addressLine":"Calle 1","ownerEmail":"ana@example.com"}`},
+	{http.MethodGet, "/api/v1/admin/businesses", ""},
+	{http.MethodGet, "/api/v1/admin/businesses/01a20aae-7e5d-73d7-b7d3-a11c5afb9655", ""},
+	{http.MethodPost, "/api/v1/admin/businesses/01a20aae-7e5d-73d7-b7d3-a11c5afb9655/activate", ""},
+	{http.MethodPost, "/api/v1/admin/businesses/01a20aae-7e5d-73d7-b7d3-a11c5afb9655/suspend", ""},
+}
+
+func init() {
+	authenticatedRoutes = append(authenticatedRoutes, geographyAdminRoutes...)
+	authenticatedRoutes = append(authenticatedRoutes, businessAdminRoutes...)
+}
 
 // TestAuthenticatedRoutesRejectInvalidCredentials: route × credential matrix. Every case is
 // 401 UNAUTHENTICATED with WWW-Authenticate and no-store.

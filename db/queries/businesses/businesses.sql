@@ -51,3 +51,18 @@ SELECT count(*) FROM businesses WHERE division_id = $1 AND status = 'ACTIVE';
 
 -- name: CountActiveBusinessesInCity :one
 SELECT count(*) FROM businesses WHERE city_id = $1 AND status = 'ACTIVE';
+
+-- name: ListBusinesses :many
+-- Administrator list: optional status and city filters, keyset pagination by id (UUIDv7, so
+-- roughly by creation time).
+SELECT id, name, slug::text AS slug, status, contact_phone, description, country_code, division_id,
+       city_id, address_line, latitude, longitude, time_zone, currency, slot_interval_minutes,
+       buffer_minutes, min_lead_minutes, max_advance_days, cancellation_cutoff_hours,
+       reschedule_cutoff_hours, require_customer_confirmation, reminders_enabled,
+       reminder_hours_before, created_at, updated_at
+FROM businesses
+WHERE (sqlc.narg(status)::text IS NULL OR status = sqlc.narg(status)::text)
+  AND (sqlc.narg(city_id)::uuid IS NULL OR city_id = sqlc.narg(city_id)::uuid)
+  AND (sqlc.narg(after)::uuid IS NULL OR id > sqlc.narg(after)::uuid)
+ORDER BY id
+LIMIT sqlc.arg(max_rows);

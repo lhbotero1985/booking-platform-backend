@@ -87,12 +87,12 @@ func TestBusinessRoundTrip(t *testing.T) {
 	st := postgres.NewStore(pool)
 	b := newBusiness(t, uniqueSlug("paisa"), cali, valle, &domain.Coordinates{Lat: 3.4516, Lng: -76.532})
 
-	err := st.WithinTx(ctx, func(tx application.Tx) error { return tx.InsertBusiness(ctx, b) })
+	err := st.WithinTx(ctx, func(_ context.Context, tx application.Tx) error { return tx.InsertBusiness(ctx, b) })
 	if err != nil {
 		t.Fatal(err)
 	}
 	var got, bySlug *domain.Business
-	err = st.WithinTx(ctx, func(tx application.Tx) (err error) {
+	err = st.WithinTx(ctx, func(_ context.Context, tx application.Tx) (err error) {
 		if got, err = tx.BusinessByID(ctx, b.ID()); err != nil {
 			return err
 		}
@@ -129,16 +129,19 @@ func TestBusinessRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := st.WithinTx(ctx, func(tx application.Tx) error { return tx.UpdateBusiness(ctx, moved) }); err != nil {
+	if err := st.WithinTx(ctx, func(_ context.Context, tx application.Tx) error { return tx.UpdateBusiness(ctx, moved) }); err != nil {
 		t.Fatal(err)
 	}
-	_ = st.WithinTx(ctx, func(tx application.Tx) (err error) { got, err = tx.BusinessByID(ctx, b.ID()); return err })
+	_ = st.WithinTx(ctx, func(_ context.Context, tx application.Tx) (err error) {
+		got, err = tx.BusinessByID(ctx, b.ID())
+		return err
+	})
 	if got.Status() != domain.StatusSuspended || got.Location().CityID != medellin || got.Location().Coordinates != nil ||
 		got.Policy().SlotIntervalMinutes != 15 || got.Reminders().Enabled || got.Name() != "Nuevo nombre" {
 		t.Errorf("after update: %+v", got)
 	}
 
-	if err := st.WithinTx(ctx, func(tx application.Tx) error {
+	if err := st.WithinTx(ctx, func(_ context.Context, tx application.Tx) error {
 		_, err := tx.BusinessByID(ctx, uuid.Must(uuid.NewV7()))
 		return err
 	}); !errors.Is(err, application.ErrNotFound) {
@@ -151,7 +154,7 @@ func TestSlugUniquenessAndAllocation(t *testing.T) {
 	st := postgres.NewStore(pool)
 	slug := uniqueSlug("unica")
 	insert := func(b *domain.Business) error {
-		return st.WithinTx(ctx, func(tx application.Tx) error { return tx.InsertBusiness(ctx, b) })
+		return st.WithinTx(ctx, func(_ context.Context, tx application.Tx) error { return tx.InsertBusiness(ctx, b) })
 	}
 	if err := insert(newBusiness(t, slug, cali, valle, nil)); err != nil {
 		t.Fatal(err)
@@ -166,7 +169,7 @@ func TestSlugUniquenessAndAllocation(t *testing.T) {
 
 	name := "Uñas Spa " + uuid.NewString()[:6]
 	var first, second domain.Slug
-	err := st.WithinTx(ctx, func(tx application.Tx) (err error) {
+	err := st.WithinTx(ctx, func(_ context.Context, tx application.Tx) (err error) {
 		if first, err = application.AllocateSlug(ctx, tx, name); err != nil {
 			return err
 		}
@@ -175,7 +178,10 @@ func TestSlugUniquenessAndAllocation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = st.WithinTx(ctx, func(tx application.Tx) (err error) { second, err = application.AllocateSlug(ctx, tx, name); return err })
+	_ = st.WithinTx(ctx, func(_ context.Context, tx application.Tx) (err error) {
+		second, err = application.AllocateSlug(ctx, tx, name)
+		return err
+	})
 	if second != first.WithSuffix(2) {
 		t.Errorf("allocation after %q = %q, want the -2 suffix", first, second)
 	}
@@ -187,7 +193,7 @@ func TestSchemaEnforcesLocationAndTenancy(t *testing.T) {
 
 	// City of another division (Medellín is in Antioquia, not Valle).
 	bad := newBusiness(t, uniqueSlug("mal"), medellin, valle, nil)
-	if err := st.WithinTx(ctx, func(tx application.Tx) error { return tx.InsertBusiness(ctx, bad) }); db.SQLState(err) != db.CodeForeignKeyViolation {
+	if err := st.WithinTx(ctx, func(_ context.Context, tx application.Tx) error { return tx.InsertBusiness(ctx, bad) }); db.SQLState(err) != db.CodeForeignKeyViolation {
 		t.Errorf("city outside its division accepted: %v", err)
 	}
 	// Invalid values the domain would reject never get past the schema either.
@@ -199,7 +205,7 @@ func TestSchemaEnforcesLocationAndTenancy(t *testing.T) {
 		"slug with --":     `UPDATE businesses SET slug = 'a--b' WHERE id = $1`,
 	} {
 		b := newBusiness(t, uniqueSlug("chk"), cali, valle, nil)
-		if err := st.WithinTx(ctx, func(tx application.Tx) error { return tx.InsertBusiness(ctx, b) }); err != nil {
+		if err := st.WithinTx(ctx, func(_ context.Context, tx application.Tx) error { return tx.InsertBusiness(ctx, b) }); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := pool.Exec(ctx, q, b.ID()); db.SQLState(err) != db.CodeCheckViolation {
@@ -217,7 +223,7 @@ func TestSchemaEnforcesLocationAndTenancy(t *testing.T) {
 		t.Errorf("membership of a nonexistent business: %v", err)
 	}
 	owned := newBusiness(t, uniqueSlug("owned"), cali, valle, nil)
-	if err := st.WithinTx(ctx, func(tx application.Tx) error { return tx.InsertBusiness(ctx, owned) }); err != nil {
+	if err := st.WithinTx(ctx, func(_ context.Context, tx application.Tx) error { return tx.InsertBusiness(ctx, owned) }); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(ctx, `INSERT INTO memberships (id, user_id, business_id, role) VALUES (gen_random_uuid(), $1, $2, 'OWNER')`, userID, owned.ID()); err != nil {

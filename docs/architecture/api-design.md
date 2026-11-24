@@ -40,6 +40,11 @@ Estado: **Propuesta — Fase 0.** ADR-0011.
 `PATCH /admin/divisions/{id}`, `PATCH /admin/cities/{id}` (implementado en T4.1; detalle en
 `api/openapi.yaml`).
 
+### Alta de negocios (PLATFORM_ADMIN, T4.3)
+`POST /admin/businesses` (con `ownerEmail`; nace `PENDING_REVIEW`), `GET /admin/businesses`
+(`status`, `cityId`, `cursor`, `limit`), `GET /admin/businesses/{id}`,
+`POST /admin/businesses/{id}/activate`, `POST /admin/businesses/{id}/suspend`.
+
 ### Descubrimiento (cliente)
 | Método | Ruta |
 |---|---|

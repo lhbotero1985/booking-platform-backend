@@ -25,6 +25,7 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/app"
+	businesseshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/interfaces/http"
 	geographyhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/interfaces/http"
 	identityhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/interfaces/http"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/buildinfo"
@@ -108,6 +109,7 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 
 	identityHandler := identityhttp.New(identitySvc, logger, identityhttp.Options{AllowedOrigins: cfg.HTTP.CORSAllowedOrigins, AuthLimiter: limiters.Auth})
 	geographySvc := app.NewGeographyService(pool, identitySvc)
+	businessesSvc := app.NewBusinessesService(pool, identitySvc, geographySvc)
 
 	handler := app.NewHTTPHandler(cfg, logger, app.Deps{
 		Readiness: []app.Check{
@@ -117,6 +119,7 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		Modules: []app.RouteRegistrar{
 			identityHandler,
 			geographyhttp.New(geographySvc, logger, identityHandler.RequireAuth),
+			businesseshttp.New(businessesSvc, logger, identityHandler.RequireAuth),
 		},
 		APILimiter: limiters.API,
 	})

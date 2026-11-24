@@ -154,6 +154,9 @@ docker run --rm -v "$PWD/scripts:/s:ro" alpine:3.22 sh -c \
 ssh -S ~/.ssh/bp-tun -O exit deploy@HOST                                      # cerrar túnel
 ```
 
+Con `ADMIN_EMAIL`/`ADMIN_PASSWORD` (cuenta `PLATFORM_ADMIN` de QA) el script también prueba el
+alta de negocios; cada corrida deja un negocio `QA E2E <timestamp>` en estado `SUSPENDED`.
+
 Después, comprobar en `audit_log` que las acciones quedaron con la IP pública del cliente.
 
 ### Administradores de la plataforma (T4.1)

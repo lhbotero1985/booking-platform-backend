@@ -57,9 +57,30 @@ type TxBeginner interface {
 	Begin(ctx context.Context) (pgx.Tx, error)
 }
 
+type txKey struct{}
+
+// ContextWithTx returns ctx carrying tx. A use case that must change data of two modules
+// atomically (e.g. a business and its OWNER membership) passes this context to the other
+// module's contract: that module's store then joins tx instead of opening its own.
+func ContextWithTx(ctx context.Context, tx pgx.Tx) context.Context {
+	return context.WithValue(ctx, txKey{}, tx)
+}
+
+// TxFromContext returns the transaction carried by ctx, if any.
+func TxFromContext(ctx context.Context) (pgx.Tx, bool) {
+	tx, ok := ctx.Value(txKey{}).(pgx.Tx)
+	return tx, ok
+}
+
 // WithTx runs fn inside a transaction. It commits when fn returns nil and rolls back when fn
 // returns an error or panics (the panic is re-raised after the rollback).
+//
+// If ctx already carries a transaction (ContextWithTx), fn joins it: nothing is begun or
+// committed here and an error from fn makes the outer transaction roll back.
 func WithTx(ctx context.Context, b TxBeginner, fn func(tx pgx.Tx) error) (err error) {
+	if outer, ok := TxFromContext(ctx); ok {
+		return fn(outer)
+	}
 	tx, err := b.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("db: begin: %w", err)

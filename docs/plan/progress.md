@@ -466,6 +466,21 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 4 · T4.3 — Alta de negocios por el administrador
+
+- **Previo:** PR #33 (T4.2) → `qa`: 6/6 ✅, `b85b596`, desplegado (migración 6; `app_runtime`
+  con INSERT en `businesses`). Decisión del usuario: el negocio nace pendiente hasta que el
+  administrador lo active.
+- **Estado:** ✅ en `feature/t4.3-business-onboarding` (commit y push; PR pendiente de
+  autorización).
+- **Archivos:** `internal/platform/db` (`ContextWithTx`, unión de transacciones),
+  `identity/contract/members.go` + `application/members.go` (+ query `InsertMembership`, store,
+  apptest), `businesses/application/service.go` + `biztest`, store (`ListBusinesses`, `WithinTx`
+  con contexto), `businesses/interfaces/http`, `internal/app/businesses.go`, `cmd/api`, OpenAPI
+  (5 operaciones), pruebas (unitarias, integración, contrato, seguridad), `scripts/e2e-qa.sh`.
+- **Problemas:** un caso de prueba ambiguo (violaba dos reglas a la vez) eliminado; emails de
+  prueba con el prefijo temporal de UUIDv7 colisionaban → sufijo aleatorio.
+
 ## 2026-11-24 · Fase 4 · T4.2 — Dominio y persistencia de negocios
 
 - **Estado:** ✅ en `feature/t4.2-businesses` (commit y push; PR pendiente de autorización).

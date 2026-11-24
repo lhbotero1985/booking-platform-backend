@@ -566,3 +566,22 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Contrato | ✅ | `PATCH` ciudad y país en uso → 409 `IN_USE` conforme a OpenAPI |
 | Hallazgos corregidos | ⚠️→✅ | Slug de respaldo reservado; CHECK de coordenadas con NULL; prueba que cruzaba módulos (depguard) |
 | `task check` / `sqlc:check` / `shellcheck` / `secrets` / integración completa (`-p 2`) | ✅ | govulncheck reintentado por DNS local; imagen 36,6 MB (antes 28,5 MB: metadatos de teléfonos) |
+
+## 2026-11-24 · Fase 4 · T4.2 — CI y despliegue
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| PR #33 — ci + security | ✅ 6/6 | Squash `b85b596`; `release-qa` ✅; migración 6 en QA; `app_runtime` con INSERT en `businesses` |
+
+## 2026-11-24 · Fase 4 · T4.3 — Alta de negocios
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestWithTxJoinsTheContextTransaction` (PostgreSQL) | ✅ | La transacción anidada con el contexto se une a la externa: error interno → ambas filas revertidas; éxito → ambas confirmadas |
+| `TestAddMember` (identity) | ✅ | Admin agrega OWNER (auditoría `membership.granted`), OWNER agrega MANAGER; ya miembro, no verificado, inexistente, email malformado → errores del contract; MANAGER → 403; ajeno → 404; segundo OWNER → `ErrOwnerExists`; rol desconocido rechazado |
+| `go test ./internal/modules/businesses/...` | ✅ | application **87,5 %**: alta (`PENDING_REVIEW`, slug, E.164, zona/moneda de la ciudad, valores por defecto, OWNER, auditoría), segundo con `-2`, **atomicidad** (fallo del OWNER → ni negocio ni auditoría), validación por campo, ciudad desconocida/inactiva, solo admin en 5 casos, activar/suspender idempotentes, ubicación inactiva → `ErrLocationInactive`, paginación y filtros |
+| `TestBusinessOnboardingOnPostgres` (composition root) | ✅ | Negocio + membresía OWNER + 2 entradas de auditoría en BD; OWNER no verificado → **ninguna fila** del negocio ni de su auditoría; el autorizador de identity ve el rol; activar/suspender; ciudad inactiva → `LOCATION_INACTIVE`; listado filtrado |
+| `TestContractBusinessEndpoints` | ✅ | 5 operaciones contra OpenAPI: 201/200/400/401/403/404/409, coordenadas `null`, `nextCursor` |
+| `tests/security` | ✅ | 5 rutas en la matriz de credenciales inválidas; no admin → 403 + `authz.denied` ×5 sin cambios; 9 campos controlados por el servidor (status, slug, id, timeZone, currency, countryCode, divisionId, bookingPolicy, createdAt) → 400; OWNER no verificado → 400 `ACCOUNT_NOT_ELIGIBLE` sin crear negocio |
+| `task check` / `sqlc:check` / `shellcheck` / `secrets` / unitarias + integración completas | ✅ | govulncheck reintentado por DNS local |
+| Despliegue y E2E en QA | ⏳ | Tras el merge |

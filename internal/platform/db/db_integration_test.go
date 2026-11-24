@@ -107,6 +107,44 @@ func TestWithTxRollsBackOnError(t *testing.T) {
 	}
 }
 
+// TestWithTxJoinsTheContextTransaction: a nested WithTx with a context carrying the outer
+// transaction joins it, so an error in either part rolls back both (cross-module use cases).
+func TestWithTxJoinsTheContextTransaction(t *testing.T) {
+	createTable(t, `CREATE TABLE tx_join (id int PRIMARY KEY)`)
+	ctx := t.Context()
+	insertBoth := func(inner error) error {
+		return db.WithTx(ctx, pool, func(tx pgx.Tx) error {
+			if _, err := tx.Exec(ctx, `INSERT INTO tx_join VALUES (1)`); err != nil {
+				return err
+			}
+			joined := db.ContextWithTx(ctx, tx)
+			if got, ok := db.TxFromContext(joined); !ok || got != tx {
+				t.Fatal("TxFromContext lost the transaction")
+			}
+			// Another "module" runs its own WithTx with the joined context.
+			return db.WithTx(joined, pool, func(inner2 pgx.Tx) error {
+				if inner2 != tx {
+					t.Fatal("nested WithTx opened a new transaction")
+				}
+				if _, err := inner2.Exec(ctx, `INSERT INTO tx_join VALUES (2)`); err != nil {
+					return err
+				}
+				return inner
+			})
+		})
+	}
+	boom := errors.New("owner not eligible")
+	if err := insertBoth(boom); !errors.Is(err, boom) || count(t, "tx_join") != 0 {
+		t.Fatalf("inner failure: err=%v rows=%d, want both rows rolled back", err, count(t, "tx_join"))
+	}
+	if err := insertBoth(nil); err != nil || count(t, "tx_join") != 2 {
+		t.Fatalf("success: err=%v rows=%d, want both rows", err, count(t, "tx_join"))
+	}
+	if _, ok := db.TxFromContext(ctx); ok {
+		t.Error("plain context must not carry a transaction")
+	}
+}
+
 func TestWithTxRollsBackOnPanic(t *testing.T) {
 	createTable(t, `CREATE TABLE tx_panic (id int PRIMARY KEY)`)
 	func() {

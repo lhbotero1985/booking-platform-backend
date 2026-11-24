@@ -19,6 +19,9 @@ type Querier interface {
 	// Businesses module (T4.2). businesses is the tenant root: other tenant tables filter by
 	// business_id; here the row itself is the business.
 	InsertBusiness(ctx context.Context, arg InsertBusinessParams) error
+	// Administrator list: optional status and city filters, keyset pagination by id (UUIDv7, so
+	// roughly by creation time).
+	ListBusinesses(ctx context.Context, arg ListBusinessesParams) ([]ListBusinessesRow, error)
 	SlugTaken(ctx context.Context, slug string) (bool, error)
 	// Everything but id, slug, currency and created_at (slug changes and moves between countries
 	// are separate, audited operations).

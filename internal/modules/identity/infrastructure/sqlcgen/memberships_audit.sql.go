@@ -81,6 +81,30 @@ func (q *Queries) InsertAuditEntry(ctx context.Context, arg InsertAuditEntryPara
 	return err
 }
 
+const insertMembership = `-- name: InsertMembership :exec
+INSERT INTO memberships (id, user_id, business_id, role, status, created_at, updated_at)
+VALUES ($1, $2, $3, $4, 'ACTIVE', $5, $5)
+`
+
+type InsertMembershipParams struct {
+	ID         uuid.UUID
+	UserID     uuid.UUID
+	BusinessID uuid.UUID
+	Role       string
+	CreatedAt  time.Time
+}
+
+func (q *Queries) InsertMembership(ctx context.Context, arg InsertMembershipParams) error {
+	_, err := q.db.Exec(ctx, insertMembership,
+		arg.ID,
+		arg.UserID,
+		arg.BusinessID,
+		arg.Role,
+		arg.CreatedAt,
+	)
+	return err
+}
+
 const listActiveMembershipsByUser = `-- name: ListActiveMembershipsByUser :many
 SELECT business_id, role FROM memberships
 WHERE user_id = $1 AND status = 'ACTIVE'

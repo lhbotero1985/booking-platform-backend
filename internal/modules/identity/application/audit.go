@@ -28,6 +28,7 @@ const (
 	AuditAuthzDenied            = "authz.denied"
 	AuditPlatformAdminGranted   = "admin.platform_admin_granted"
 	AuditPlatformAdminRevoked   = "admin.platform_admin_revoked"
+	AuditMembershipGranted      = "membership.granted"
 )
 
 // AuditOutcome matches the audit_log_outcome_valid CHECK.
