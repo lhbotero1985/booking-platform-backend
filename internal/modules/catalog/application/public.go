@@ -221,9 +221,10 @@ func ordered(ids []uuid.UUID, pros []professionals.PublicProfessional) []uuid.UU
 // BookableService implements the catalog contract Booking (T6.2): the duration of an ACTIVE
 // service the professional performs, if that professional is bookable; catalog.ErrNotBookable
 // otherwise.
-func (s *Service) BookableService(ctx context.Context, businessID, serviceID, professionalID uuid.UUID) (int, error) {
+func (s *Service) BookableService(ctx context.Context, businessID, serviceID, professionalID uuid.UUID) (catalog.BookableService, error) {
+	var none catalog.BookableService
 	if s.public.Professionals == nil {
-		return 0, errNotConfigured
+		return none, errNotConfigured
 	}
 	var (
 		svc      domain.Service
@@ -240,20 +241,20 @@ func (s *Service) BookableService(ctx context.Context, businessID, serviceID, pr
 		return err
 	})
 	if errors.Is(err, ErrNotFound) {
-		return 0, catalog.ErrNotBookable
+		return none, catalog.ErrNotBookable
 	}
 	if err != nil {
-		return 0, err
+		return none, err
 	}
 	if svc.Status != domain.StatusActive || !performs {
-		return 0, catalog.ErrNotBookable
+		return none, catalog.ErrNotBookable
 	}
 	bookable, err := s.public.Professionals.BookableProfessionals(ctx, []uuid.UUID{businessID})
 	if err != nil {
-		return 0, err
+		return none, err
 	}
 	if !bookableSet(bookable)[professionalID] {
-		return 0, catalog.ErrNotBookable
+		return none, catalog.ErrNotBookable
 	}
-	return svc.DurationMinutes, nil
+	return catalog.BookableService{Name: svc.Name, DurationMinutes: svc.DurationMinutes, PriceMinor: svc.PriceMinor, Currency: svc.Currency}, nil
 }

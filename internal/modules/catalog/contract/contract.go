@@ -18,8 +18,16 @@ type Offerings interface {
 // it, or the professional is not bookable.
 var ErrNotBookable = errors.New("catalog: service not bookable with that professional")
 
-// Booking tells whether customers can book a service with a professional and for how long it
-// runs (T6.2). No authorization (public data).
+// BookableService is what a booking copies from the catalog (snapshot, T6.3).
+type BookableService struct {
+	Name            string
+	DurationMinutes int
+	PriceMinor      int64
+	Currency        string
+}
+
+// Booking tells whether customers can book a service with a professional, and its current
+// name, duration and price (T6.2, T6.3). No authorization (public data).
 type Booking interface {
-	BookableService(ctx context.Context, businessID, serviceID, professionalID uuid.UUID) (durationMinutes int, err error)
+	BookableService(ctx context.Context, businessID, serviceID, professionalID uuid.UUID) (BookableService, error)
 }

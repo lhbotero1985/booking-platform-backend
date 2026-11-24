@@ -33,6 +33,7 @@ import (
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/application/proftest"
 	professionalshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/interfaces/http"
 	schedapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/application"
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/application/schedtest"
 	schedulinghttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/interfaces/http"
 	subapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/application/subtest"
@@ -85,13 +86,13 @@ func startAuth(t *testing.T) authHarness {
 	profs := profapp.NewService(proftest.NewStore(), h.svc, h.clock)
 	cat := catapp.NewService(catalogtest.NewStore(), h.svc, biz, profs, h.clock)
 	app.LinkPublicCatalog(biz, cat, profs, biz)
-	sched := schedapp.NewService(schedapp.Deps{Businesses: biz, Catalog: cat, Professionals: profs, Clock: h.clock})
+	sched := schedapp.NewService(schedapp.Deps{Store: schedtest.NewStore(), Businesses: biz, Catalog: cat, Professionals: profs, Customers: h.svc, Clock: h.clock})
 	h.srv = httptest.NewServer(app.NewHTTPHandler(cfg, logger, app.Deps{Modules: []app.RouteRegistrar{
 		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),
 		subscriptionshttp.New(subs, logger, idh.RequireAuth),
 		professionalshttp.New(profs, logger, idh.RequireAuth),
 		cataloghttp.New(cat, logger, idh.RequireAuth),
-		schedulinghttp.New(sched, logger),
+		schedulinghttp.New(sched, logger, idh.RequireAuth),
 	}}))
 	t.Cleanup(h.srv.Close)
 	return h
@@ -250,8 +251,9 @@ func TestAuthenticatedRoutesRejectInvalidCredentials(t *testing.T) {
 		"suspended user":          bearerH(suspended),
 		"garbage session cookie":  {"Cookie": identityhttp.SessionCookie + "=garbage", "Origin": allowedOrigin},
 	}
+	routes := contractAuthenticatedRoutes(t)
 	check := func(name string, hdr map[string]string) {
-		for _, rt := range authenticatedRoutes {
+		for _, rt := range routes {
 			r := h.call(t, rt.method, rt.path, rt.body, hdr)
 			if r.status != http.StatusUnauthorized || r.header.Get("WWW-Authenticate") == "" ||
 				!strings.Contains(r.body, `"code":"UNAUTHENTICATED"`) || r.header.Get("Cache-Control") != "no-store" {

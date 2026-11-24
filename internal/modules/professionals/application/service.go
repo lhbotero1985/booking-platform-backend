@@ -375,6 +375,19 @@ func (s *Service) BookableProfessionals(ctx context.Context, businessIDs []uuid.
 	return out, nil
 }
 
+// LockAgenda implements the professionals contract Agenda (T6.3): the same row lock as
+// ReplaceSchedule, inside the caller's transaction.
+func (s *Service) LockAgenda(ctx context.Context, businessID, professionalID uuid.UUID) error {
+	err := s.store.WithinTx(ctx, func(ctx context.Context, tx Tx) error {
+		_, err := tx.LockProfessional(ctx, businessID, professionalID)
+		return err
+	})
+	if errors.Is(err, ErrNotFound) {
+		return profcontract.ErrProfessionalNotFound
+	}
+	return err
+}
+
 // DayAgenda implements the professionals contract Agenda (T6.2): working ranges and breaks of
 // the weekday and the absences overlapping [from, to). No authorization.
 func (s *Service) DayAgenda(ctx context.Context, businessID, professionalID uuid.UUID, weekday time.Weekday, from, to time.Time) (profcontract.DayAgenda, error) {

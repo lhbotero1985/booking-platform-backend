@@ -59,6 +59,7 @@ type User struct {
 	id              uuid.UUID
 	email           Email
 	fullName        string
+	phone           string // E.164 or ""
 	passwordHash    PasswordHash
 	status          UserStatus
 	isPlatformAdmin bool

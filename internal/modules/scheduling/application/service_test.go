@@ -13,6 +13,7 @@ import (
 	catalog "github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/contract"
 	professionals "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/application"
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/application/schedtest"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/domain"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
 )
@@ -32,22 +33,39 @@ func (f fakeBiz) PublicBookingPolicy(_ context.Context, slug string) (businesses
 	return f.pol, nil
 }
 
+func (f fakeBiz) PublicBookingPolicyOf(_ context.Context, id uuid.UUID) (businesses.BookingPolicy, error) {
+	if f.err != nil {
+		return businesses.BookingPolicy{}, f.err
+	}
+	if id != f.pol.BusinessID {
+		return businesses.BookingPolicy{}, businesses.ErrBusinessNotFound
+	}
+	return f.pol, nil
+}
+
 type fakeCatalog struct {
 	minutes int
 	err     error
 	got     [3]uuid.UUID
 }
 
-func (f *fakeCatalog) BookableService(_ context.Context, biz, svc, pro uuid.UUID) (int, error) {
+func (f *fakeCatalog) BookableService(_ context.Context, biz, svc, pro uuid.UUID) (catalog.BookableService, error) {
 	f.got = [3]uuid.UUID{biz, svc, pro}
-	return f.minutes, f.err
+	return catalog.BookableService{Name: "Corte", DurationMinutes: f.minutes, PriceMinor: 2_500_000, Currency: "COP"}, f.err
 }
 
 type fakeAgenda struct {
+	locks    int
+	lockErr  error
 	agenda   professionals.DayAgenda
 	err      error
 	weekday  time.Weekday
 	from, to time.Time
+}
+
+func (f *fakeAgenda) LockAgenda(context.Context, uuid.UUID, uuid.UUID) error {
+	f.locks++
+	return f.lockErr
 }
 
 func (f *fakeAgenda) DayAgenda(_ context.Context, _, _ uuid.UUID, wd time.Weekday, from, to time.Time) (professionals.DayAgenda, error) {
@@ -65,7 +83,7 @@ func TestPublicAvailability(t *testing.T) {
 		Absences:     []professionals.Interval{{Start: time.Date(2026, 3, 8, 7, 0, 0, 0, time.UTC), End: time.Date(2026, 3, 8, 7, 30, 0, 0, time.UTC)}}, // 03:00–03:30 EDT
 	}}
 	svcUnderTest := func(b fakeBiz) *application.Service {
-		return application.NewService(application.Deps{Businesses: b, Catalog: cat, Professionals: ag, Clock: clock.NewFixed(time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC))})
+		return application.NewService(application.Deps{Store: schedtest.NewStore(), Businesses: b, Catalog: cat, Professionals: ag, Clock: clock.NewFixed(time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC))})
 	}
 	s := svcUnderTest(fakeBiz{pol: pol})
 	day, _ := domain.ParseLocalDate("2026-03-08") // DST starts in New York

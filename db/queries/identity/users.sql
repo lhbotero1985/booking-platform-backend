@@ -13,6 +13,9 @@ SELECT * FROM users WHERE email = $1;
 -- name: UpdateUserPasswordHash :exec
 UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1;
 
+-- name: UpdateUserPhone :exec
+UPDATE users SET phone = $2, updated_at = now() WHERE id = $1;
+
 -- name: UpdateUserStatus :exec
 UPDATE users SET status = $2, updated_at = now() WHERE id = $1;
 

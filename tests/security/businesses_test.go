@@ -289,7 +289,8 @@ func TestPublicSearchExposesOnlyBookableBusinesses(t *testing.T) {
 		}
 		return svc, prof
 	}
-	visSvc, visProf := offer(ana, mk(ana, "Barbería Visible"), suiteEmail, true)
+	visBiz := mk(ana, "Barbería Visible")
+	visSvc, visProf := offer(ana, visBiz, suiteEmail, true)
 	offer(carla, mk(carla, "Barbería Sin Barberos"), "carla@example.com", false) // nothing bookable: hidden
 	hidden := mk(bob, "Barbería Suspendida")
 	hidSvc, hidProf := offer(bob, hidden, "bob@example.com", true)
@@ -367,6 +368,30 @@ func TestPublicSearchExposesOnlyBookableBusinesses(t *testing.T) {
 		if r.status != http.StatusNotFound || normalizeReply(t, r) != normalizeReply(t, avMissing) {
 			t.Errorf("availability, %s: %d %s", name, r.status, r.body)
 		}
+	}
+	// Booking (T6.3): a suspended business, or another business's service or professional under
+	// a visible business, is the same 404 as a business that does not exist; nothing is booked.
+	if r := h.call(t, http.MethodPut, "/api/v1/me/phone", `{"phone":"3001234567"}`, bearerH(carla)); r.status != http.StatusOK {
+		t.Fatalf("phone: %d %s", r.status, r.body)
+	}
+	book := func(biz, svc, prof, key string) reply {
+		hdr := bearerH(carla)
+		hdr["Idempotency-Key"] = key
+		return h.call(t, http.MethodPost, "/api/v1/appointments", `{"businessId":"`+biz+`","serviceId":"`+svc+`","professionalId":"`+prof+`","startAt":"2026-11-20T14:00:00Z"}`, hdr)
+	}
+	bookMissing := book("01a20aae-0000-7000-8000-000000000000", visSvc, visProf, "seguridad-0000")
+	for name, r := range map[string]reply{
+		"suspended business":              book(hidden, hidSvc, hidProf, "seguridad-0001"),
+		"another business's service/prof": book(visBiz, hidSvc, hidProf, "seguridad-0002"),
+		"another business's professional": book(visBiz, visSvc, hidProf, "seguridad-0003"),
+		"another business's service":      book(visBiz, hidSvc, visProf, "seguridad-0004"),
+	} {
+		if r.status != http.StatusNotFound || normalizeReply(t, r) != normalizeReply(t, bookMissing) {
+			t.Errorf("booking, %s: %d %s", name, r.status, r.body)
+		}
+	}
+	if r := book(visBiz, visSvc, visProf, "seguridad-0005"); r.status != http.StatusCreated {
+		t.Errorf("a valid booking: %d %s", r.status, r.body)
 	}
 	notFound := h.call(t, http.MethodGet, "/api/v1/businesses/no-existe", "", nil)
 	suspended := h.call(t, http.MethodGet, "/api/v1/businesses/barberia-suspendida", "", nil)

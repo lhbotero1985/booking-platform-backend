@@ -233,9 +233,39 @@ func (s *Service) PublicBookingPolicy(ctx context.Context, slug string) (bizcont
 	if err != nil {
 		return bizcontract.BookingPolicy{}, err
 	}
+	return bookingPolicyOf(b), nil
+}
+
+// PublicBookingPolicyOf implements the businesses contract PublicBooking by id (T6.3): same
+// visibility rules as the public detail (ACTIVE and entitled).
+func (s *Service) PublicBookingPolicyOf(ctx context.Context, businessID uuid.UUID) (bizcontract.BookingPolicy, error) {
+	var b *domain.Business
+	err := s.store.WithinTx(ctx, func(ctx context.Context, tx Tx) (err error) {
+		b, err = tx.BusinessByID(ctx, businessID)
+		return err
+	})
+	if err == nil && b.Status() != domain.StatusActive {
+		err = ErrNotFound
+	}
+	if err == nil {
+		var ok bool
+		if ok, err = s.entitlements.Entitled(ctx, b.ID()); err == nil && !ok {
+			err = ErrNotFound
+		}
+	}
+	if errors.Is(err, ErrNotFound) {
+		return bizcontract.BookingPolicy{}, bizcontract.ErrBusinessNotFound
+	}
+	if err != nil {
+		return bizcontract.BookingPolicy{}, err
+	}
+	return bookingPolicyOf(b), nil
+}
+
+func bookingPolicyOf(b *domain.Business) bizcontract.BookingPolicy {
 	p := b.Policy()
 	return bizcontract.BookingPolicy{
 		BusinessID: b.ID(), TimeZone: b.TimeZone(), SlotIntervalMinutes: p.SlotIntervalMinutes,
 		BufferMinutes: p.BufferMinutes, MinLeadMinutes: p.MinLeadMinutes, MaxAdvanceDays: p.MaxAdvanceDays,
-	}, nil
+	}
 }

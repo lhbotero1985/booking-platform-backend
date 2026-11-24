@@ -65,6 +65,8 @@ type Tx interface {
 	EnqueueVerificationEmail(ctx context.Context, userID uuid.UUID) error
 
 	UpdatePasswordHash(ctx context.Context, userID uuid.UUID, hash domain.PasswordHash) error
+	// UpdatePhone sets the E.164 phone of a user (T6.3).
+	UpdatePhone(ctx context.Context, userID uuid.UUID, phone string) error
 	// InsertMembership adds an ACTIVE membership (or reactivates a revoked one with the new
 	// role). It returns contract.ErrAlreadyMember if the user is already an active member.
 	InsertMembership(ctx context.Context, id, userID, businessID uuid.UUID, role contract.Role, now time.Time) error

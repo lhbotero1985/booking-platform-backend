@@ -1,8 +1,8 @@
 {
   "info": {
-    "name": "Booking Platform — QA (Fase 6: disponibilidad)",
+    "name": "Booking Platform — QA (Fase 6: disponibilidad y reservas)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Validación manual de la API en QA hasta la disponibilidad pública (T6.2).\n\n**Antes de empezar:** en la pestaña *Variables* de la colección escriba `email` y `password` de una cuenta **verificada** de QA que sea responsable (OWNER) de un negocio, o que aún no tenga negocio (el paso 3b lo crea). Ejecute las carpetas en orden (o *Run collection*).\n\nLos pasos 4–6 **modifican datos de QA** de esa cuenta: registran al responsable como barbero, reemplazan su horario semanal (lunes a sábado 09:00–18:00, descanso 13:00–14:00), crean una ausencia de 15:00 a 16:00 el día `targetDate` y el servicio \"Corte Postman\" (30 min). El paso 8 borra la ausencia.\n\n`targetDate` se calcula sola (dentro de 2 días, saltando domingo) si está vacía; puede fijarla (AAAA-MM-DD). Las horas libres aparecen en la consola de Postman (View → Show Postman Console)."
+    "description": "Validación manual de la API en QA hasta la disponibilidad pública (T6.2).\n\n**Antes de empezar:** en la pestaña *Variables* de la colección escriba `email` y `password` de una cuenta **verificada** de QA que sea responsable (OWNER) de un negocio, o que aún no tenga negocio (el paso 3b lo crea). Ejecute las carpetas en orden (o *Run collection*).\n\nLos pasos 4–6 **modifican datos de QA** de esa cuenta: registran al responsable como barbero, reemplazan su horario semanal (lunes a sábado 09:00–18:00, descanso 13:00–14:00), crean una ausencia de 15:00 a 16:00 el día `targetDate` y el servicio \"Corte Postman\" (30 min). Necesita un teléfono (`customerPhone`). El paso 8 reserva como cliente la primera hora libre (la cita queda creada; se podrá cancelar con T6.6) y prueba la repetición con la misma clave y el 409; el 9 borra la ausencia.\n\n`targetDate` se calcula sola (dentro de 2 días, saltando domingo) si está vacía; puede fijarla (AAAA-MM-DD). Las horas libres aparecen en la consola de Postman (View → Show Postman Console)."
   },
   "auth": {
     "type": "bearer",
@@ -81,6 +81,22 @@
     },
     {
       "key": "absenceId",
+      "value": ""
+    },
+    {
+      "key": "customerPhone",
+      "value": "300 123 4567"
+    },
+    {
+      "key": "firstSlot",
+      "value": ""
+    },
+    {
+      "key": "bookingKey",
+      "value": ""
+    },
+    {
+      "key": "appointmentId",
       "value": ""
     }
   ],
@@ -828,6 +844,7 @@
                   "const hhmm = s => s.startLocal.slice(11, 16);",
                   "const mins = t => +t.slice(0, 2) * 60 + +t.slice(3, 5);",
                   "const times = b.slots.map(hhmm);",
+                  "if (b.slots.length) pm.collectionVariables.set('firstSlot', b.slots[0].startAt);",
                   "console.log('Horas libres el', b.date, '(' + b.timeZone + ', ' + b.durationMinutes + ' min):', times.join(' '));",
                   "pm.test('hay horas libres', () => pm.expect(times.length).to.be.above(0));",
                   "pm.test('todas dentro del horario 09:00-18:00', () => times.forEach(t => pm.expect(mins(t) >= 540 && mins(t) + b.durationMinutes <= 1080, t).to.be.true));",
@@ -1040,7 +1057,322 @@
       ]
     },
     {
-      "name": "8. Limpieza",
+      "name": "8. Reservar (como cliente)",
+      "description": "La cita queda creada (se podrá cancelar con T6.6).",
+      "item": [
+        {
+          "name": "8a. Mi teléfono (obligatorio para reservar)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me/phone",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "me",
+                "phone"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{customerPhone}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const me = pm.response.json();",
+                  "pm.test('normalizado a E.164', () => pm.expect(me.phone).to.match(/^\\+[1-9][0-9]{6,14}$/));",
+                  "console.log('Teléfono guardado', me.phone);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8b. Reservar la primera hora libre",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{bookingKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/appointments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "appointments"
+              ]
+            },
+            "description": "Toma la primera hora que devolvió la disponibilidad (7). Cada corrida usa una Idempotency-Key nueva.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessId\": \"{{businessId}}\",\n  \"serviceId\": \"{{serviceId}}\",\n  \"professionalId\": \"{{professionalId}}\",\n  \"startAt\": \"{{firstSlot}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('bookingKey', 'postman-' + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "const a = pm.response.json();",
+                  "pm.collectionVariables.set('appointmentId', a.id);",
+                  "pm.test('pendiente de confirmación', () => pm.expect(a.status).to.eql('PENDING_CONFIRMATION'));",
+                  "pm.test('copia del servicio', () => pm.expect(a.serviceName).to.eql('Corte Postman'));",
+                  "pm.test('a la hora pedida', () => pm.expect(a.startAt).to.eql(pm.variables.get('firstSlot')));",
+                  "console.log('Cita', a.id, a.startAt, a.status);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8c. Repetir la MISMA reserva (misma clave) -> misma cita",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{bookingKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/appointments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "appointments"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessId\": \"{{businessId}}\",\n  \"serviceId\": \"{{serviceId}}\",\n  \"professionalId\": \"{{professionalId}}\",\n  \"startAt\": \"{{firstSlot}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.test('es la misma cita, no una nueva', () => pm.expect(pm.response.json().id).to.eql(pm.variables.get('appointmentId')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8d. Misma hora con OTRA clave -> 409 (no hay doble reserva)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "otra-clave-{{bookingKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/appointments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "appointments"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessId\": \"{{businessId}}\",\n  \"serviceId\": \"{{serviceId}}\",\n  \"professionalId\": \"{{professionalId}}\",\n  \"startAt\": \"{{firstSlot}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "pm.test('SLOT_UNAVAILABLE', () => pm.expect(pm.response.json().code).to.eql('SLOT_UNAVAILABLE'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8e. Misma clave con otra hora -> 422",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{bookingKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/appointments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "appointments"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessId\": \"{{businessId}}\",\n  \"serviceId\": \"{{serviceId}}\",\n  \"professionalId\": \"{{professionalId}}\",\n  \"startAt\": \"{{targetDate}}T22:00:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                  "pm.test('IDEMPOTENCY_KEY_REUSED', () => pm.expect(pm.response.json().code).to.eql('IDEMPOTENCY_KEY_REUSED'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8f. La disponibilidad ya no ofrece esa hora",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/{{slug}}/availability?serviceId={{serviceId}}&professionalId={{professionalId}}&date={{targetDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "businesses",
+                "{{slug}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "serviceId",
+                  "value": "{{serviceId}}"
+                },
+                {
+                  "key": "professionalId",
+                  "value": "{{professionalId}}"
+                },
+                {
+                  "key": "date",
+                  "value": "{{targetDate}}"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const starts = pm.response.json().slots.map(s => s.startAt);",
+                  "pm.test('la hora reservada desapareció', () => pm.expect(starts).to.not.include(pm.variables.get('firstSlot')));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "9. Limpieza",
       "description": "",
       "item": [
         {
