@@ -75,6 +75,13 @@ PROFESSIONAL solo el suyo (403). Errores por campo con ruta (`days[0].breaks[1]`
 `INVALID_WEEKDAY`, `DUPLICATE_WEEKDAY`, `INVALID_TIME`, `INVALID_RANGE`, `TOO_MANY_RANGES`,
 `OVERLAPPING_RANGES`, `BREAK_OUTSIDE_WORKING_HOURS`.
 
+### Ausencias (T5.4)
+`GET …/professionals/{professionalId}/absences?from=&to=` (OWNER, PROFESSIONAL; por defecto desde
+ahora y 2 años; máx. 200), `POST …/absences`, `PATCH …/absences/{absenceId}` y `DELETE …` (OWNER
+para cualquiera, PROFESSIONAL solo las suyas, 403). `start`/`end` en RFC 3339 con zona; se
+devuelven en UTC. 409 `ABSENCE_OVERLAP`; campos `INVALID_PERIOD`, `PERIOD_TOO_LONG`,
+`INVALID_REASON`, `INVALID_WINDOW`.
+
 ### Búsqueda pública (T4.6)
 `GET /businesses?cityId=&q=&cursor=&limit=` y `GET /businesses/{slug}` (sin autenticación):
 solo negocios `ACTIVE` con demo vigente o pagada; vista reducida sin datos internos.

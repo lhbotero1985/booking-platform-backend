@@ -194,6 +194,18 @@ check "barber adjusts his own week" 200 "$(status PUT "/api/v1/business/$mine/pr
 check "  monday is now off" "0 1" "$(json '"\(.days[0].workingHours | length) \(.days[1].breaks | length)"')"
 check "barber cannot edit the owner's week" 403 "$(status PUT "/api/v1/business/$mine/professionals/$powner/schedule" "$week" "$TS")"
 check "barber reads the owner's week" 200 "$(status GET "/api/v1/business/$mine/professionals/$powner/schedule" "" "$TS")"
+
+# --- absences (T5.4): the barber registers his own sick leave; overlaps are rejected ---------
+abs="/api/v1/business/$mine/professionals/$pbarber/absences"
+check "barber registers sick leave" 201 "$(status POST "$abs" '{"start":"2030-12-01T08:00:00-05:00","end":"2030-12-03T19:00:00-05:00","reason":"Incapacidad E2E"}' "$TS")"
+check "  stored in UTC" "2030-12-01T13:00:00Z" "$(json .start)"
+absence=$(json .id)
+check "overlapping absence" 409 "$(status POST "$abs" '{"start":"2030-12-02T00:00:00Z","end":"2030-12-04T00:00:00Z"}' "$T1")"
+check "  code ABSENCE_OVERLAP" ABSENCE_OVERLAP "$(json .code)"
+check "barber cannot register the owner's absence" 403 "$(status POST "/api/v1/business/$mine/professionals/$powner/absences" '{"start":"2030-12-05T00:00:00Z","end":"2030-12-06T00:00:00Z"}' "$TS")"
+check "owner lists the barber's absences" 1 "$(status GET "$abs?from=2030-01-01T00:00:00Z" "" "$T1" >/dev/null; json '.items | length')"
+check "barber changes the reason" 200 "$(status PATCH "$abs/$absence" '{"reason":"Cita médica"}' "$TS")"
+check "barber deletes it" 204 "$(status DELETE "$abs/$absence" "" "$TS")"
 status POST /api/v1/auth/logout "" "$TS" >/dev/null
 check "  one per account" 409 "$(status POST /api/v1/businesses "$own" "$T1")"
 check "  code ALREADY_OWNER" ALREADY_OWNER "$(json .code)"

@@ -12,6 +12,35 @@ import (
 	"github.com/google/uuid"
 )
 
+const absenceByID = `-- name: AbsenceByID :one
+SELECT id, business_id, professional_id, starts_at, ends_at, reason, created_by, created_at, updated_at
+FROM professional_absences
+WHERE business_id = $1 AND professional_id = $2 AND id = $3
+`
+
+type AbsenceByIDParams struct {
+	BusinessID     uuid.UUID
+	ProfessionalID uuid.UUID
+	ID             uuid.UUID
+}
+
+func (q *Queries) AbsenceByID(ctx context.Context, arg AbsenceByIDParams) (ProfessionalAbsence, error) {
+	row := q.db.QueryRow(ctx, absenceByID, arg.BusinessID, arg.ProfessionalID, arg.ID)
+	var i ProfessionalAbsence
+	err := row.Scan(
+		&i.ID,
+		&i.BusinessID,
+		&i.ProfessionalID,
+		&i.StartsAt,
+		&i.EndsAt,
+		&i.Reason,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const breaksOf = `-- name: BreaksOf :many
 SELECT weekday, (extract(epoch FROM start_time) / 60)::int AS start_minute,
        (extract(epoch FROM end_time) / 60)::int AS end_minute
@@ -51,6 +80,21 @@ func (q *Queries) BreaksOf(ctx context.Context, arg BreaksOfParams) ([]BreaksOfR
 	return items, nil
 }
 
+const deleteAbsence = `-- name: DeleteAbsence :exec
+DELETE FROM professional_absences WHERE business_id = $1 AND professional_id = $2 AND id = $3
+`
+
+type DeleteAbsenceParams struct {
+	BusinessID     uuid.UUID
+	ProfessionalID uuid.UUID
+	ID             uuid.UUID
+}
+
+func (q *Queries) DeleteAbsence(ctx context.Context, arg DeleteAbsenceParams) error {
+	_, err := q.db.Exec(ctx, deleteAbsence, arg.BusinessID, arg.ProfessionalID, arg.ID)
+	return err
+}
+
 const deleteBreaks = `-- name: DeleteBreaks :exec
 DELETE FROM professional_breaks WHERE business_id = $1 AND professional_id = $2
 `
@@ -76,6 +120,38 @@ type DeleteWorkingHoursParams struct {
 
 func (q *Queries) DeleteWorkingHours(ctx context.Context, arg DeleteWorkingHoursParams) error {
 	_, err := q.db.Exec(ctx, deleteWorkingHours, arg.BusinessID, arg.ProfessionalID)
+	return err
+}
+
+const insertAbsence = `-- name: InsertAbsence :exec
+
+INSERT INTO professional_absences (id, business_id, professional_id, starts_at, ends_at, reason, created_by, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
+`
+
+type InsertAbsenceParams struct {
+	ID             uuid.UUID
+	BusinessID     uuid.UUID
+	ProfessionalID uuid.UUID
+	StartsAt       time.Time
+	EndsAt         time.Time
+	Reason         string
+	CreatedBy      uuid.UUID
+	CreatedAt      time.Time
+}
+
+// Absences (T5.4).
+func (q *Queries) InsertAbsence(ctx context.Context, arg InsertAbsenceParams) error {
+	_, err := q.db.Exec(ctx, insertAbsence,
+		arg.ID,
+		arg.BusinessID,
+		arg.ProfessionalID,
+		arg.StartsAt,
+		arg.EndsAt,
+		arg.Reason,
+		arg.CreatedBy,
+		arg.CreatedAt,
+	)
 	return err
 }
 
@@ -165,6 +241,60 @@ func (q *Queries) InsertWorkingHours(ctx context.Context, arg InsertWorkingHours
 		arg.EndMinute,
 	)
 	return err
+}
+
+const listAbsences = `-- name: ListAbsences :many
+SELECT id, business_id, professional_id, starts_at, ends_at, reason, created_by, created_at, updated_at
+FROM professional_absences
+WHERE business_id = $1 AND professional_id = $2
+  AND ends_at > $3
+  AND starts_at < $4
+ORDER BY starts_at
+LIMIT $5
+`
+
+type ListAbsencesParams struct {
+	BusinessID     uuid.UUID
+	ProfessionalID uuid.UUID
+	FromTime       time.Time
+	ToTime         time.Time
+	MaxRows        int32
+}
+
+func (q *Queries) ListAbsences(ctx context.Context, arg ListAbsencesParams) ([]ProfessionalAbsence, error) {
+	rows, err := q.db.Query(ctx, listAbsences,
+		arg.BusinessID,
+		arg.ProfessionalID,
+		arg.FromTime,
+		arg.ToTime,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ProfessionalAbsence{}
+	for rows.Next() {
+		var i ProfessionalAbsence
+		if err := rows.Scan(
+			&i.ID,
+			&i.BusinessID,
+			&i.ProfessionalID,
+			&i.StartsAt,
+			&i.EndsAt,
+			&i.Reason,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listProfessionals = `-- name: ListProfessionals :many
@@ -259,6 +389,35 @@ func (q *Queries) ProfessionalByID(ctx context.Context, arg ProfessionalByIDPara
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const updateAbsence = `-- name: UpdateAbsence :exec
+UPDATE professional_absences
+SET starts_at = $4, ends_at = $5, reason = $6, updated_at = $7
+WHERE business_id = $1 AND professional_id = $2 AND id = $3
+`
+
+type UpdateAbsenceParams struct {
+	BusinessID     uuid.UUID
+	ProfessionalID uuid.UUID
+	ID             uuid.UUID
+	StartsAt       time.Time
+	EndsAt         time.Time
+	Reason         string
+	UpdatedAt      time.Time
+}
+
+func (q *Queries) UpdateAbsence(ctx context.Context, arg UpdateAbsenceParams) error {
+	_, err := q.db.Exec(ctx, updateAbsence,
+		arg.BusinessID,
+		arg.ProfessionalID,
+		arg.ID,
+		arg.StartsAt,
+		arg.EndsAt,
+		arg.Reason,
+		arg.UpdatedAt,
+	)
+	return err
 }
 
 const updateProfessional = `-- name: UpdateProfessional :exec

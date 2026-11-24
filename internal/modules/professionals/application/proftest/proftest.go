@@ -3,8 +3,10 @@ package proftest
 
 import (
 	"context"
+	"maps"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -19,12 +21,13 @@ type Store struct {
 	mu        sync.Mutex
 	profs     map[uuid.UUID]domain.Professional
 	schedules map[uuid.UUID]domain.WeeklySchedule
+	absences  map[uuid.UUID]domain.Absence
 	Audit     []audit.Entry
 }
 
 // NewStore returns an empty store.
 func NewStore() *Store {
-	return &Store{profs: map[uuid.UUID]domain.Professional{}, schedules: map[uuid.UUID]domain.WeeklySchedule{}}
+	return &Store{profs: map[uuid.UUID]domain.Professional{}, schedules: map[uuid.UUID]domain.WeeklySchedule{}, absences: map[uuid.UUID]domain.Absence{}}
 }
 
 // AuditActions lists the audited actions in order.
@@ -49,17 +52,11 @@ func (s *Store) Count() int {
 func (s *Store) WithinTx(ctx context.Context, fn func(context.Context, application.Tx) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	t := &tx{profs: make(map[uuid.UUID]domain.Professional, len(s.profs)), schedules: make(map[uuid.UUID]domain.WeeklySchedule, len(s.schedules))}
-	for k, v := range s.profs {
-		t.profs[k] = v
-	}
-	for k, v := range s.schedules {
-		t.schedules[k] = v
-	}
+	t := &tx{profs: maps.Clone(s.profs), schedules: maps.Clone(s.schedules), absences: maps.Clone(s.absences)}
 	if err := fn(ctx, t); err != nil {
 		return err
 	}
-	s.profs, s.schedules = t.profs, t.schedules
+	s.profs, s.schedules, s.absences = t.profs, t.schedules, t.absences
 	s.Audit = append(s.Audit, t.audit...)
 	return nil
 }
@@ -67,7 +64,56 @@ func (s *Store) WithinTx(ctx context.Context, fn func(context.Context, applicati
 type tx struct {
 	profs     map[uuid.UUID]domain.Professional
 	schedules map[uuid.UUID]domain.WeeklySchedule
+	absences  map[uuid.UUID]domain.Absence
 	audit     []audit.Entry
+}
+
+func (t *tx) overlaps(a domain.Absence) bool {
+	for _, o := range t.absences {
+		if o.ID != a.ID && o.ProfessionalID == a.ProfessionalID && a.Start.Before(o.End) && o.Start.Before(a.End) {
+			return true
+		}
+	}
+	return false
+}
+
+func (t *tx) InsertAbsence(_ context.Context, a domain.Absence) error {
+	if t.overlaps(a) {
+		return application.ErrAbsenceOverlap
+	}
+	t.absences[a.ID] = a
+	return nil
+}
+
+func (t *tx) UpdateAbsence(ctx context.Context, a domain.Absence) error {
+	return t.InsertAbsence(ctx, a)
+}
+
+func (t *tx) DeleteAbsence(_ context.Context, a domain.Absence) error {
+	delete(t.absences, a.ID)
+	return nil
+}
+
+func (t *tx) AbsenceByID(_ context.Context, businessID, professionalID, id uuid.UUID) (domain.Absence, error) {
+	a, ok := t.absences[id]
+	if !ok || a.BusinessID != businessID || a.ProfessionalID != professionalID {
+		return domain.Absence{}, application.ErrNotFound
+	}
+	return a, nil
+}
+
+func (t *tx) ListAbsences(_ context.Context, businessID, professionalID uuid.UUID, from, to time.Time, limit int) ([]domain.Absence, error) {
+	var out []domain.Absence
+	for _, a := range t.absences {
+		if a.BusinessID == businessID && a.ProfessionalID == professionalID && a.End.After(from) && a.Start.Before(to) {
+			out = append(out, a)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Start.Before(out[j].Start) })
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
 }
 
 func (t *tx) LockProfessional(ctx context.Context, businessID, id uuid.UUID) (domain.Professional, error) {

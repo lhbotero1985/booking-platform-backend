@@ -1499,6 +1499,176 @@ paths:
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
 
+  /api/v1/business/{businessId}/professionals/{professionalId}/absences:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: professionalId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Professionals]
+      operationId: listProfessionalAbsences
+      summary: Absences of a professional (OWNER, PROFESSIONAL)
+      description: |
+        Absences overlapping `[from, to)`, ordered by start, at most 200. Defaults: `from` = now,
+        `to` = `from` + 2 years. Times in UTC.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: The absences.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AbsenceList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Professionals]
+      operationId: createProfessionalAbsence
+      summary: Register an absence (OWNER, or the professional itself)
+      description: |
+        Vacation, sick leave or any time off: `start` < `end` (date and time with offset), at most
+        366 days, optional `reason`. Absences of the same professional never overlap (409
+        `ABSENCE_OVERLAP`). A PROFESSIONAL may only register its own (403). Audited.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AbsenceRequest"
+      responses:
+        "201":
+          description: Absence registered.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Absence"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/business/{businessId}/professionals/{professionalId}/absences/{absenceId}:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: professionalId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: absenceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      tags: [Professionals]
+      operationId: updateProfessionalAbsence
+      summary: Change an absence (OWNER, or the professional itself)
+      description: Only the fields present change; same rules as on creation. Audited.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AbsenceRequest"
+      responses:
+        "200":
+          description: The updated absence.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Absence"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+    delete:
+      tags: [Professionals]
+      operationId: deleteProfessionalAbsence
+      summary: Delete an absence (OWNER, or the professional itself)
+      description: Audited.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "204":
+          description: Absence deleted.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   parameters:
     CountryCode:
@@ -2513,6 +2683,62 @@ components:
             allOf:
               - $ref: "#/components/schemas/ScheduleDay"
               - required: [weekday, workingHours, breaks]
+
+    AbsenceRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        start:
+          type: string
+          format: date-time
+          example: "2026-12-01T08:00:00-05:00"
+        end:
+          type: string
+          format: date-time
+          example: "2026-12-03T19:00:00-05:00"
+        reason:
+          type: string
+          maxLength: 200
+          example: Incapacidad médica
+
+    Absence:
+      type: object
+      additionalProperties: false
+      required: [id, professionalId, start, end, reason, createdBy, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        professionalId:
+          type: string
+          format: uuid
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        reason:
+          type: string
+        createdBy:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AbsenceList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Absence"
 
   responses:
     Unauthorized:

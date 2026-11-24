@@ -255,4 +255,22 @@ func TestContractProfessionals(t *testing.T) {
 	c.callAuth(t, e.srv, http.MethodPut, biz+"/"+id+"/schedule", `{"days":[{"weekday":"TUESDAY","workingHours":[{"start":"10:00","end":"18:00"}]}]}`, barberTok, http.StatusOK)
 	c.callAuth(t, e.srv, http.MethodPut, biz+"/"+ownerProf+"/schedule", week, barberTok, http.StatusForbidden)
 	c.callAuth(t, e.srv, http.MethodGet, biz+"/00000000-0000-0000-0000-000000000001/schedule", "", ownerTok, http.StatusNotFound)
+
+	// Absences (T5.4): the OWNER for anyone, the barber his own.
+	abs := biz + "/" + id + "/absences"
+	created = c.callAuth(t, e.srv, http.MethodPost, abs, `{"start":"2030-12-01T08:00:00-05:00","end":"2030-12-03T19:00:00-05:00","reason":"Incapacidad"}`, barberTok, http.StatusCreated)
+	if !strings.Contains(created, `"start":"2030-12-01T13:00:00Z"`) {
+		t.Errorf("absence = %s", created)
+	}
+	absID := regexp.MustCompile(`"id":"([^"]+)"`).FindStringSubmatch(created)[1]
+	c.callAuth(t, e.srv, http.MethodPost, abs, `{"start":"2030-12-02T00:00:00Z","end":"2030-12-04T00:00:00Z"}`, ownerTok, http.StatusConflict)
+	c.callAuth(t, e.srv, http.MethodPost, abs, `{"start":"2030-12-05T00:00:00Z","end":"2030-12-04T00:00:00Z"}`, ownerTok, http.StatusBadRequest)
+	c.callAuth(t, e.srv, http.MethodPost, biz+"/"+ownerProf+"/absences", `{"start":"2030-12-05T00:00:00Z","end":"2030-12-06T00:00:00Z"}`, barberTok, http.StatusForbidden)
+	if list := c.callAuth(t, e.srv, http.MethodGet, abs+"?from=2030-01-01T00:00:00Z", "", ownerTok, http.StatusOK); !strings.Contains(list, absID) {
+		t.Errorf("absences = %s", list)
+	}
+	c.callAuth(t, e.srv, http.MethodGet, abs+"?from=ayer", "", ownerTok, http.StatusBadRequest)
+	c.callAuth(t, e.srv, http.MethodPatch, abs+"/"+absID, `{"reason":"Cita médica"}`, barberTok, http.StatusOK)
+	c.callAuth(t, e.srv, http.MethodDelete, abs+"/"+absID, "", barberTok, http.StatusNoContent)
+	c.callAuth(t, e.srv, http.MethodDelete, abs+"/"+absID, "", ownerTok, http.StatusNotFound)
 }
