@@ -752,4 +752,18 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `TestEveryRouteIsDocumented` / `TestEveryBusinessRouteIsTenantIsolated` | ✅ | **49 rutas documentadas**; **16 operaciones `{businessId}`** aisladas; las ausencias de Bob no cambian |
 | `TestContractProfessionals` | ✅ | Ausencias contra OpenAPI: 201/200/204/400/403/404/409 |
 | `task check` (lint 0) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | govulncheck tras reintento por DNS local |
-| Despliegue y E2E en QA | ⏳ | Tras el merge (E2E ampliado con 9 comprobaciones de ausencias) |
+| PR #43 — ci + security | ✅ 6/6 | Squash `facfa0c` |
+| `release-qa` | ✅ | Migración 13 aplicada, smoke test ✅ |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **118/118** | Ausencia del barbero guardada en UTC, solape 409 `ABSENCE_OVERLAP`, 403 sobre las del responsable, edición y borrado |
+
+## 2026-11-24 · Fase 5 · T5.5 — Catálogo de servicios
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `go test ./internal/modules/catalog/...` | ✅ | domain **100 %** (nombres, descripción, duración 5–480 ×5, precio sin centavos, estado, orden); application **96,0 %**: categorías (duplicado sin distinguir mayúsculas, edición con campos auditados, no-op, borrar deja servicios sin categoría), servicios ("Corte + barba" 45 min 35.000 COP, moneda del negocio, campos requeridos, categoría ajena → `CATEGORY_NOT_FOUND`, quitar categoría, no-op), barbero lee pero 403 al gestionar, extraño 404, admin, negocio inexistente |
+| `TestCurrencyOf` (businesses) | ✅ | COP; negocio inexistente → `ErrBusinessNotFound` |
+| `TestCatalogOnPostgres` | ✅ | Moneda COP desde el negocio; nombres únicos por negocio sin distinguir mayúsculas y reutilizables en otro negocio; categoría ajena rechazada (aplicación y **FK compuesta**); CHECK de duración y precio; borrar categoría → servicio sin categoría; **6 altas simultáneas del mismo nombre (mayúsculas mezcladas) → 1 servicio**; 5 entradas de auditoría |
+| `TestEveryRouteIsDocumented` / `TestEveryBusinessRouteIsTenantIsolated` | ✅ | **57 rutas documentadas** (antes de documentar, la prueba detectó las 8 rutas nuevas); **24 operaciones `{businessId}`** aisladas con IDs reales de categoría y servicio; el catálogo de Bob no cambia; falla si queda un placeholder sin resolver |
+| `TestContractCatalog` | ✅ | 8 operaciones contra OpenAPI: 200/201/204/400/401/403/404/409 |
+| `task check` (lint 0, vuln) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
+| Despliegue y E2E en QA | ⏳ | Tras el merge (E2E ampliado con 9 comprobaciones de catálogo) |

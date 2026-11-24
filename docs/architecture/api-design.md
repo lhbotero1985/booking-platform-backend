@@ -82,6 +82,14 @@ para cualquiera, PROFESSIONAL solo las suyas, 403). `start`/`end` en RFC 3339 co
 devuelven en UTC. 409 `ABSENCE_OVERLAP`; campos `INVALID_PERIOD`, `PERIOD_TOO_LONG`,
 `INVALID_REASON`, `INVALID_WINDOW`.
 
+### Catálogo (T5.5)
+`GET/POST /business/{businessId}/service-categories`, `PATCH/DELETE …/{categoryId}`;
+`GET/POST /business/{businessId}/services`, `GET/PATCH …/services/{serviceId}`. Lectura: OWNER y
+PROFESSIONAL; escritura: OWNER (403). Dinero como `priceMinor` (unidades menores, múltiplo de 100:
+sin centavos) + `currency` del negocio. `categoryId: null` en PATCH quita la categoría. 409
+`CATEGORY_NAME_TAKEN` / `SERVICE_NAME_TAKEN`; campos `INVALID_DURATION`, `INVALID_PRICE`,
+`CATEGORY_NOT_FOUND`, `INVALID_ID`.
+
 ### Búsqueda pública (T4.6)
 `GET /businesses?cityId=&q=&cursor=&limit=` y `GET /businesses/{slug}` (sin autenticación):
 solo negocios `ACTIVE` con demo vigente o pagada; vista reducida sin datos internos.

@@ -274,3 +274,42 @@ func TestContractProfessionals(t *testing.T) {
 	c.callAuth(t, e.srv, http.MethodDelete, abs+"/"+absID, "", barberTok, http.StatusNoContent)
 	c.callAuth(t, e.srv, http.MethodDelete, abs+"/"+absID, "", ownerTok, http.StatusNotFound)
 }
+
+func TestContractCatalog(t *testing.T) {
+	c := loadContract(t)
+	e := newGeoServer(t)
+	ownerTok := e.signIn(t, "dueno@example.com")
+	barberTok := e.signIn(t, "barbero@example.com")
+	body := c.callAuth(t, e.srv, http.MethodPost, "/api/v1/businesses", `{"name":"Barbería Catálogo","contactPhone":"3001234567","cityId":"`+geotest.CaliID.String()+`","addressLine":"Calle 1"}`, ownerTok, http.StatusCreated)
+	base := "/api/v1/business/" + regexp.MustCompile(`"id":"([^"]+)"`).FindStringSubmatch(body)[1]
+	c.callAuth(t, e.srv, http.MethodPost, base+"/members", `{"email":"barbero@example.com","role":"PROFESSIONAL"}`, ownerTok, http.StatusCreated)
+	idOf := func(s string) string { return regexp.MustCompile(`"id":"([^"]+)"`).FindStringSubmatch(s)[1] }
+
+	cat := idOf(c.callAuth(t, e.srv, http.MethodPost, base+"/service-categories", `{"name":"Barba","sortOrder":1}`, ownerTok, http.StatusCreated))
+	c.callAuth(t, e.srv, http.MethodPost, base+"/service-categories", `{"name":"barba"}`, ownerTok, http.StatusConflict)
+	c.callAuth(t, e.srv, http.MethodPost, base+"/service-categories", `{"name":"Uñas"}`, barberTok, http.StatusForbidden)
+	c.callAuth(t, e.srv, http.MethodGet, base+"/service-categories", "", barberTok, http.StatusOK)
+	c.callAuth(t, e.srv, http.MethodPatch, base+"/service-categories/"+cat, `{"status":"INACTIVE"}`, ownerTok, http.StatusOK)
+
+	created := c.callAuth(t, e.srv, http.MethodPost, base+"/services", `{"name":"Corte + barba","description":"Toalla caliente","categoryId":"`+cat+`","durationMinutes":45,"priceMinor":3500000}`, ownerTok, http.StatusCreated)
+	if !strings.Contains(created, `"currency":"COP"`) || !strings.Contains(created, `"categoryId":"`+cat+`"`) {
+		t.Errorf("service = %s", created)
+	}
+	svc := idOf(created)
+	c.callAuth(t, e.srv, http.MethodPost, base+"/services", `{"name":"Corte","durationMinutes":30,"priceMinor":2500000}`, ownerTok, http.StatusCreated)
+	c.callAuth(t, e.srv, http.MethodPost, base+"/services", `{"name":"CORTE","durationMinutes":30,"priceMinor":2500000}`, ownerTok, http.StatusConflict)
+	c.callAuth(t, e.srv, http.MethodPost, base+"/services", `{"name":"Tinte","durationMinutes":30,"priceMinor":2500000,"categoryId":"01a20aae-0000-7000-8000-000000000000"}`, ownerTok, http.StatusBadRequest)
+	c.callAuth(t, e.srv, http.MethodPost, base+"/services", `{"name":"Tinte","durationMinutes":30,"priceMinor":2500000}`, barberTok, http.StatusForbidden)
+	if list := c.callAuth(t, e.srv, http.MethodGet, base+"/services", "", barberTok, http.StatusOK); !strings.Contains(list, `"name":"Corte + barba"`) {
+		t.Errorf("services = %s", list)
+	}
+	c.callAuth(t, e.srv, http.MethodGet, base+"/services/"+svc, "", barberTok, http.StatusOK)
+	c.callAuth(t, e.srv, http.MethodGet, base+"/services/01a20aae-0000-7000-8000-000000000000", "", ownerTok, http.StatusNotFound)
+	if upd := c.callAuth(t, e.srv, http.MethodPatch, base+"/services/"+svc, `{"priceMinor":4000000,"categoryId":null}`, ownerTok, http.StatusOK); !strings.Contains(upd, `"categoryId":null`) {
+		t.Errorf("updated = %s", upd)
+	}
+	c.callAuth(t, e.srv, http.MethodPatch, base+"/services/"+svc, `{"priceMinor":4000000}`, barberTok, http.StatusForbidden)
+	c.callAuth(t, e.srv, http.MethodDelete, base+"/service-categories/"+cat, "", ownerTok, http.StatusNoContent)
+	c.callAuth(t, e.srv, http.MethodDelete, base+"/service-categories/"+cat, "", ownerTok, http.StatusNotFound)
+	c.callAuth(t, e.srv, http.MethodGet, base+"/services", "", "", http.StatusUnauthorized)
+}

@@ -206,6 +206,18 @@ check "barber cannot register the owner's absence" 403 "$(status POST "/api/v1/b
 check "owner lists the barber's absences" 1 "$(status GET "$abs?from=2030-01-01T00:00:00Z" "" "$T1" >/dev/null; json '.items | length')"
 check "barber changes the reason" 200 "$(status PATCH "$abs/$absence" '{"reason":"Cita médica"}' "$TS")"
 check "barber deletes it" 204 "$(status DELETE "$abs/$absence" "" "$TS")"
+
+# --- catalog (T5.5): the OWNER sets categories and services; the barber only reads ----------
+check "create category" 201 "$(status POST "/api/v1/business/$mine/service-categories" '{"name":"Barba"}' "$T1")"
+cat=$(json .id)
+check "category name taken (any case)" 409 "$(status POST "/api/v1/business/$mine/service-categories" '{"name":"BARBA"}' "$T1")"
+check "create 'Corte + barba'" 201 "$(status POST "/api/v1/business/$mine/services" "{\"name\":\"Corte + barba\",\"categoryId\":\"$cat\",\"durationMinutes\":45,\"priceMinor\":3500000}" "$T1")"
+check "  45 min, 35.000 COP" "45 3500000 COP" "$(json '"\(.durationMinutes) \(.priceMinor) \(.currency)"')"
+svc=$(json .id)
+check "price with cents rejected" 400 "$(status POST "/api/v1/business/$mine/services" '{"name":"Tinte","durationMinutes":30,"priceMinor":2500050}' "$T1")"
+check "barber cannot create services" 403 "$(status POST "/api/v1/business/$mine/services" '{"name":"Tinte","durationMinutes":30,"priceMinor":2500000}' "$TS")"
+check "barber lists services" 1 "$(status GET "/api/v1/business/$mine/services" "" "$TS" >/dev/null; json '.items | length')"
+check "owner changes the price" 4000000 "$(status PATCH "/api/v1/business/$mine/services/$svc" '{"priceMinor":4000000}' "$T1" >/dev/null; json .priceMinor)"
 status POST /api/v1/auth/logout "" "$TS" >/dev/null
 check "  one per account" 409 "$(status POST /api/v1/businesses "$own" "$T1")"
 check "  code ALREADY_OWNER" ALREADY_OWNER "$(json .code)"

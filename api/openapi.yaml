@@ -22,6 +22,8 @@ servers:
     description: DEV (Docker Compose)
 
 tags:
+  - name: Catalog
+    description: Service categories and services of a business (T5.5).
   - name: Operations
     description: Liveness and readiness probes. Public, no authentication.
   - name: Auth
@@ -1669,6 +1671,295 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/business/{businessId}/service-categories:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Catalog]
+      operationId: listServiceCategories
+      summary: Service categories of your business (OWNER, PROFESSIONAL)
+      description: |
+        Ordered by `sortOrder` and name. Categories are optional.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The categories.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceCategoryList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Catalog]
+      operationId: createServiceCategory
+      summary: Create a service category (OWNER)
+      description: |
+        Name 2–60, unique per business ignoring case (409 `CATEGORY_NAME_TAKEN`). Audited.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServiceCategoryRequest"
+      responses:
+        "201":
+          description: Category created.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceCategory"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/business/{businessId}/service-categories/{categoryId}:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: categoryId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      tags: [Catalog]
+      operationId: updateServiceCategory
+      summary: Update a service category (OWNER)
+      description: |
+        Only the fields present change. Audited.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateServiceCategoryRequest"
+      responses:
+        "200":
+          description: The updated category.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceCategory"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+    delete:
+      tags: [Catalog]
+      operationId: deleteServiceCategory
+      summary: Delete a service category (OWNER)
+      description: |
+        Its services stay, uncategorized. Audited.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "204":
+          description: Category deleted.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/business/{businessId}/services:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Catalog]
+      operationId: listServices
+      summary: Services of your business (OWNER, PROFESSIONAL)
+      description: |
+        Active and inactive, ordered by `sortOrder` and name.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The services.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogServiceList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Catalog]
+      operationId: createService
+      summary: Create a service (OWNER)
+      description: |
+        The service sets the duration (the same for every professional; 5–480 minutes in steps of 5)
+        and the price in the business's currency, in minor units without cents (`priceMinor`
+        multiple of 100; 25.000 COP = 2500000). A combo such as "corte + barba" is an ordinary
+        service. Name unique per business ignoring case (409 `SERVICE_NAME_TAKEN`); `categoryId`
+        optional and of the same business (`CATEGORY_NOT_FOUND`). Audited.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServiceRequest"
+      responses:
+        "201":
+          description: Service created.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogService"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/business/{businessId}/services/{serviceId}:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: serviceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Catalog]
+      operationId: getService
+      summary: A service of your business (OWNER, PROFESSIONAL)
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The service.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogService"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Catalog]
+      operationId: updateService
+      summary: Update a service (OWNER)
+      description: |
+        Only the fields present change; `categoryId: null` removes the category. Audited with the
+        changed fields.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateServiceRequest"
+      responses:
+        "200":
+          description: The updated service.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogService"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
 components:
   parameters:
     CountryCode:
@@ -2739,6 +3030,180 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Absence"
+
+    ServiceCategory:
+      type: object
+      additionalProperties: false
+      required: [id, name, status, sortOrder, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ServiceCategoryList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceCategory"
+
+    CreateServiceCategoryRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 60
+          example: Cortes
+        sortOrder:
+          type: integer
+          minimum: 0
+          maximum: 1000
+
+    UpdateServiceCategoryRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 60
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+        sortOrder:
+          type: integer
+          minimum: 0
+          maximum: 1000
+
+    CatalogService:
+      type: object
+      additionalProperties: false
+      required: [id, categoryId, name, description, durationMinutes, priceMinor, currency, status, sortOrder, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        categoryId:
+          type: [string, "null"]
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        durationMinutes:
+          type: integer
+          example: 45
+        priceMinor:
+          type: integer
+          format: int64
+          description: Minor units of `currency` (COP 35.000 = 3500000).
+          example: 3500000
+        currency:
+          type: string
+          example: COP
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CatalogServiceList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogService"
+
+    CreateServiceRequest:
+      type: object
+      additionalProperties: false
+      required: [name, durationMinutes, priceMinor]
+      properties:
+        name:
+          type: string
+          maxLength: 80
+          example: Corte + barba
+        description:
+          type: string
+          maxLength: 500
+        categoryId:
+          type: [string, "null"]
+          format: uuid
+        durationMinutes:
+          type: integer
+          minimum: 5
+          maximum: 480
+          multipleOf: 5
+          example: 45
+        priceMinor:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 1000000000
+          multipleOf: 100
+          example: 3500000
+        sortOrder:
+          type: integer
+          minimum: 0
+          maximum: 1000
+
+    UpdateServiceRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 80
+        description:
+          type: string
+          maxLength: 500
+        categoryId:
+          type: [string, "null"]
+          format: uuid
+        durationMinutes:
+          type: integer
+          minimum: 5
+          maximum: 480
+          multipleOf: 5
+        priceMinor:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 1000000000
+          multipleOf: 100
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+        sortOrder:
+          type: integer
+          minimum: 0
+          maximum: 1000
 
   responses:
     Unauthorized:

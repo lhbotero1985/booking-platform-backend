@@ -82,11 +82,15 @@ professional_absences(id, business_id, professional_id, starts_at, ends_at, reas
 
 ### Catalog
 ```sql
-service_categories(id, business_id, name, sort_order, active, unique(business_id, name))
-services(id, business_id, category_id, name, description, price_minor bigint check (>= 0),
-         currency char(3), duration_minutes int check (between 5 and 480), kind text,
-         status text, unique(business_id, name))
-service_components(service_id, component_service_id)       -- combos, informativo
+service_categories(id, business_id, name, status, sort_order, unique(business_id, id))
+  -- índice único (business_id, lower(name))
+services(id, business_id, category_id null, name, description,
+         price_minor bigint check (0..1e9 y % 100 = 0), currency char(3),
+         duration_minutes int check (5..480 y % 5 = 0), status, sort_order,
+         unique(business_id, id))
+  -- T5.5 (00014): índice único (business_id, lower(name)); FK compuesta (business_id,
+  -- category_id) → service_categories ON DELETE SET NULL (category_id). Sin kind ni
+  -- service_components: un combo es un servicio normal (decisión 2026-11-24).
 service_professionals(business_id, service_id, professional_id,
                       primary key(service_id, professional_id))
   -- FK compuestas (business_id, service_id) y (business_id, professional_id)

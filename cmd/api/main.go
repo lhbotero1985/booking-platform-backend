@@ -26,6 +26,7 @@ import (
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/app"
 	businesseshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/interfaces/http"
+	cataloghttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/interfaces/http"
 	geographyhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/interfaces/http"
 	identityhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/interfaces/http"
 	professionalshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/interfaces/http"
@@ -114,6 +115,7 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	subscriptionsSvc := app.NewSubscriptionsService(pool, identitySvc)
 	businessesSvc := app.NewBusinessesService(pool, identitySvc, geographySvc, subscriptionsSvc)
 	professionalsSvc := app.NewProfessionalsService(pool, identitySvc)
+	catalogSvc := app.NewCatalogService(pool, identitySvc, businessesSvc)
 
 	handler := app.NewHTTPHandler(cfg, logger, app.Deps{
 		Readiness: []app.Check{
@@ -126,6 +128,7 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 			businesseshttp.New(businessesSvc, logger, identityHandler.RequireAuth, limiters.Auth),
 			subscriptionshttp.New(subscriptionsSvc, logger, identityHandler.RequireAuth),
 			professionalshttp.New(professionalsSvc, logger, identityHandler.RequireAuth),
+			cataloghttp.New(catalogSvc, logger, identityHandler.RequireAuth),
 		},
 		APILimiter: limiters.API,
 	})

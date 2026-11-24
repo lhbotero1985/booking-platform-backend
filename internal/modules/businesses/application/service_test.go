@@ -11,6 +11,7 @@ import (
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/application/biztest"
+	bizcontract "github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/domain"
 	geography "github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/contract"
 	identity "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
@@ -318,5 +319,20 @@ func TestCreationIsAtomicWithTheDemo(t *testing.T) {
 	}
 	if e.store.Count() != 0 || len(e.store.Audit) != 0 {
 		t.Errorf("business persisted without its demo: %d %v", e.store.Count(), e.store.AuditActions())
+	}
+}
+
+func TestCurrencyOf(t *testing.T) {
+	ctx := context.Background()
+	e := newEnv()
+	b, err := e.svc.CreateOwnBusiness(ctx, identity.Principal{UserID: uuid.Must(uuid.NewV7())}, validBusiness())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c, err := e.svc.CurrencyOf(ctx, b.ID()); err != nil || c != "COP" {
+		t.Errorf("currency = %q %v", c, err)
+	}
+	if _, err := e.svc.CurrencyOf(ctx, uuid.Must(uuid.NewV7())); !errors.Is(err, bizcontract.ErrBusinessNotFound) {
+		t.Errorf("unknown business: %v", err)
 	}
 }

@@ -233,6 +233,40 @@ linters:
               desc: la aplicación depende de puertos, no de su implementación
             - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/interfaces
               desc: la aplicación no conoce el transporte
+        # Fronteras del módulo catalog (T5.5).
+        catalog-module-boundary:
+          list-mode: lax
+          files:
+            - "**/internal/modules/catalog/**"
+          allow:
+            - github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog
+            - github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract
+            - github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/contract
+          deny:
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules
+              desc: los módulos se comunican solo vía su paquete contract
+        catalog-domain-inward:
+          list-mode: lax
+          files:
+            - "**/internal/modules/catalog/domain/**"
+          deny:
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/application
+              desc: el dominio no conoce los casos de uso
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/infrastructure
+              desc: el dominio no conoce la infraestructura
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/identity
+              desc: el dominio de catalog no depende de otros módulos
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses
+              desc: el dominio de catalog no depende de otros módulos
+        catalog-application-inward:
+          list-mode: lax
+          files:
+            - "**/internal/modules/catalog/application/**"
+          deny:
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/infrastructure
+              desc: la aplicación depende de puertos, no de su implementación
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/interfaces
+              desc: la aplicación no conoce el transporte
     forbidigo:
       forbid:
         - pattern: ^(fmt\.Print.*|print|println)$

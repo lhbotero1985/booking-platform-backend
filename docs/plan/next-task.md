@@ -1,8 +1,8 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T5.4 — Ausencias e incapacidades (2026-11-24), en `feature/t5.4-absences` (commit y push; PR y
-merge pendientes de autorización).
+T5.5 — Catálogo de servicios (2026-11-24), en `feature/t5.5-catalog` (commit y push; PR y merge
+pendientes de autorización).
 
 **Fase 5 en curso** (desglose aprobado 2026-11-24, ver `roadmap.md`).
 
@@ -11,11 +11,10 @@ merge pendientes de autorización).
 `feature/*` (nace de `qa`) → PR → `qa` → despliegue automático a QA → validación. `qa` → `main`
 solo al pasar a producción.
 
-## Próxima tarea: T5.5 — Catálogo de servicios
+## Próxima tarea: T5.6 — Servicios que presta cada profesional
 
-- Categorías opcionales (nombre único por negocio, orden, activa).
-- Servicios: nombre (único por negocio), descripción, duración en minutos y precio en COP
-  (enteros en unidades menores + `currency` del negocio), activo/inactivo, orden.
-- "Corte + barba" es un servicio normal con su propio precio y duración (decisión 2026-11-24);
-  la duración la da el servicio y es igual para todos los barberos.
-- Solo el OWNER (o PLATFORM_ADMIN) gestiona; el equipo lo consulta; otro negocio 404; auditoría.
+- Tabla `service_professionals(business_id, service_id, professional_id)` con FK compuestas a
+  `services` y `professionals` del mismo negocio.
+- El OWNER asigna qué servicios presta cada barbero (reemplazo de la lista completa en una
+  transacción); el equipo lo consulta.
+- Solo servicios y profesionales del mismo negocio; otro negocio 404; auditoría.
