@@ -26,7 +26,7 @@ func TestContractBusinessEndpoints(t *testing.T) {
 	create := `{"name":"Barbería El Paisa","contactPhone":"300 123 4567","cityId":"` + cali + `","addressLine":"Calle 5 # 38-25","coordinates":{"latitude":3.4516,"longitude":-76.532},"ownerEmail":"dueno@example.com"}`
 
 	body := c.callAuth(t, e.srv, http.MethodPost, "/api/v1/admin/businesses", create, adminTok, http.StatusCreated)
-	for _, want := range []string{`"status":"PENDING_REVIEW"`, `"slug":"barberia-el-paisa"`, `"contactPhone":"+573001234567"`, `"currency":"COP"`, `"timeZone":"America/Bogota"`} {
+	for _, want := range []string{`"status":"ACTIVE"`, `"slug":"barberia-el-paisa"`, `"contactPhone":"+573001234567"`, `"currency":"COP"`, `"timeZone":"America/Bogota"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("created business lacks %s: %s", want, body)
 		}
@@ -43,7 +43,7 @@ func TestContractBusinessEndpoints(t *testing.T) {
 	if !strings.Contains(page, `"nextCursor"`) {
 		t.Errorf("first page of 2 must have nextCursor: %s", page)
 	}
-	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/admin/businesses?status=PENDING_REVIEW&cityId="+cali, "", adminTok, http.StatusOK)
+	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/admin/businesses?status=ACTIVE&cityId="+cali, "", adminTok, http.StatusOK)
 	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/admin/businesses?limit=0", "", adminTok, http.StatusBadRequest)
 
 	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/admin/businesses/"+id+"/activate", "", adminTok, http.StatusOK)
@@ -60,8 +60,9 @@ func TestContractBusinessEndpoints(t *testing.T) {
 	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/admin/businesses", "", userTok, http.StatusForbidden)
 	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/admin/businesses", create, userTok, http.StatusForbidden)
 
-	if got := e.biz.AuditActions(); len(got) != 4 {
-		t.Errorf("business audit = %v, want created×2, activated, suspended", got)
+	// Born ACTIVE: the first "activate" is a no-op (not audited); then suspended.
+	if got := e.biz.AuditActions(); len(got) != 3 {
+		t.Errorf("business audit = %v, want created×2, suspended", got)
 	}
 }
 

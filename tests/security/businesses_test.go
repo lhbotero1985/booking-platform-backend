@@ -66,7 +66,7 @@ func TestBusinessCreationRejectsServerControlledFields(t *testing.T) {
 	r := h.call(t, http.MethodPost, "/api/v1/admin/businesses", "{"+base+"}", bearerH(tok))
 	var b struct{ Status, Slug, TimeZone, Currency string }
 	if r.status != http.StatusCreated || json.Unmarshal([]byte(r.body), &b) != nil ||
-		b.Status != "PENDING_REVIEW" || b.Slug != "barberia" || b.TimeZone != "America/Bogota" || b.Currency != "COP" {
+		b.Status != "ACTIVE" || b.Slug != "barberia" || b.TimeZone != "America/Bogota" || b.Currency != "COP" {
 		t.Errorf("create: %d %s", r.status, r.body)
 	}
 

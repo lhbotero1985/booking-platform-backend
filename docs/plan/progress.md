@@ -475,6 +475,11 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
   `internal/app/contract_routes_test.go`, `tests/security/tenant_isolation_test.go`, pruebas
   de `subscriptions` (`SummaryOf`, `EntitledAmong`), `docs/plan/phase-4-closure.md`.
 - **Resultado:** 39 rutas, todas documentadas; 6 operaciones `{businessId}` aisladas.
+- **Revisión del usuario (no aprobó a la primera):** pidió validar que el dueño crea su barbería
+  y empieza la demo sin que el administrador haga nada. Validado en vivo en QA (cuenta nueva,
+  sin administrador: activa, demo, visible en la búsqueda). Ajuste aprobado: el alta por el
+  administrador (opción de soporte) también nace `ACTIVE` con demo; documento de cierre
+  reordenado con el flujo del dueño primero.
 
 ## 2026-11-24 · Fase 4 · T4.6 — Búsqueda pública de negocios
 
