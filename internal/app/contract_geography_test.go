@@ -72,7 +72,7 @@ func newGeoServer(t *testing.T) geoEnv {
 	profs := profapp.NewService(proftest.NewStore(), e.identity, clk)
 	cat := catapp.NewService(catalogtest.NewStore(), e.identity, biz, profs, clk)
 	LinkPublicCatalog(biz, cat, profs, biz)
-	sched := schedapp.NewService(schedapp.Deps{Store: schedtest.NewStore(), Businesses: biz, Catalog: cat, Professionals: profs, Customers: e.identity, Clock: clk})
+	sched := schedapp.NewService(schedapp.Deps{Store: schedtest.NewStore(), Authz: e.identity, Businesses: biz, Catalog: cat, Professionals: profs, Customers: e.identity, Clock: clk})
 	e.modules = []RouteRegistrar{
 		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),
 		subscriptionshttp.New(subs, logger, idh.RequireAuth),
@@ -90,7 +90,7 @@ func (e geoEnv) signIn(t *testing.T, email string) string {
 	t.Helper()
 	ctx := context.Background()
 	pw := "una clave suficientemente larga"
-	if err := e.identity.Register(ctx, application.RegisterInput{Email: email, Password: pw, FullName: "QA"}); err != nil {
+	if err := e.identity.Register(ctx, application.RegisterInput{Email: email, Password: pw, FullName: "QA", Phone: "3001234567"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := e.identity.SendVerificationEmail(ctx, e.users.Enqueued[len(e.users.Enqueued)-1]); err != nil {

@@ -17,11 +17,11 @@ SELECT fingerprint, appointment_id FROM idempotency_keys WHERE user_id = @user_i
 UPDATE idempotency_keys SET appointment_id = @appointment_id WHERE user_id = @user_id AND key = @key;
 
 -- name: InsertAppointment :exec
-INSERT INTO appointments (id, business_id, professional_id, service_id, customer_user_id, customer_name,
-    customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name,
+INSERT INTO appointments (id, business_id, professional_id, service_id, customer_id, customer_user_id,
+    customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name,
     duration_minutes, price_minor, currency, version, created_by, created_at, updated_at)
-VALUES (@id, @business_id, @professional_id, @service_id, @customer_user_id, @customer_name,
-    @customer_phone, @start_at, @end_at, @buffer_minutes, @occupied_until, @status, @service_name,
+VALUES (@id, @business_id, @professional_id, @service_id, @customer_id, @customer_user_id,
+    @customer_name, @customer_phone, @start_at, @end_at, @buffer_minutes, @occupied_until, @status, @service_name,
     @duration_minutes, @price_minor, @currency, @version, @created_by, @created_at, @updated_at);
 
 -- name: InsertAppointmentEvent :exec
@@ -41,3 +41,26 @@ WHERE business_id = @business_id AND professional_id = @professional_id
   AND status IN ('PENDING_CONFIRMATION', 'CONFIRMED', 'IN_PROGRESS')
   AND start_at < @to_at AND occupied_until > @from_at
 ORDER BY start_at;
+
+-- name: InsertCustomer :exec
+INSERT INTO customers (id, business_id, full_name, phone, email, user_id, created_by, created_at, updated_at)
+VALUES (@id, @business_id, @full_name, @phone, @email, @user_id, @created_by, @created_at, @updated_at);
+
+-- name: CustomerByID :one
+SELECT * FROM customers WHERE business_id = @business_id AND id = @id;
+
+-- name: CustomerByPhone :one
+SELECT * FROM customers WHERE business_id = @business_id AND phone = @phone;
+
+-- name: UpdateCustomer :exec
+UPDATE customers SET full_name = @full_name, phone = @phone, email = @email, user_id = @user_id, updated_at = @updated_at
+WHERE business_id = @business_id AND id = @id;
+
+-- Customers of a business, optionally filtered by name (case-insensitive, contains) or phone
+-- (contains), by name.
+-- name: ListCustomers :many
+SELECT * FROM customers
+WHERE business_id = @business_id
+  AND (@q::text = '' OR lower(full_name) LIKE '%' || lower(@q::text) || '%' ESCAPE '\' OR phone LIKE '%' || @q::text || '%' ESCAPE '\')
+ORDER BY lower(full_name), id
+LIMIT @max_rows;

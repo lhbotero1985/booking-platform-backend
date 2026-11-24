@@ -862,4 +862,27 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `TestPublicSearchExposesOnlyBookableBusinesses` | ✅ | Reservar en negocio suspendido, o con servicio/barbero de otro negocio → 404 idéntico a inexistente; una reserva válida → 201 |
 | Postman + Newman (entorno local temporal) | ✅ 2 corridas | 28 peticiones, 49 comprobaciones, 0 fallos (cuenta nueva y repetida; la 2.ª reservó 09:30 porque 09:00 estaba tomada) |
 | `task check` (lint 0, vuln) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
-| Despliegue y E2E en QA | ⏳ | Tras el merge (E2E ampliado: teléfono, reserva, repetición, 409, 422, disponibilidad) |
+| PR #50 — ci + security | ✅ 6/6 | Squash `c05c951` |
+| `release-qa` | ✅ | Migración 16 aplicada, smoke test ✅ |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **157/157** | Teléfono, reserva 201, repetición con la misma clave, 422 clave reutilizada, 409 hora tomada, 401 sin sesión, disponibilidad sin el tramo reservado |
+
+## 2026-11-24 · Fase 6 · T6.4 — Clientes del negocio y citas manuales (y celular en el registro)
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestRegistrationRequiresPhone` (identity) | ✅ | Sin celular / vacío → `REQUIRED`; inválido → `INVALID_PHONE`; ninguna cuenta creada; guardado en E.164 |
+| `TestPhoneAndCustomerProfile` (identity) | ✅ | El celular viene del registro; cuenta antigua sin celular → `ErrPhoneRequired` |
+| `TestCustomers` (scheduling) | ✅ | Validaciones; el barbero crea; celular duplicado 409; ajeno → 404; búsqueda por nombre, apellido con tilde, celular con espacios o +57; `%` y `_` literales; edición; celular tomado; inexistente |
+| `TestBookManual` (scheduling) | ✅ | OWNER confirmada sin antelación mínima; repetición; barbero en su agenda (pendiente); barbero en agenda ajena → 403; solapada / pasada → 409; cliente inexistente y campos faltantes → 400; clave inválida; ajeno → 404 |
+| `TestAppBookingJoinsTheCustomerList` | ✅ | Reserva desde la app crea el cliente o enlaza el que tenía ese celular; sin duplicados |
+| `TestParsePhoneAndName` (dominio) | ✅ | Dominio 100 % |
+| `TestContractStaffBooking` / `TestContractIdentityEndpoints` | ✅ | Clientes y citas manuales contra OpenAPI (201/400/403/404/409); registro sin celular → 400. **67 rutas documentadas** |
+| `TestManualBookingOnPostgres` | ✅ | SQL real: búsqueda con `%` literal, celular único; cita manual con su cliente; la reserva desde la app aparece en la lista; **cita manual + 10 reservas desde la app por la misma hora → 1** |
+| `TestEveryBusinessRouteIsTenantIsolated` | ✅ | **30 operaciones** con otro negocio y **17** con ids de hijos ajenos (incluye `{customerId}`) → 404 idéntico; la lista de clientes de Bob no cambia |
+| `TestAuthenticatedRoutesRejectInvalidCredentials` | ✅ | Desde OpenAPI (52 operaciones autenticadas) |
+| `TestBookManualQuickWay` (scheduling) | ✅ | Cliente escrito en la cita: nombre normalizado, celular E.164, correo en minúsculas; celular existente reutilizado (correo completado solo si faltaba, nunca sobrescrito); sin duplicados; `customer` + `customerId` / sin cliente / sin celular / correo inválido / sin nombre → 400 con el campo `customer.*`; una cita fallida no deja cliente |
+| `TestParsePhoneAndName` (dominio, con correo) | ✅ | Correo opcional, minúsculas, formas inválidas. Dominio 100 % |
+| `TestContractStaffBooking` (forma rápida) / `TestManualBookingOnPostgres` (forma rápida) | ✅ | 201 con cliente escrito y búsqueda con su correo; 400 `customer.phone`; en PostgreSQL el cliente con correo se guarda y una cita solapada no deja cliente |
+| Postman + Newman (entorno local temporal) | ✅ 2 corridas | 33 peticiones, 60 comprobaciones, 0 fallos (paso 9: cita manual rápida; la 2.ª corrida reutiliza el cliente); registro sin celular → 400 |
+| `task check` (lint 0, vuln) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
+| Despliegue y E2E en QA | ⏳ | Tras el merge (registro con celular, clientes, cita manual, 403 agenda ajena, 409) |

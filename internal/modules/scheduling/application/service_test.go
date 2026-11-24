@@ -33,6 +33,13 @@ func (f fakeBiz) PublicBookingPolicy(_ context.Context, slug string) (businesses
 	return f.pol, nil
 }
 
+func (f fakeBiz) BookingPolicyOf(_ context.Context, id uuid.UUID) (businesses.BookingPolicy, error) {
+	if id != f.pol.BusinessID {
+		return businesses.BookingPolicy{}, businesses.ErrBusinessNotFound
+	}
+	return f.pol, f.err
+}
+
 func (f fakeBiz) PublicBookingPolicyOf(_ context.Context, id uuid.UUID) (businesses.BookingPolicy, error) {
 	if f.err != nil {
 		return businesses.BookingPolicy{}, f.err
@@ -55,12 +62,21 @@ func (f *fakeCatalog) BookableService(_ context.Context, biz, svc, pro uuid.UUID
 }
 
 type fakeAgenda struct {
+	owners   map[uuid.UUID]uuid.UUID // professional → account
 	locks    int
 	lockErr  error
 	agenda   professionals.DayAgenda
 	err      error
 	weekday  time.Weekday
 	from, to time.Time
+}
+
+func (f *fakeAgenda) ProfessionalUserID(_ context.Context, _, professionalID uuid.UUID) (uuid.UUID, error) {
+	u, ok := f.owners[professionalID]
+	if !ok {
+		return uuid.Nil, professionals.ErrProfessionalNotFound
+	}
+	return u, nil
 }
 
 func (f *fakeAgenda) LockAgenda(context.Context, uuid.UUID, uuid.UUID) error {

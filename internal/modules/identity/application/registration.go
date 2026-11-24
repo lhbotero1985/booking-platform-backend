@@ -75,6 +75,7 @@ type RegisterInput struct {
 	Email    string
 	Password string
 	FullName string
+	Phone    string // mobile, mandatory (decision of 2026-11-24); normalized to E.164
 }
 
 // Register creates a PENDING_VERIFICATION account and schedules the verification email.
@@ -95,6 +96,13 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) error {
 	if strings.TrimSpace(in.FullName) == "" {
 		verr.add("fullName", CodeRequired)
 	}
+	phone, err := domain.ParsePhone(in.Phone)
+	switch {
+	case strings.TrimSpace(in.Phone) == "":
+		verr.add("phone", CodeRequired)
+	case err != nil:
+		verr.add("phone", CodeInvalidPhone)
+	}
 	if err := verr.orNil(); err != nil {
 		return err
 	}
@@ -112,6 +120,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) error {
 		}
 		return fmt.Errorf("register: %w", err)
 	}
+	user.WithPhone(phone)
 
 	return s.store.WithinTx(ctx, func(tx Tx) error {
 		existing, err := tx.UserByEmail(ctx, email)

@@ -91,10 +91,11 @@ check "unknown route -> problem+json 404" 404 "$(status GET /api/v1/does-not-exi
 check "  content type application/problem+json" 1 "$(grep -ci '^content-type: application/problem+json' <<<"$(hdrs)")"
 
 # --- registration and email verification ---------------------------------------------------
-check "register" 202 "$(status POST /api/v1/auth/register "{\"email\":\"$EMAIL\",\"password\":\"$PW1\",\"fullName\":\"QA E2E\"}")"
-check "register again (no enumeration)" 202 "$(status POST /api/v1/auth/register "{\"email\":\"$EMAIL\",\"password\":\"$PW1\",\"fullName\":\"QA E2E\"}")"
-check "register weak password" '400|422' "$(status POST /api/v1/auth/register "{\"email\":\"x$EMAIL\",\"password\":\"password\",\"fullName\":\"QA\"}")"
-check "register unknown field" '400|422' "$(status POST /api/v1/auth/register "{\"email\":\"y$EMAIL\",\"password\":\"$PW1\",\"fullName\":\"QA\",\"role\":\"PLATFORM_ADMIN\"}")"
+check "register" 202 "$(status POST /api/v1/auth/register "{\"email\":\"$EMAIL\",\"password\":\"$PW1\",\"fullName\":\"QA E2E\",\"phone\":\"300 123 4567\"}")"
+check "register again (no enumeration)" 202 "$(status POST /api/v1/auth/register "{\"email\":\"$EMAIL\",\"password\":\"$PW1\",\"fullName\":\"QA E2E\",\"phone\":\"300 123 4567\"}")"
+check "register weak password" '400|422' "$(status POST /api/v1/auth/register "{\"email\":\"x$EMAIL\",\"password\":\"password\",\"fullName\":\"QA\",\"phone\":\"3001234567\"}")"
+check "register without phone" 400 "$(status POST /api/v1/auth/register "{\"email\":\"z$EMAIL\",\"password\":\"$PW1\",\"fullName\":\"QA\"}")"
+check "register unknown field" '400|422' "$(status POST /api/v1/auth/register "{\"email\":\"y$EMAIL\",\"password\":\"$PW1\",\"fullName\":\"QA\",\"phone\":\"3001234567\",\"role\":\"PLATFORM_ADMIN\"}")"
 check "login before verification" '401|403' "$(login "$EMAIL" "$PW1")"
 link=$(mail_link verify-email)
 check "verification email received" 1 "$([[ -n $link ]] && echo 1 || echo 0)"
@@ -159,7 +160,7 @@ check "another business -> 404" 404 "$(status GET /api/v1/business/01a20aae-0000
 
 # --- members (T4.5): the OWNER (person in charge) adds a barber, changes its role, removes it ---
 STAFF="staff-$EMAIL"
-check "register staff account" 202 "$(status POST /api/v1/auth/register "{\"email\":\"$STAFF\",\"password\":\"$PW1\",\"fullName\":\"Barbero E2E\"}")"
+check "register staff account" 202 "$(status POST /api/v1/auth/register "{\"email\":\"$STAFF\",\"password\":\"$PW1\",\"fullName\":\"Barbero E2E\",\"phone\":\"3007654321\"}")"
 slink=$(mail_link verify-email "$STAFF")
 check "  staff verified" 200 "$(status POST /api/v1/auth/verify-email "{\"token\":\"${slink##*token=}\"}")"
 check "add barber (PROFESSIONAL)" 201 "$(status POST "/api/v1/business/$mine/members" "{\"email\":\"$STAFF\",\"role\":\"PROFESSIONAL\"}" "$T1")"
@@ -260,10 +261,9 @@ book() { # start idempotency-key token
   status POST /api/v1/appointments "{\"businessId\":\"$mine\",\"serviceId\":\"$svc\",\"professionalId\":\"$pbarber\",\"startAt\":\"$1\"}" "$3" "Idempotency-Key: $2"
 }
 k1="e2e-$(date +%s)-a"
-check "book without phone -> 422" 422 "$(book "$slot" "$k1" "$T1")"
-check "  code PHONE_REQUIRED" PHONE_REQUIRED "$(json .code)"
+check "phone from the registration (E.164)" "\+573001234567" "$(status GET /api/v1/me "" "$T1" >/dev/null; json .phone)"
 check "invalid phone -> 400" 400 "$(status PUT /api/v1/me/phone '{"phone":"12345"}' "$T1")"
-check "set phone (Colombian mobile)" "\+573001234567" "$(status PUT /api/v1/me/phone '{"phone":"300 123 4567"}' "$T1" >/dev/null; json .phone)"
+check "change phone" "\+573001112233" "$(status PUT /api/v1/me/phone '{"phone":"300 111 2233"}' "$T1" >/dev/null; json .phone)"
 check "book without Idempotency-Key -> 400" 400 "$(status POST /api/v1/appointments "{\"businessId\":\"$mine\",\"serviceId\":\"$svc\",\"professionalId\":\"$pbarber\",\"startAt\":\"$slot\"}" "$T1")"
 check "book Tuesday 10:00" 201 "$(book "$slot" "$k1" "$T1")"
 appt=$(json .id)
@@ -275,6 +275,25 @@ check "slot taken (new key) -> 409" 409 "$(book "$slot" "e2e-$(date +%s)-b" "$T1
 check "  code SLOT_UNAVAILABLE" SLOT_UNAVAILABLE "$(json .code)"
 check "booking needs a session" 401 "$(book "$slot" "e2e-$(date +%s)-c" "")"
 check "availability without 10:00-10:45" "29 ${tue}T10:45:00-05:00" "$(status GET "$av&date=$tue" >/dev/null; json '"\(.slots | length) \(.slots[0].startLocal)"')"
+slot2=$(json '.slots[0].startAt')
+slot3=$(json '.slots[3].startAt')
+
+# --- manual appointments (T6.4): the barber types the customer in the booking ---------------
+cust="/api/v1/business/$mine/customers"
+manual() { # token professional start key customer-json [extra json]
+  status POST "/api/v1/business/$mine/appointments" "{\"professionalId\":\"$2\",\"serviceId\":\"$svc\",\"startAt\":\"$3\",$5${6:-}}" "$1" "Idempotency-Key: $4"
+}
+walkin_json='"customer":{"fullName":"Cliente Mostrador","phone":"301 555 0101","email":"mostrador@example.test"}'
+check "barber books a new customer (name, mobile, email)" 201 "$(manual "$TS" "$pbarber" "$slot2" "e2e-$(date +%s)-m1" "$walkin_json" ',"confirmed":false')"
+check "  pending, for that customer" "PENDING_CONFIRMATION Cliente Mostrador" "$(json '"\(.status) \(.customerName)"')"
+check "the customer was created" "\+573015550101 mostrador@example.test false" "$(status GET "$cust?q=3015550101" "" "$T1" >/dev/null; json '.items[0] | "\(.phone) \(.email) \(.hasAccount)"')"
+walkin=$(json '.items[0].id')
+check "same mobile again -> 409" 409 "$(status POST "$cust" '{"fullName":"Otro","phone":"+573015550101"}' "$T1")"
+check "  code CUSTOMER_PHONE_TAKEN" CUSTOMER_PHONE_TAKEN "$(json .code)"
+check "the app customer is on the list" true "$(status GET "$cust?q=3001112233" "" "$T1" >/dev/null; json '.items[0].hasAccount')"
+check "barber cannot book the owner's agenda" 403 "$(manual "$TS" "$powner" "$slot2" "e2e-$(date +%s)-m2" "$walkin_json")"
+check "owner on the same slot -> 409" 409 "$(manual "$T1" "$pbarber" "$slot2" "e2e-$(date +%s)-m3" "\"customerId\":\"$walkin\"")"
+check "owner books the same customer (confirmed by default)" "201 CONFIRMED" "$(manual "$T1" "$pbarber" "$slot3" "e2e-$(date +%s)-m4" "\"customerId\":\"$walkin\"") $(json .status)"
 status POST /api/v1/auth/logout "" "$TS" >/dev/null
 check "  one per account" 409 "$(status POST /api/v1/businesses "$own" "$T1")"
 check "  code ALREADY_OWNER" ALREADY_OWNER "$(json .code)"

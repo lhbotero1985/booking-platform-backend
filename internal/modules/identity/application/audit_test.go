@@ -46,7 +46,7 @@ func actorIs(t *testing.T, a application.AuditEntry, id uuid.UUID) {
 func TestAuditRegistrationAndVerification(t *testing.T) {
 	e := newEnv()
 	ctx := reqCtx()
-	if err := e.svc.Register(ctx, application.RegisterInput{Email: "ana@example.com", Password: goodPassword, FullName: "Ana"}); err != nil {
+	if err := e.svc.Register(ctx, application.RegisterInput{Email: "ana@example.com", Password: goodPassword, FullName: "Ana", Phone: "3001234567"}); err != nil {
 		t.Fatal(err)
 	}
 	ana := e.store.User("ana@example.com").ID()
@@ -56,7 +56,7 @@ func TestAuditRegistrationAndVerification(t *testing.T) {
 		t.Fatalf("request context not recorded: %+v", a)
 	}
 
-	_ = e.svc.Register(ctx, application.RegisterInput{Email: "ANA@example.com", Password: goodPassword, FullName: "Otra"})
+	_ = e.svc.Register(ctx, application.RegisterInput{Email: "ANA@example.com", Password: goodPassword, FullName: "Otra", Phone: "3001234567"})
 	a = lastAudit(t, e, application.AuditRegistered, application.OutcomeFailure)
 	actorIs(t, a, ana)
 	if a.Metadata["reason"] != "email_taken" {
@@ -242,7 +242,7 @@ func TestAuditIsAtomicWithTheChange(t *testing.T) {
 func TestAuditNeverStoresSecrets(t *testing.T) {
 	e := newEnv()
 	ctx := reqCtx()
-	_ = e.svc.Register(ctx, application.RegisterInput{Email: "ana@example.com", Password: goodPassword, FullName: "Ana Pérez"})
+	_ = e.svc.Register(ctx, application.RegisterInput{Email: "ana@example.com", Password: goodPassword, FullName: "Ana Pérez", Phone: "3001234567"})
 	verifyTok := e.sendAndExtract(t)
 	_ = e.svc.VerifyEmail(ctx, verifyTok)
 	res, _ := e.svc.Login(ctx, application.LoginInput{Email: "ana@example.com", Password: goodPassword, ClientType: "MOBILE", UserAgent: "Mozilla/5.0 secreto-ua"})

@@ -466,6 +466,25 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 6 · T6.4 — Clientes del negocio y citas manuales
+
+- **Previo:** PR #50 (T6.3) → `qa`: CI 6/6 ✅, squash `c05c951`, rama borrada; `release-qa` ✅;
+  E2E en QA **157/157** (reserva, repetición, 409, 422, disponibilidad).
+- **Decisión del usuario:** celular obligatorio al crear la cuenta (commit `7ce0354` en esta rama).
+- **Estado:** ✅ en `feature/t6.4-manual-appointments` (commits y push; PR pendiente).
+- **Archivos:** registro con celular (identity, OpenAPI, pruebas que registran cuentas);
+  migración `00017_customers.sql`; queries de clientes; scheduling (`domain/customer.go`,
+  `application/customers.go`, `application/manual.go`, enlace del cliente en la reserva desde la
+  app, `interfaces/http/staff.go`, doble en memoria); contratos `businesses.BookingPolicyOf` y
+  `professionals.Agenda.ProfessionalUserID`; OpenAPI (4 operaciones, esquemas `Customer` y
+  `CustomerList`; 67 rutas); pruebas; E2E; Postman (paso 9); docs.
+- **Ajuste del usuario (cita rápida):** el barbero escribe nombre, celular y correo (opcional)
+  del cliente en la misma cita; se reutiliza por celular o se crea. Migración 00017 con `email`
+  (aún no aplicada en QA, se ajustó antes del merge).
+- **Problemas:** la cita manual validaba campos y clave antes de autorizar (otro negocio habría
+  respondido 400): detectado por la suite de aislamiento, ahora la autorización va primero. Un
+  fallo de DNS al construir la imagen local dejó la imagen anterior; se reconstruyó.
+
 ## 2026-11-24 · Fase 6 · T6.3 — Reserva del cliente
 
 - **Previo:** PR #49 (T6.2) → `qa`: CI 6/6 ✅, squash `d90bd71`, rama borrada; `release-qa` ✅.

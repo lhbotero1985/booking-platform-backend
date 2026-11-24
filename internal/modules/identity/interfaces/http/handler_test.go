@@ -67,7 +67,7 @@ func (f fixture) post(t *testing.T, path, body string) resp {
 
 const allowedOrigin = "https://business.example.test"
 
-const regBody = `{"email":"ana@example.com","password":"una clave suficientemente larga","fullName":"Ana Pérez"}`
+const regBody = `{"email":"ana@example.com","password":"una clave suficientemente larga","fullName":"Ana Pérez","phone":"3001234567"}`
 
 var tokenInLink = regexp.MustCompile(`token=([^\s]+)`)
 
@@ -100,7 +100,7 @@ func TestRegisterResponseIdenticalForExistingEmail(t *testing.T) {
 
 func TestRegisterValidationProblem(t *testing.T) {
 	f := newFixture()
-	r := f.post(t, "/api/v1/auth/register", `{"email":"nope","password":"short","fullName":""}`)
+	r := f.post(t, "/api/v1/auth/register", `{"email":"nope","password":"short","fullName":"","phone":"3001234567"}`)
 	if r.status != http.StatusBadRequest || r.ct != httpx.ContentTypeProblem {
 		t.Fatalf("status %d ct %s", r.status, r.ct)
 	}
@@ -119,7 +119,7 @@ func TestRegisterValidationProblem(t *testing.T) {
 
 func TestRegisterRejectsUnknownFieldsAndNonJSON(t *testing.T) {
 	f := newFixture()
-	if r := f.post(t, "/api/v1/auth/register", `{"email":"a@b.co","password":"x","fullName":"A","isPlatformAdmin":true}`); r.status != http.StatusBadRequest {
+	if r := f.post(t, "/api/v1/auth/register", `{"email":"a@b.co","password":"x","fullName":"A","phone":"3001234567","isPlatformAdmin":true}`); r.status != http.StatusBadRequest {
 		t.Errorf("mass-assignment field accepted: %d", r.status)
 	}
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/auth/register", strings.NewReader("email=a@b.co"))

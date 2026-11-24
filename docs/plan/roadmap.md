@@ -121,8 +121,8 @@ barba") son servicios normales con su propio precio y duración.
 Desglose aprobado por el usuario el 2026-11-24. Base: `availability-engine.md`,
 `booking-lifecycle.md`, ADR-0004 y ADR-0005. Las notificaciones (WhatsApp, push) son de la Fase 7;
 aquí cada cambio de una cita queda registrado en `appointment_events` para que la Fase 7 lo envíe.
-Decisiones: el cliente elige barbero (obligatorio); el cliente reserva con email verificado y
-teléfono obligatorio; las ausencias hacen de bloqueos; una ausencia o cambio de horario que choca
+Decisiones: el cliente elige barbero (obligatorio); toda cuenta se crea con email verificado y
+celular obligatorio (desde T6.4); las ausencias hacen de bloqueos; una ausencia o cambio de horario que choca
 con citas activas se rechaza con la lista de conflictos; un barbero se puede retirar o desactivar
 aunque tenga citas futuras, que quedan por reasignar y el responsable las pasa a otro barbero.
 
@@ -131,7 +131,7 @@ aunque tenga citas futuras, que quedan por reasignar y el responsable las pasa a
 | T6.1 ✅ | Motor de disponibilidad (función pura del dominio, módulo `scheduling`) | Tabla de casos, DST en varias zonas, igual a una referencia minuto a minuto |
 | T6.2 ✅ | Disponibilidad pública por barbero, servicio y fecha | Solo barberos reservables que prestan el servicio; hora local y UTC; sin datos internos |
 | T6.3 ✅ | Reserva del cliente (cuenta con email verificado y teléfono), snapshot del servicio, `Idempotency-Key` | Cero doble reserva: lock por profesional + exclusion constraint; 50 en paralelo → 1 éxito |
-| T6.4 | Clientes del negocio y citas manuales (responsable; barbero solo en su agenda), pueden nacer confirmadas | Mismas garantías; barbero en agenda ajena → 403 |
+| T6.4 ✅ | Clientes del negocio y citas manuales (responsable; barbero solo en su agenda), pueden nacer confirmadas | Mismas garantías; barbero en agenda ajena → 403 |
 | T6.5 | Agenda del negocio y del barbero (día/semana) y "mis citas" del cliente | Cada uno ve solo lo suyo; otro negocio → 404 |
 | T6.6 | Transiciones: confirmar, cancelar, reprogramar (límites del negocio), iniciar, completar, no asistió; historial | Transición inválida → 409; idempotentes; concurrencia coherente (`version`) |
 | T6.7 | Coherencia de agenda: ausencias y horario toman el lock y se rechazan si chocan con citas activas; retiro/desactivación de barbero deja sus citas por reasignar y el responsable las reasigna | Reserva vs ausencia en paralelo: solo una gana |

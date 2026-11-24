@@ -112,7 +112,7 @@ func TestRegistrationAndVerificationOnPostgres(t *testing.T) {
 	e := newEnv(t)
 	email := uniqueEmail()
 
-	if err := e.svc.Register(ctx, application.RegisterInput{Email: email, Password: "una clave suficientemente larga", FullName: "Ana Pérez"}); err != nil {
+	if err := e.svc.Register(ctx, application.RegisterInput{Email: email, Password: "una clave suficientemente larga", FullName: "Ana Pérez", Phone: "3001234567"}); err != nil {
 		t.Fatal(err)
 	}
 	id, status, verified := userRow(t, email)
@@ -169,7 +169,7 @@ func TestDuplicateRegistrationIsSilent(t *testing.T) {
 	ctx := t.Context()
 	e := newEnv(t)
 	email := uniqueEmail()
-	in := application.RegisterInput{Email: email, Password: "una clave suficientemente larga", FullName: "Ana"}
+	in := application.RegisterInput{Email: email, Password: "una clave suficientemente larga", FullName: "Ana", Phone: "3001234567"}
 	if err := e.svc.Register(ctx, in); err != nil {
 		t.Fatal(err)
 	}
@@ -187,7 +187,7 @@ func TestExpiredTokenRejectedOnPostgres(t *testing.T) {
 	ctx := t.Context()
 	e := newEnv(t)
 	email := uniqueEmail()
-	if err := e.svc.Register(ctx, application.RegisterInput{Email: email, Password: "una clave suficientemente larga", FullName: "Ana"}); err != nil {
+	if err := e.svc.Register(ctx, application.RegisterInput{Email: email, Password: "una clave suficientemente larga", FullName: "Ana", Phone: "3001234567"}); err != nil {
 		t.Fatal(err)
 	}
 	id, _, _ := userRow(t, email)
@@ -209,7 +209,7 @@ func (e env) activeUser(t *testing.T) string {
 	t.Helper()
 	ctx := t.Context()
 	email := uniqueEmail()
-	if err := e.svc.Register(ctx, application.RegisterInput{Email: email, Password: "una clave suficientemente larga", FullName: "Ana"}); err != nil {
+	if err := e.svc.Register(ctx, application.RegisterInput{Email: email, Password: "una clave suficientemente larga", FullName: "Ana", Phone: "3001234567"}); err != nil {
 		t.Fatal(err)
 	}
 	id, _, _ := userRow(t, email)

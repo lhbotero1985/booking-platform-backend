@@ -61,7 +61,7 @@ func (q *Queries) ActiveAppointmentsOverlapping(ctx context.Context, arg ActiveA
 }
 
 const appointmentByID = `-- name: AppointmentByID :one
-SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at FROM appointments WHERE id = $1
+SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id FROM appointments WHERE id = $1
 `
 
 func (q *Queries) AppointmentByID(ctx context.Context, id uuid.UUID) (Appointment, error) {
@@ -88,6 +88,7 @@ func (q *Queries) AppointmentByID(ctx context.Context, id uuid.UUID) (Appointmen
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CustomerID,
 	)
 	return i, err
 }
@@ -132,6 +133,58 @@ func (q *Queries) ClaimIdempotencyKey(ctx context.Context, arg ClaimIdempotencyK
 	return items, nil
 }
 
+const customerByID = `-- name: CustomerByID :one
+SELECT id, business_id, full_name, phone, email, user_id, created_by, created_at, updated_at FROM customers WHERE business_id = $1 AND id = $2
+`
+
+type CustomerByIDParams struct {
+	BusinessID uuid.UUID
+	ID         uuid.UUID
+}
+
+func (q *Queries) CustomerByID(ctx context.Context, arg CustomerByIDParams) (Customer, error) {
+	row := q.db.QueryRow(ctx, customerByID, arg.BusinessID, arg.ID)
+	var i Customer
+	err := row.Scan(
+		&i.ID,
+		&i.BusinessID,
+		&i.FullName,
+		&i.Phone,
+		&i.Email,
+		&i.UserID,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const customerByPhone = `-- name: CustomerByPhone :one
+SELECT id, business_id, full_name, phone, email, user_id, created_by, created_at, updated_at FROM customers WHERE business_id = $1 AND phone = $2
+`
+
+type CustomerByPhoneParams struct {
+	BusinessID uuid.UUID
+	Phone      string
+}
+
+func (q *Queries) CustomerByPhone(ctx context.Context, arg CustomerByPhoneParams) (Customer, error) {
+	row := q.db.QueryRow(ctx, customerByPhone, arg.BusinessID, arg.Phone)
+	var i Customer
+	err := row.Scan(
+		&i.ID,
+		&i.BusinessID,
+		&i.FullName,
+		&i.Phone,
+		&i.Email,
+		&i.UserID,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const idempotencyKeyOf = `-- name: IdempotencyKeyOf :one
 SELECT fingerprint, appointment_id FROM idempotency_keys WHERE user_id = $1 AND key = $2
 `
@@ -154,12 +207,12 @@ func (q *Queries) IdempotencyKeyOf(ctx context.Context, arg IdempotencyKeyOfPara
 }
 
 const insertAppointment = `-- name: InsertAppointment :exec
-INSERT INTO appointments (id, business_id, professional_id, service_id, customer_user_id, customer_name,
-    customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name,
+INSERT INTO appointments (id, business_id, professional_id, service_id, customer_id, customer_user_id,
+    customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name,
     duration_minutes, price_minor, currency, version, created_by, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6,
-    $7, $8, $9, $10, $11, $12, $13,
-    $14, $15, $16, $17, $18, $19, $20)
+    $7, $8, $9, $10, $11, $12, $13, $14,
+    $15, $16, $17, $18, $19, $20, $21)
 `
 
 type InsertAppointmentParams struct {
@@ -167,6 +220,7 @@ type InsertAppointmentParams struct {
 	BusinessID      uuid.UUID
 	ProfessionalID  uuid.UUID
 	ServiceID       uuid.UUID
+	CustomerID      *uuid.UUID
 	CustomerUserID  *uuid.UUID
 	CustomerName    string
 	CustomerPhone   string
@@ -191,6 +245,7 @@ func (q *Queries) InsertAppointment(ctx context.Context, arg InsertAppointmentPa
 		arg.BusinessID,
 		arg.ProfessionalID,
 		arg.ServiceID,
+		arg.CustomerID,
 		arg.CustomerUserID,
 		arg.CustomerName,
 		arg.CustomerPhone,
@@ -245,6 +300,84 @@ func (q *Queries) InsertAppointmentEvent(ctx context.Context, arg InsertAppointm
 	return err
 }
 
+const insertCustomer = `-- name: InsertCustomer :exec
+INSERT INTO customers (id, business_id, full_name, phone, email, user_id, created_by, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+`
+
+type InsertCustomerParams struct {
+	ID         uuid.UUID
+	BusinessID uuid.UUID
+	FullName   string
+	Phone      string
+	Email      *string
+	UserID     *uuid.UUID
+	CreatedBy  uuid.UUID
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+func (q *Queries) InsertCustomer(ctx context.Context, arg InsertCustomerParams) error {
+	_, err := q.db.Exec(ctx, insertCustomer,
+		arg.ID,
+		arg.BusinessID,
+		arg.FullName,
+		arg.Phone,
+		arg.Email,
+		arg.UserID,
+		arg.CreatedBy,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
+const listCustomers = `-- name: ListCustomers :many
+SELECT id, business_id, full_name, phone, email, user_id, created_by, created_at, updated_at FROM customers
+WHERE business_id = $1
+  AND ($2::text = '' OR lower(full_name) LIKE '%' || lower($2::text) || '%' ESCAPE '\' OR phone LIKE '%' || $2::text || '%' ESCAPE '\')
+ORDER BY lower(full_name), id
+LIMIT $3
+`
+
+type ListCustomersParams struct {
+	BusinessID uuid.UUID
+	Q          string
+	MaxRows    int32
+}
+
+// Customers of a business, optionally filtered by name (case-insensitive, contains) or phone
+// (contains), by name.
+func (q *Queries) ListCustomers(ctx context.Context, arg ListCustomersParams) ([]Customer, error) {
+	rows, err := q.db.Query(ctx, listCustomers, arg.BusinessID, arg.Q, arg.MaxRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Customer{}
+	for rows.Next() {
+		var i Customer
+		if err := rows.Scan(
+			&i.ID,
+			&i.BusinessID,
+			&i.FullName,
+			&i.Phone,
+			&i.Email,
+			&i.UserID,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setBookingTimeouts = `-- name: SetBookingTimeouts :exec
 SELECT set_config('lock_timeout', '3s', true), set_config('statement_timeout', '5s', true)
 `
@@ -268,5 +401,33 @@ type SetIdempotencyAppointmentParams struct {
 
 func (q *Queries) SetIdempotencyAppointment(ctx context.Context, arg SetIdempotencyAppointmentParams) error {
 	_, err := q.db.Exec(ctx, setIdempotencyAppointment, arg.AppointmentID, arg.UserID, arg.Key)
+	return err
+}
+
+const updateCustomer = `-- name: UpdateCustomer :exec
+UPDATE customers SET full_name = $1, phone = $2, email = $3, user_id = $4, updated_at = $5
+WHERE business_id = $6 AND id = $7
+`
+
+type UpdateCustomerParams struct {
+	FullName   string
+	Phone      string
+	Email      *string
+	UserID     *uuid.UUID
+	UpdatedAt  time.Time
+	BusinessID uuid.UUID
+	ID         uuid.UUID
+}
+
+func (q *Queries) UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) error {
+	_, err := q.db.Exec(ctx, updateCustomer,
+		arg.FullName,
+		arg.Phone,
+		arg.Email,
+		arg.UserID,
+		arg.UpdatedAt,
+		arg.BusinessID,
+		arg.ID,
+	)
 	return err
 }

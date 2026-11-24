@@ -95,6 +95,16 @@ sin centavos) + `currency` del negocio. `categoryId: null` en PATCH quita la cat
 `{"serviceIds": [...]}` (OWNER) que reemplaza la lista completa; `SERVICE_NOT_FOUND` en
 `serviceIds[i]` si el servicio no es del negocio; profesional inexistente o ajeno → 404.
 
+### Clientes del negocio y citas manuales (T6.4)
+`GET|POST /api/v1/business/{businessId}/customers` (`?q=` por nombre o celular) y
+`PATCH …/customers/{customerId}`: nombre y celular (E.164, único por negocio → 409
+`CUSTOMER_PHONE_TAKEN`); `hasAccount` indica si reservó desde la app.
+`POST /api/v1/business/{businessId}/appointments` con `Idempotency-Key`: `professionalId`,
+`serviceId`, `startAt`, `confirmed` (por defecto `true`) y el cliente: `customer`
+(`fullName`, `phone`, `email` opcional; la forma rápida, se reutiliza por celular o se crea) o
+`customerId` (uno ya existente). Los clientes tienen `email` opcional. El registro
+(`POST /auth/register`) exige `phone` desde T6.4.
+
 ### Reserva del cliente (T6.3)
 `PUT /api/v1/me/phone` (`{"phone":"300 123 4567"}` → `+573001234567`) y
 `POST /api/v1/appointments` con cabecera `Idempotency-Key` y cuerpo `businessId`, `serviceId`,

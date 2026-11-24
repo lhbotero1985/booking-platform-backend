@@ -54,8 +54,12 @@ type txStore struct {
 }
 
 func (t *txStore) CreateUser(ctx context.Context, u *domain.User) error {
+	var phone *string
+	if p := u.Phone(); p != "" {
+		phone = &p
+	}
 	_, err := t.q.CreateUser(ctx, sqlcgen.CreateUserParams{
-		ID: u.ID(), Email: u.Email().String(), PasswordHash: string(u.PasswordHash()),
+		ID: u.ID(), Email: u.Email().String(), Phone: phone, PasswordHash: string(u.PasswordHash()),
 		FullName: u.FullName(), Status: string(u.Status()), Locale: "es",
 	})
 	if db.IsUniqueViolation(err) && db.ConstraintName(err) == "users_email_unique" {

@@ -36,6 +36,7 @@ type bookingWorld struct {
 	catalog  *catapp.Service
 	sched    *schedapp.Service
 	owner    identitycontract.Principal
+	barber   identitycontract.Principal
 	biz      uuid.UUID
 	slug     string
 	pro      uuid.UUID
@@ -61,7 +62,7 @@ func newBookingWorld(t *testing.T) bookingWorld {
 	w := bookingWorld{pool: pool, identity: identity, catalog: catalog}
 	w.bogota, _ = time.LoadLocation("America/Bogota")
 	w.sched = schedapp.NewService(schedapp.Deps{
-		Store: schedpg.NewStore(pool), Businesses: biz, Catalog: catalog, Professionals: profs, Customers: identity,
+		Store: schedpg.NewStore(pool), Authz: identity, Businesses: biz, Catalog: catalog, Professionals: profs, Customers: identity,
 		Clock: clock.NewFixed(time.Date(2030, 3, 1, 17, 0, 0, 0, time.UTC)),
 	})
 
@@ -72,7 +73,8 @@ func newBookingWorld(t *testing.T) bookingWorld {
 		t.Fatal(err)
 	}
 	w.biz, w.slug = b.ID(), string(b.Slug())
-	_, barberEmail := activeUser(t, pool, "ACTIVE")
+	barberID, barberEmail := activeUser(t, pool, "ACTIVE")
+	w.barber = identitycontract.Principal{UserID: barberID}
 	juan, err := profs.Create(ctx, w.owner, w.biz, profapp.CreateInput{Email: barberEmail, DisplayName: "Juan"})
 	if err != nil {
 		t.Fatal(err)
@@ -282,5 +284,112 @@ func TestExclusionConstraintIsTheSafetyNet(t *testing.T) {
 	}
 	if err := insert(mk(w.at(9, 0), 0, scheddomain.StatusCancelled)); err != nil {
 		t.Errorf("a canceled appointment does not occupy: %v", err)
+	}
+}
+
+// TestManualBookingOnPostgres (T6.4): customers of the business with the real SQL (search with
+// literal wildcards, unique mobile), the app booking joining that list, and a manual booking and
+// app bookings racing for the same slot: one appointment.
+func TestManualBookingOnPostgres(t *testing.T) {
+	ctx := t.Context()
+	w := newBookingWorld(t)
+	carlos, err := w.sched.CreateCustomer(ctx, w.owner, w.biz, schedapp.CustomerInput{FullName: "Carlos 100%", Phone: "300 555 0101"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.sched.CreateCustomer(ctx, w.barber, w.biz, schedapp.CustomerInput{FullName: "Otro", Phone: "+573005550101"}); !errors.Is(err, schedapp.ErrCustomerPhoneTaken) {
+		t.Errorf("duplicate mobile: %v", err)
+	}
+	if _, err := w.sched.CreateCustomer(ctx, w.barber, w.biz, schedapp.CustomerInput{FullName: "Diana", Phone: "3015550202"}); err != nil {
+		t.Fatal(err)
+	}
+	for q, want := range map[string]int{"": 2, "%": 1, "carlos": 1, "555 0202": 1, "nadie": 0} {
+		if got, err := w.sched.ListCustomers(ctx, w.owner, w.biz, q); err != nil || len(got) != want {
+			t.Errorf("q=%q: %d %v", q, len(got), err)
+		}
+	}
+
+	// The barber books Carlos in his own agenda, confirmed.
+	a, err := w.sched.BookManual(ctx, w.barber, w.biz, schedapp.ManualInput{ProfessionalID: w.pro, ServiceID: w.svc, CustomerID: carlos.ID, Start: w.at(9, 0), Confirmed: true, IdempotencyKey: "manual-juan-0900"})
+	if err != nil || a.Status != scheddomain.StatusConfirmed {
+		t.Fatalf("manual booking: %+v %v", a, err)
+	}
+	if n := count(t, w.pool, `SELECT count(*) FROM appointments WHERE id = $1 AND customer_id = $2 AND customer_user_id IS NULL AND status = 'CONFIRMED'`, a.ID, carlos.ID); n != 1 {
+		t.Error("manual appointment not stored with its customer")
+	}
+	// The quick way: the customer typed in the booking (with email) is created in the same
+	// transaction; a failed booking leaves no customer behind.
+	q, err := w.sched.BookManual(ctx, w.barber, w.biz, schedapp.ManualInput{ProfessionalID: w.pro, ServiceID: w.svc, Start: w.at(9, 40), Confirmed: true, IdempotencyKey: "manual-rapida-0940",
+		Customer: &schedapp.CustomerInput{FullName: "Laura", Phone: "311 555 0303", Email: "Laura@Example.com"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := count(t, w.pool, `SELECT count(*) FROM customers WHERE id = $1 AND email = 'laura@example.com' AND phone = '+573115550303'`, q.Customer.CustomerID); n != 1 {
+		t.Error("quick customer not stored")
+	}
+	if _, err := w.sched.BookManual(ctx, w.barber, w.biz, schedapp.ManualInput{ProfessionalID: w.pro, ServiceID: w.svc, Start: w.at(9, 50), Confirmed: true, IdempotencyKey: "manual-rapida-0950",
+		Customer: &schedapp.CustomerInput{FullName: "Tarde", Phone: "314 555 0606"}}); !errors.Is(err, schedapp.ErrSlotUnavailable) {
+		t.Fatalf("overlapping quick booking: %v", err)
+	}
+	if n := count(t, w.pool, `SELECT count(*) FROM customers WHERE phone = '+573145550606'`); n != 0 {
+		t.Error("a failed booking left its customer")
+	}
+
+	// An app booking joins the customer list.
+	ana := w.customer(t)
+	if _, err := w.sched.Book(ctx, ana, w.in(w.at(10, 20), "ana-app-1020")); err != nil {
+		t.Fatal(err)
+	}
+	if n := count(t, w.pool, `SELECT count(*) FROM customers WHERE business_id = $1 AND user_id = $2`, w.biz, ana.UserID); n != 1 {
+		t.Errorf("app customer records = %d", n)
+	}
+
+	// The owner (manual) and 10 customers (app) race for 11:00: one wins.
+	customers := make([]identitycontract.Principal, 10)
+	for i := range customers {
+		customers[i] = w.customer(t)
+	}
+	var (
+		mu       sync.Mutex
+		wg       sync.WaitGroup
+		ok, lost int
+		others   []error
+	)
+	record := func(err error) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch {
+		case err == nil:
+			ok++
+		case errors.Is(err, schedapp.ErrSlotUnavailable):
+			lost++
+		default:
+			others = append(others, err)
+		}
+	}
+	start := make(chan struct{})
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-start
+		_, err := w.sched.BookManual(ctx, w.owner, w.biz, schedapp.ManualInput{ProfessionalID: w.pro, ServiceID: w.svc, CustomerID: carlos.ID, Start: w.at(11, 0), Confirmed: true, IdempotencyKey: "manual-owner-1100"})
+		record(err)
+	}()
+	for i, c := range customers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			_, err := w.sched.Book(ctx, c, w.in(w.at(11, 0), fmt.Sprintf("app-1100-%02d", i)))
+			record(err)
+		}()
+	}
+	close(start)
+	wg.Wait()
+	if ok != 1 || lost != 10 || len(others) > 0 {
+		t.Fatalf("manual vs app on 11:00: %d ok, %d lost, %v", ok, lost, others)
+	}
+	if w.activeAppointments(t) != 4 {
+		t.Errorf("active appointments = %d", w.activeAppointments(t))
 	}
 }

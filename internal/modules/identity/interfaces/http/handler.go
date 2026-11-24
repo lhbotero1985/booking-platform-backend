@@ -85,6 +85,7 @@ type registerRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 	FullName string `json:"fullName"`
+	Phone    string `json:"phone"`
 }
 
 type verifyEmailRequest struct {
@@ -104,7 +105,7 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 	if !httpx.DecodeJSON(w, r, &req) {
 		return
 	}
-	err := h.svc.Register(r.Context(), application.RegisterInput{Email: req.Email, Password: req.Password, FullName: req.FullName})
+	err := h.svc.Register(r.Context(), application.RegisterInput{Email: req.Email, Password: req.Password, FullName: req.FullName, Phone: req.Phone})
 	if err != nil {
 		h.fail(w, r, err)
 		return

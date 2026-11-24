@@ -48,11 +48,13 @@ type ServiceSnapshot struct {
 	Currency        string
 }
 
-// Customer of an appointment. UserID is uuid.Nil for a customer without an account (T6.4).
+// Customer of an appointment, as it was when booked. CustomerID is the business's customer
+// record (T6.4; uuid.Nil if none); UserID is uuid.Nil for a customer without an account.
 type Customer struct {
-	UserID uuid.UUID
-	Name   string
-	Phone  string // E.164
+	CustomerID uuid.UUID
+	UserID     uuid.UUID
+	Name       string
+	Phone      string // E.164
 }
 
 // Appointment is a booking of a service with a professional.
