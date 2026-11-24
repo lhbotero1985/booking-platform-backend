@@ -36,6 +36,7 @@ type Tx interface {
 	ActiveAppointments(ctx context.Context, businessID, professionalID uuid.UUID, from, to time.Time) ([]domain.Booked, error)
 	BookingTx
 	CustomerTx
+	AgendaTx
 }
 
 // Authorizer is the part of identity's authorizer the staff use cases need.

@@ -31,6 +31,13 @@ type Bookable interface {
 	BookableProfessionals(ctx context.Context, businessIDs []uuid.UUID) (map[uuid.UUID][]PublicProfessional, error)
 }
 
+// RosterEntry is a professional profile as the agenda shows it.
+type RosterEntry struct {
+	ID          uuid.UUID
+	UserID      uuid.UUID
+	DisplayName string
+}
+
 // MinuteRange is [Start, End) in minutes since local midnight.
 type MinuteRange struct{ Start, End int }
 
@@ -56,6 +63,9 @@ type Agenda interface {
 	// ProfessionalUserID returns the account of a professional profile (T6.4: a PROFESSIONAL
 	// books only in its own agenda); ErrProfessionalNotFound if absent in the business.
 	ProfessionalUserID(ctx context.Context, businessID, professionalID uuid.UUID) (uuid.UUID, error)
+	// Roster lists every professional profile of a business, any status (T6.5: the agenda
+	// shows past appointments of professionals who are no longer active).
+	Roster(ctx context.Context, businessID uuid.UUID) ([]RosterEntry, error)
 	DayAgenda(ctx context.Context, businessID, professionalID uuid.UUID, weekday time.Weekday, from, to time.Time) (DayAgenda, error)
 }
 

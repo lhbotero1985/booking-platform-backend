@@ -43,4 +43,15 @@ type PublicBooking interface {
 	// visibility rules (T6.4: its staff books manually). No authorization: callers check the
 	// caller's role first.
 	BookingPolicyOf(ctx context.Context, businessID uuid.UUID) (BookingPolicy, error)
+	// BusinessSummaries returns name, slug and time zone of existing businesses (T6.5: a
+	// customer's appointments in every business); unknown ids are left out.
+	BusinessSummaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]BusinessSummary, error)
+}
+
+// BusinessSummary identifies a business to its customers.
+type BusinessSummary struct {
+	ID       uuid.UUID
+	Name     string
+	Slug     string
+	TimeZone string
 }

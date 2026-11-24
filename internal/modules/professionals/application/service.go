@@ -402,6 +402,23 @@ func (s *Service) ProfessionalUserID(ctx context.Context, businessID, profession
 	return user, err
 }
 
+// Roster implements the professionals contract Agenda (T6.5).
+func (s *Service) Roster(ctx context.Context, businessID uuid.UUID) ([]profcontract.RosterEntry, error) {
+	var profs []domain.Professional
+	err := s.store.WithinTx(ctx, func(ctx context.Context, tx Tx) (err error) {
+		profs, err = tx.ListProfessionals(ctx, businessID)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]profcontract.RosterEntry, 0, len(profs))
+	for _, p := range profs {
+		out = append(out, profcontract.RosterEntry{ID: p.ID, UserID: p.UserID, DisplayName: p.DisplayName})
+	}
+	return out, nil
+}
+
 // DayAgenda implements the professionals contract Agenda (T6.2): working ranges and breaks of
 // the weekday and the absences overlapping [from, to). No authorization.
 func (s *Service) DayAgenda(ctx context.Context, businessID, professionalID uuid.UUID, weekday time.Weekday, from, to time.Time) (profcontract.DayAgenda, error) {

@@ -94,9 +94,16 @@ func (t *txStore) InsertAppointmentEvent(ctx context.Context, id uuid.UUID, a do
 
 func (t *txStore) AppointmentByID(ctx context.Context, id uuid.UUID) (domain.Appointment, error) {
 	r, err := t.q.AppointmentByID(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Appointment{}, application.ErrAppointmentNotFound
+	}
 	if err != nil {
 		return domain.Appointment{}, err
 	}
+	return toAppointment(r), nil
+}
+
+func toAppointment(r sqlcgen.Appointment) domain.Appointment {
 	customer, record := uuid.Nil, uuid.Nil
 	if r.CustomerUserID != nil {
 		customer = *r.CustomerUserID
@@ -112,7 +119,45 @@ func (t *txStore) AppointmentByID(ctx context.Context, id uuid.UUID) (domain.App
 		Start:    r.StartAt.UTC(), End: r.EndAt.UTC(), Buffer: time.Duration(r.BufferMinutes) * time.Minute,
 		Status: domain.Status(r.Status), Version: int(r.Version), CreatedBy: r.CreatedBy,
 		CreatedAt: r.CreatedAt.UTC(), UpdatedAt: r.UpdatedAt.UTC(),
-	}, nil
+	}
+}
+
+func toAppointments(rows []sqlcgen.Appointment, err error) ([]domain.Appointment, error) {
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.Appointment, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, toAppointment(r))
+	}
+	return out, nil
+}
+
+func cursorArgs(after *application.Cursor) (bool, time.Time, uuid.UUID) {
+	if after == nil {
+		return false, time.Time{}, uuid.Nil
+	}
+	return true, after.Start, after.ID
+}
+
+func (t *txStore) AgendaAppointments(ctx context.Context, businessID uuid.UUID, professionalIDs []uuid.UUID, from, to time.Time, after *application.Cursor, limit int) ([]domain.Appointment, error) {
+	has, start, id := cursorArgs(after)
+	return toAppointments(t.q.AgendaAppointments(ctx, sqlcgen.AgendaAppointmentsParams{
+		BusinessID: businessID, AllProfessionals: professionalIDs == nil, ProfessionalIds: professionalIDs,
+		FromAt: from, ToAt: to, HasCursor: has, AfterStart: start, AfterID: id, MaxRows: int32(limit), //nolint:gosec // bounded by the application
+	}))
+}
+
+func (t *txStore) CustomerAppointments(ctx context.Context, userID uuid.UUID, now time.Time, upcoming bool, after *application.Cursor, limit int) ([]domain.Appointment, error) {
+	has, start, id := cursorArgs(after)
+	if upcoming {
+		return toAppointments(t.q.CustomerUpcomingAppointments(ctx, sqlcgen.CustomerUpcomingAppointmentsParams{
+			UserID: &userID, NowAt: now, HasCursor: has, AfterStart: start, AfterID: id, MaxRows: int32(limit), //nolint:gosec // bounded by the application
+		}))
+	}
+	return toAppointments(t.q.CustomerPastAppointments(ctx, sqlcgen.CustomerPastAppointmentsParams{
+		UserID: &userID, NowAt: now, HasCursor: has, AfterStart: start, AfterID: id, MaxRows: int32(limit), //nolint:gosec // bounded by the application
+	}))
 }
 
 func (t *txStore) ActiveAppointments(ctx context.Context, businessID, professionalID uuid.UUID, from, to time.Time) ([]domain.Booked, error) {

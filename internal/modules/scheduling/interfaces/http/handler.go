@@ -31,19 +31,21 @@ type Service interface {
 	PublicAvailability(ctx context.Context, slug string, serviceID, professionalID uuid.UUID, date domain.LocalDate) (application.Availability, error)
 	Book(ctx context.Context, p contract.Principal, in application.BookingInput) (domain.Appointment, error)
 	StaffService
+	AgendaService
 }
 
 // Handler serves the scheduling endpoints.
 type Handler struct {
 	svc         Service
 	staff       StaffService
+	agendas     AgendaService
 	logger      *slog.Logger
 	requireAuth httpx.Middleware
 }
 
 // New builds the handler; requireAuth is the identity module's authentication middleware.
 func New(svc Service, logger *slog.Logger, requireAuth httpx.Middleware) *Handler {
-	return &Handler{svc: svc, staff: svc, logger: logger, requireAuth: requireAuth}
+	return &Handler{svc: svc, staff: svc, agendas: svc, logger: logger, requireAuth: requireAuth}
 }
 
 // Routes registers the endpoints.
@@ -51,6 +53,7 @@ func (h *Handler) Routes(rt *httpx.Router) {
 	rt.HandleFunc("GET /api/v1/businesses/{slug}/availability", h.publicAvailability)
 	rt.Handle("POST /api/v1/appointments", h.requireAuth(http.HandlerFunc(h.book)))
 	h.staffRoutes(rt)
+	h.agendaRoutes(rt)
 }
 
 type slotDTO struct {
@@ -190,7 +193,7 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 			p.Errors = append(p.Errors, httpx.FieldError{Field: f.Field, Message: f.Code})
 		}
 		httpx.WriteProblem(w, r, p)
-	case errors.Is(err, application.ErrCustomerNotFound):
+	case errors.Is(err, application.ErrCustomerNotFound), errors.Is(err, application.ErrAppointmentNotFound):
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusNotFound, httpx.CodeNotFound, ""))
 	case errors.Is(err, application.ErrCustomerPhoneTaken):
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeCustomerPhoneTaken, "another customer of this business has that mobile number"))

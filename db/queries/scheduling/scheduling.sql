@@ -64,3 +64,30 @@ WHERE business_id = @business_id
   AND (@q::text = '' OR lower(full_name) LIKE '%' || lower(@q::text) || '%' ESCAPE '\' OR phone LIKE '%' || @q::text || '%' ESCAPE '\')
 ORDER BY lower(full_name), id
 LIMIT @max_rows;
+
+-- Agenda of a business in [from_at, to_at) (T6.5), every status, by start; optionally only some
+-- professionals; keyset pagination after (after_start, after_id).
+-- name: AgendaAppointments :many
+SELECT * FROM appointments
+WHERE business_id = @business_id
+  AND (@all_professionals::bool OR professional_id = ANY(@professional_ids::uuid[]))
+  AND start_at >= @from_at AND start_at < @to_at
+  AND (NOT @has_cursor::bool OR (start_at, id) > (@after_start::timestamptz, @after_id::uuid))
+ORDER BY start_at, id
+LIMIT @max_rows;
+
+-- Appointments of a customer account from now on, in every business, by start.
+-- name: CustomerUpcomingAppointments :many
+SELECT * FROM appointments
+WHERE customer_user_id = @user_id AND start_at >= @now_at
+  AND (NOT @has_cursor::bool OR (start_at, id) > (@after_start::timestamptz, @after_id::uuid))
+ORDER BY start_at, id
+LIMIT @max_rows;
+
+-- Past appointments of a customer account, in every business, newest first.
+-- name: CustomerPastAppointments :many
+SELECT * FROM appointments
+WHERE customer_user_id = @user_id AND start_at < @now_at
+  AND (NOT @has_cursor::bool OR (start_at, id) < (@after_start::timestamptz, @after_id::uuid))
+ORDER BY start_at DESC, id DESC
+LIMIT @max_rows;

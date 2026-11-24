@@ -1,8 +1,8 @@
 {
   "info": {
-    "name": "Booking Platform — QA (Fase 6: disponibilidad, reservas y citas manuales)",
+    "name": "Booking Platform — QA (Fase 6: reservas, citas manuales y agenda)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Validación manual de la API en QA hasta la disponibilidad pública (T6.2).\n\n**Antes de empezar:** en la pestaña *Variables* de la colección escriba `email` y `password` de una cuenta **verificada** de QA que sea responsable (OWNER) de un negocio, o que aún no tenga negocio (el paso 3b lo crea). Ejecute las carpetas en orden (o *Run collection*).\n\nLos pasos 4–6 **modifican datos de QA** de esa cuenta: registran al responsable como barbero, reemplazan su horario semanal (lunes a sábado 09:00–18:00, descanso 13:00–14:00), crean una ausencia de 15:00 a 16:00 el día `targetDate` y el servicio \"Corte Postman\" (30 min). Necesita un teléfono (`customerPhone`). El paso 8 reserva como cliente la primera hora libre (la cita queda creada; se podrá cancelar con T6.6) y prueba la repetición con la misma clave y el 409; el 9, como responsable, agenda una cita manual escribiendo nombre, celular y correo del cliente (si no existe se crea); el 10 borra la ausencia.\n\n`targetDate` se calcula sola (dentro de 2 días, saltando domingo) si está vacía; puede fijarla (AAAA-MM-DD). Las horas libres aparecen en la consola de Postman (View → Show Postman Console)."
+    "description": "Validación manual de la API en QA hasta la disponibilidad pública (T6.2).\n\n**Antes de empezar:** en la pestaña *Variables* de la colección escriba `email` y `password` de una cuenta **verificada** de QA que sea responsable (OWNER) de un negocio, o que aún no tenga negocio (el paso 3b lo crea). Ejecute las carpetas en orden (o *Run collection*).\n\nLos pasos 4–6 **modifican datos de QA** de esa cuenta: registran al responsable como barbero, reemplazan su horario semanal (lunes a sábado 09:00–18:00, descanso 13:00–14:00), crean una ausencia de 15:00 a 16:00 el día `targetDate` y el servicio \"Corte Postman\" (30 min). Necesita un teléfono (`customerPhone`). El paso 8 reserva como cliente la primera hora libre (la cita queda creada; se podrá cancelar con T6.6) y prueba la repetición con la misma clave y el 409; el 9, como responsable, agenda una cita manual escribiendo nombre, celular y correo del cliente (si no existe se crea); el 10 muestra la agenda (día, semana, mes, año) y «mis citas»; el 11 borra la ausencia.\n\n`targetDate` se calcula sola (dentro de 2 días, saltando domingo) si está vacía; puede fijarla (AAAA-MM-DD). Las horas libres aparecen en la consola de Postman (View → Show Postman Console)."
   },
   "auth": {
     "type": "bearer",
@@ -1659,7 +1659,308 @@
       ]
     },
     {
-      "name": "10. Limpieza",
+      "name": "10. Agenda y mis citas",
+      "description": "El responsable ve la agenda de todos (o de uno); el barbero solo la suya. El cliente ve sus citas de todos los negocios.",
+      "item": [
+        {
+          "name": "10a. Agenda del día (responsable: todos los barberos)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}/agenda?view=day&date={{targetDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "business",
+                "{{businessId}}",
+                "agenda"
+              ],
+              "query": [
+                {
+                  "key": "view",
+                  "value": "day"
+                },
+                {
+                  "key": "date",
+                  "value": "{{targetDate}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const ag = pm.response.json();",
+                  "pm.test('trae las citas del día', () => pm.expect(ag.items.length).to.be.above(1));",
+                  "console.log('Agenda', ag.view, ag.from, '→', ag.to, '(' + ag.timeZone + ')');",
+                  "ag.items.forEach(i => console.log('  ', i.startLocal.slice(11, 16), i.professionalName, '|', i.serviceName, '|', i.customer.name, i.customer.phone, '|', i.status));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10b. Agenda de la semana, solo mi barbero",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}/agenda?view=week&date={{targetDate}}&professionalId={{professionalId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "business",
+                "{{businessId}}",
+                "agenda"
+              ],
+              "query": [
+                {
+                  "key": "view",
+                  "value": "week"
+                },
+                {
+                  "key": "date",
+                  "value": "{{targetDate}}"
+                },
+                {
+                  "key": "professionalId",
+                  "value": "{{professionalId}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const ag = pm.response.json();",
+                  "pm.test('semana de lunes a domingo', () => pm.expect(new Date(ag.from + 'T00:00:00Z').getUTCDay()).to.eql(1));",
+                  "pm.test('solo ese barbero', () => ag.items.forEach(i => pm.expect(i.professionalId).to.eql(pm.variables.get('professionalId'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10c. Agenda del mes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}/agenda?view=month&date={{targetDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "business",
+                "{{businessId}}",
+                "agenda"
+              ],
+              "query": [
+                {
+                  "key": "view",
+                  "value": "month"
+                },
+                {
+                  "key": "date",
+                  "value": "{{targetDate}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10d. Agenda del año (paginada de a 50)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}/agenda?view=year&date={{targetDate}}&limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "business",
+                "{{businessId}}",
+                "agenda"
+              ],
+              "query": [
+                {
+                  "key": "view",
+                  "value": "year"
+                },
+                {
+                  "key": "date",
+                  "value": "{{targetDate}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const ag = pm.response.json();",
+                  "console.log('Año', ag.from, '→', ag.to, ':', ag.items.length, 'citas en esta página; siguiente página:', ag.nextCursor ? 'sí' : 'no');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10e. Mis citas próximas (como cliente, todos los negocios)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me/appointments?scope=upcoming",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "me",
+                "appointments"
+              ],
+              "query": [
+                {
+                  "key": "scope",
+                  "value": "upcoming"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const items = pm.response.json().items;",
+                  "pm.test('incluye la reserva de 8b', () => pm.expect(items.map(i => i.id)).to.include(pm.variables.get('appointmentId')));",
+                  "items.forEach(i => console.log('  ', i.startLocal, i.business.name, '|', i.professional.name, '|', i.serviceName, '|', i.status));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10f. Detalle de mi cita",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me/appointments/{{appointmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "me",
+                "appointments",
+                "{{appointmentId}}"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('es la mía', () => pm.expect(pm.response.json().id).to.eql(pm.variables.get('appointmentId')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10g. Mis citas pasadas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me/appointments?scope=past",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "me",
+                "appointments"
+              ],
+              "query": [
+                {
+                  "key": "scope",
+                  "value": "past"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "11. Limpieza",
       "description": "",
       "item": [
         {

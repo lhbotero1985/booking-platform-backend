@@ -885,4 +885,20 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `TestContractStaffBooking` (forma rápida) / `TestManualBookingOnPostgres` (forma rápida) | ✅ | 201 con cliente escrito y búsqueda con su correo; 400 `customer.phone`; en PostgreSQL el cliente con correo se guarda y una cita solapada no deja cliente |
 | Postman + Newman (entorno local temporal) | ✅ 2 corridas | 33 peticiones, 60 comprobaciones, 0 fallos (paso 9: cita manual rápida; la 2.ª corrida reutiliza el cliente); registro sin celular → 400 |
 | `task check` (lint 0, vuln) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
-| Despliegue y E2E en QA | ⏳ | Tras el merge (registro con celular, clientes, cita manual, 403 agenda ajena, 409) |
+| PR #51 — ci + security | ✅ 6/6 | Squash `15ac654` |
+| `release-qa` | ✅ | Migración 17 aplicada, smoke test ✅ |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **166/166** | Registro sin celular 400; cita manual rápida (nombre, celular, correo); cliente creado con correo; cliente de la app en la lista; 403 agenda ajena; 409; confirmada por defecto |
+
+## 2026-11-24 · Fase 6 · T6.5 — Agenda y mis citas
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestViewRange` (dominio) | ✅ | Día, semana (lunes a domingo, cruzando año), mes, año; lunes y domingo. Dominio 100 % |
+| `TestAgenda` (scheduling) | ✅ | Responsable ve todos / filtra uno; barbero ve la suya (o la pide); otra → 403; miembro sin perfil → vacía; ajeno → 404; semana / mes / año / otro día; barbero desconocido, cursor inválido, límite > 500 → 400; paginación de a 1 sin repetir; sin fecha → hoy del negocio |
+| `TestMyAppointments` (scheduling) | ✅ | Próximas en orden, pasadas, con negocio y barbero; paginación; detalle propio; otro cliente / inexistente → no encontrado |
+| `TestAgendaOnPostgres` | ✅ | SQL real: día / filtro / semana / mes / año (con una cita pasada) / día siguiente; paginación por cursor con nombres; "mis citas" próximas y pasadas con el nombre real del negocio; cita de otro cliente → no encontrada |
+| `TestContractAgenda` (contra OpenAPI) | ✅ | Semana del responsable (2 barberos, `from`/`to`, hora local); su propia agenda; mes del barbero; 403 agenda ajena; cliente → 404; vista inválida 400; `nextCursor`; mis citas con negocio y barbero; `scope` inválido 400; cita de otro cliente → 404 idéntico a inexistente. **70 rutas documentadas** |
+| `TestEveryBusinessRouteIsTenantIsolated` / credenciales | ✅ | La agenda entra sola a la suite de aislamiento; las rutas `/me/appointments` a la matriz de credenciales |
+| Postman + Newman (entorno local temporal) | ✅ 2 corridas | 40 peticiones, 72 comprobaciones, 0 fallos; la consola muestra la agenda del día (hora, barbero, servicio, cliente, celular, estado) |
+| `task check` (lint 0, vuln) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
+| Despliegue y E2E en QA | ⏳ | Tras el merge (agenda del responsable y del barbero, 403, paginación, mis citas, 404 ajena) |

@@ -95,6 +95,13 @@ sin centavos) + `currency` del negocio. `categoryId: null` en PATCH quita la cat
 `{"serviceIds": [...]}` (OWNER) que reemplaza la lista completa; `SERVICE_NOT_FOUND` en
 `serviceIds[i]` si el servicio no es del negocio; profesional inexistente o ajeno → 404.
 
+### Agenda y mis citas (T6.5)
+`GET /api/v1/business/{businessId}/agenda?view=day|week|month|year&date=&professionalId=&cursor=&limit=`
+(fecha por defecto: hoy en el negocio): `from`/`to` (días locales, inclusivos), `timeZone`,
+`items` (hora UTC y local, barbero, servicio, precio, estado, cliente con nombre y celular) y
+`nextCursor`. `GET /api/v1/me/appointments?scope=upcoming|past` (todas las del cliente, con
+negocio y barbero) y `GET /api/v1/me/appointments/{appointmentId}`.
+
 ### Clientes del negocio y citas manuales (T6.4)
 `GET|POST /api/v1/business/{businessId}/customers` (`?q=` por nombre o celular) y
 `PATCH …/customers/{customerId}`: nombre y celular (E.164, único por negocio → 409

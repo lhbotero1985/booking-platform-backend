@@ -60,6 +60,82 @@ func (q *Queries) ActiveAppointmentsOverlapping(ctx context.Context, arg ActiveA
 	return items, nil
 }
 
+const agendaAppointments = `-- name: AgendaAppointments :many
+SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id FROM appointments
+WHERE business_id = $1
+  AND ($2::bool OR professional_id = ANY($3::uuid[]))
+  AND start_at >= $4 AND start_at < $5
+  AND (NOT $6::bool OR (start_at, id) > ($7::timestamptz, $8::uuid))
+ORDER BY start_at, id
+LIMIT $9
+`
+
+type AgendaAppointmentsParams struct {
+	BusinessID       uuid.UUID
+	AllProfessionals bool
+	ProfessionalIds  []uuid.UUID
+	FromAt           time.Time
+	ToAt             time.Time
+	HasCursor        bool
+	AfterStart       time.Time
+	AfterID          uuid.UUID
+	MaxRows          int32
+}
+
+// Agenda of a business in [from_at, to_at) (T6.5), every status, by start; optionally only some
+// professionals; keyset pagination after (after_start, after_id).
+func (q *Queries) AgendaAppointments(ctx context.Context, arg AgendaAppointmentsParams) ([]Appointment, error) {
+	rows, err := q.db.Query(ctx, agendaAppointments,
+		arg.BusinessID,
+		arg.AllProfessionals,
+		arg.ProfessionalIds,
+		arg.FromAt,
+		arg.ToAt,
+		arg.HasCursor,
+		arg.AfterStart,
+		arg.AfterID,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Appointment{}
+	for rows.Next() {
+		var i Appointment
+		if err := rows.Scan(
+			&i.ID,
+			&i.BusinessID,
+			&i.ProfessionalID,
+			&i.ServiceID,
+			&i.CustomerUserID,
+			&i.CustomerName,
+			&i.CustomerPhone,
+			&i.StartAt,
+			&i.EndAt,
+			&i.BufferMinutes,
+			&i.OccupiedUntil,
+			&i.Status,
+			&i.ServiceName,
+			&i.DurationMinutes,
+			&i.PriceMinor,
+			&i.Currency,
+			&i.Version,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CustomerID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const appointmentByID = `-- name: AppointmentByID :one
 SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id FROM appointments WHERE id = $1
 `
@@ -183,6 +259,140 @@ func (q *Queries) CustomerByPhone(ctx context.Context, arg CustomerByPhoneParams
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const customerPastAppointments = `-- name: CustomerPastAppointments :many
+SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id FROM appointments
+WHERE customer_user_id = $1 AND start_at < $2
+  AND (NOT $3::bool OR (start_at, id) < ($4::timestamptz, $5::uuid))
+ORDER BY start_at DESC, id DESC
+LIMIT $6
+`
+
+type CustomerPastAppointmentsParams struct {
+	UserID     *uuid.UUID
+	NowAt      time.Time
+	HasCursor  bool
+	AfterStart time.Time
+	AfterID    uuid.UUID
+	MaxRows    int32
+}
+
+// Past appointments of a customer account, in every business, newest first.
+func (q *Queries) CustomerPastAppointments(ctx context.Context, arg CustomerPastAppointmentsParams) ([]Appointment, error) {
+	rows, err := q.db.Query(ctx, customerPastAppointments,
+		arg.UserID,
+		arg.NowAt,
+		arg.HasCursor,
+		arg.AfterStart,
+		arg.AfterID,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Appointment{}
+	for rows.Next() {
+		var i Appointment
+		if err := rows.Scan(
+			&i.ID,
+			&i.BusinessID,
+			&i.ProfessionalID,
+			&i.ServiceID,
+			&i.CustomerUserID,
+			&i.CustomerName,
+			&i.CustomerPhone,
+			&i.StartAt,
+			&i.EndAt,
+			&i.BufferMinutes,
+			&i.OccupiedUntil,
+			&i.Status,
+			&i.ServiceName,
+			&i.DurationMinutes,
+			&i.PriceMinor,
+			&i.Currency,
+			&i.Version,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CustomerID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const customerUpcomingAppointments = `-- name: CustomerUpcomingAppointments :many
+SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id FROM appointments
+WHERE customer_user_id = $1 AND start_at >= $2
+  AND (NOT $3::bool OR (start_at, id) > ($4::timestamptz, $5::uuid))
+ORDER BY start_at, id
+LIMIT $6
+`
+
+type CustomerUpcomingAppointmentsParams struct {
+	UserID     *uuid.UUID
+	NowAt      time.Time
+	HasCursor  bool
+	AfterStart time.Time
+	AfterID    uuid.UUID
+	MaxRows    int32
+}
+
+// Appointments of a customer account from now on, in every business, by start.
+func (q *Queries) CustomerUpcomingAppointments(ctx context.Context, arg CustomerUpcomingAppointmentsParams) ([]Appointment, error) {
+	rows, err := q.db.Query(ctx, customerUpcomingAppointments,
+		arg.UserID,
+		arg.NowAt,
+		arg.HasCursor,
+		arg.AfterStart,
+		arg.AfterID,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Appointment{}
+	for rows.Next() {
+		var i Appointment
+		if err := rows.Scan(
+			&i.ID,
+			&i.BusinessID,
+			&i.ProfessionalID,
+			&i.ServiceID,
+			&i.CustomerUserID,
+			&i.CustomerName,
+			&i.CustomerPhone,
+			&i.StartAt,
+			&i.EndAt,
+			&i.BufferMinutes,
+			&i.OccupiedUntil,
+			&i.Status,
+			&i.ServiceName,
+			&i.DurationMinutes,
+			&i.PriceMinor,
+			&i.Currency,
+			&i.Version,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CustomerID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const idempotencyKeyOf = `-- name: IdempotencyKeyOf :one
