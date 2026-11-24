@@ -35,6 +35,12 @@ tags:
       return active records only; writes under `/api/v1/admin` require `PLATFORM_ADMIN`
       (403 `FORBIDDEN` otherwise) and are audited. An area with active businesses cannot be
       deactivated (409 `IN_USE`).
+  - name: Businesses
+    description: |
+      Businesses (tenants). Onboarding is done by `PLATFORM_ADMIN` (403 `FORBIDDEN` otherwise):
+      a new business starts `PENDING_REVIEW` (not visible to customers) with its OWNER, an
+      existing verified account; the administrator activates it when it is ready. Time zone and
+      currency come from the city and its country.
 
 paths:
   /healthz:
@@ -670,6 +676,176 @@ paths:
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
 
+  /api/v1/admin/businesses:
+    post:
+      tags: [Businesses]
+      operationId: createBusiness
+      summary: Create a business with its OWNER (PLATFORM_ADMIN)
+      description: |
+        The business starts `PENDING_REVIEW`. The slug is derived from the name (`-2`, `-3`… on
+        collision). Business, OWNER membership and audit entries are created atomically.
+        `ownerEmail` must belong to an active (verified) account (`ACCOUNT_NOT_ELIGIBLE`).
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBusinessRequest"
+      responses:
+        "201":
+          description: Business created.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Business"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+    get:
+      tags: [Businesses]
+      operationId: listBusinesses
+      summary: List businesses (PLATFORM_ADMIN)
+      description: Ordered by ID (creation order). Keyset pagination with `cursor`.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/BusinessStatus"
+        - name: cityId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: cursor
+          in: query
+          description: "`nextCursor` of the previous page."
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 100
+      responses:
+        "200":
+          description: A page of businesses.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/businesses/{id}:
+    get:
+      tags: [Businesses]
+      operationId: getBusinessAsAdmin
+      summary: Get a business (PLATFORM_ADMIN)
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses:
+        "200":
+          description: The business.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Business"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/admin/businesses/{id}/activate:
+    post:
+      tags: [Businesses]
+      operationId: activateBusiness
+      summary: Activate a business (PLATFORM_ADMIN)
+      description: |
+        Makes it visible and bookable. Idempotent. Its city, division and country must be active
+        (409 `LOCATION_INACTIVE`).
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses:
+        "200":
+          description: The activated business.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Business"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/admin/businesses/{id}/suspend:
+    post:
+      tags: [Businesses]
+      operationId: suspendBusiness
+      summary: Suspend a business (PLATFORM_ADMIN)
+      description: Hides it from customers and stops new bookings. Idempotent.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses:
+        "200":
+          description: The suspended business.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Business"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   parameters:
     CountryCode:
@@ -1148,6 +1324,167 @@ components:
         active:
           type: boolean
 
+    BusinessStatus:
+      type: string
+      enum: [PENDING_REVIEW, ACTIVE, SUSPENDED]
+
+    Coordinates:
+      type: object
+      additionalProperties: false
+      required: [latitude, longitude]
+      properties:
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+
+    BusinessLocation:
+      type: object
+      additionalProperties: false
+      required: [countryCode, divisionId, cityId, addressLine, coordinates]
+      properties:
+        countryCode:
+          type: string
+          pattern: "^[A-Z]{2}$"
+        divisionId:
+          type: string
+          format: uuid
+        cityId:
+          type: string
+          format: uuid
+        addressLine:
+          type: string
+        coordinates:
+          oneOf:
+            - $ref: "#/components/schemas/Coordinates"
+            - type: "null"
+
+    BookingPolicy:
+      type: object
+      additionalProperties: false
+      required: [slotIntervalMinutes, bufferMinutes, minLeadMinutes, maxAdvanceDays,
+                 cancellationCutoffHours, rescheduleCutoffHours, requireCustomerConfirmation]
+      properties:
+        slotIntervalMinutes:
+          type: integer
+          enum: [5, 10, 15, 20]
+        bufferMinutes:
+          type: integer
+          minimum: 0
+          maximum: 60
+        minLeadMinutes:
+          type: integer
+          minimum: 0
+          maximum: 10080
+        maxAdvanceDays:
+          type: integer
+          minimum: 1
+          maximum: 365
+        cancellationCutoffHours:
+          type: integer
+          minimum: 0
+          maximum: 168
+        rescheduleCutoffHours:
+          type: integer
+          minimum: 0
+          maximum: 168
+        requireCustomerConfirmation:
+          type: boolean
+
+    Reminders:
+      type: object
+      additionalProperties: false
+      required: [enabled, hoursBefore]
+      properties:
+        enabled:
+          type: boolean
+        hoursBefore:
+          type: integer
+          minimum: 1
+          maximum: 72
+
+    Business:
+      type: object
+      additionalProperties: false
+      required: [id, name, slug, status, contactPhone, description, location, timeZone, currency,
+                 bookingPolicy, reminders, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$"
+        status:
+          $ref: "#/components/schemas/BusinessStatus"
+        contactPhone:
+          type: string
+          description: E.164.
+          pattern: "^\\+[1-9][0-9]{6,14}$"
+        description:
+          type: string
+        location:
+          $ref: "#/components/schemas/BusinessLocation"
+        timeZone:
+          type: string
+        currency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+        bookingPolicy:
+          $ref: "#/components/schemas/BookingPolicy"
+        reminders:
+          $ref: "#/components/schemas/Reminders"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    BusinessList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Business"
+        nextCursor:
+          type: string
+
+    CreateBusinessRequest:
+      type: object
+      additionalProperties: false
+      required: [name, contactPhone, cityId, addressLine, ownerEmail]
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        contactPhone:
+          type: string
+          description: National (country of the city) or international format; stored as E.164.
+        description:
+          type: string
+          maxLength: 1000
+        cityId:
+          type: string
+          format: uuid
+        addressLine:
+          type: string
+          maxLength: 200
+        coordinates:
+          $ref: "#/components/schemas/Coordinates"
+        ownerEmail:
+          type: string
+          description: Email of an active (verified) account that becomes OWNER.
+
   responses:
     Unauthorized:
       description: |
@@ -1236,8 +1573,9 @@ components:
             $ref: "#/components/schemas/Problem"
     Conflict:
       description: |
-        A record with the same code or name already exists (`ALREADY_EXISTS`), or a country,
-        division or city with active businesses cannot be deactivated (`IN_USE`).
+        A record with the same code or name already exists (`ALREADY_EXISTS`), a country,
+        division or city with active businesses cannot be deactivated (`IN_USE`), or a business
+        cannot be activated while its location is inactive (`LOCATION_INACTIVE`).
       headers:
         X-Request-ID:
           $ref: "#/components/headers/XRequestID"

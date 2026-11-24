@@ -65,6 +65,9 @@ type Tx interface {
 	EnqueueVerificationEmail(ctx context.Context, userID uuid.UUID) error
 
 	UpdatePasswordHash(ctx context.Context, userID uuid.UUID, hash domain.PasswordHash) error
+	// InsertMembership adds an ACTIVE membership. It returns contract.ErrAlreadyMember or
+	// contract.ErrOwnerExists when a unique rule is violated.
+	InsertMembership(ctx context.Context, id, userID, businessID uuid.UUID, role contract.Role, now time.Time) error
 	// SetPlatformAdmin sets or clears the PLATFORM_ADMIN flag (operator command only).
 	SetPlatformAdmin(ctx context.Context, userID uuid.UUID, admin bool) error
 

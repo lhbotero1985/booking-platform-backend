@@ -31,9 +31,9 @@ func NewStore(pool *pgxpool.Pool) *Store {
 }
 
 // WithinTx implements application.Store.
-func (s *Store) WithinTx(ctx context.Context, fn func(tx application.Tx) error) error {
+func (s *Store) WithinTx(ctx context.Context, fn func(ctx context.Context, tx application.Tx) error) error {
 	return db.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
-		return fn(&txStore{tx: tx, q: sqlcgen.New(tx)})
+		return fn(db.ContextWithTx(ctx, tx), &txStore{tx: tx, q: sqlcgen.New(tx)})
 	})
 }
 
@@ -116,6 +116,33 @@ func (t *txStore) SlugTaken(ctx context.Context, slug domain.Slug) (bool, error)
 	return t.q.SlugTaken(ctx, string(slug))
 }
 
+func (t *txStore) ListBusinesses(ctx context.Context, f application.ListFilter) ([]*domain.Business, error) {
+	p := sqlcgen.ListBusinessesParams{MaxRows: int32(f.Limit)} //nolint:gosec // bounded by the caller
+	if f.Status != "" {
+		s := string(f.Status)
+		p.Status = &s
+	}
+	if f.CityID != uuid.Nil {
+		p.CityID = &f.CityID
+	}
+	if f.After != uuid.Nil {
+		p.After = &f.After
+	}
+	rows, err := t.q.ListBusinesses(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*domain.Business, 0, len(rows))
+	for _, r := range rows {
+		b, err := toDomain(row(r))
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, b)
+	}
+	return out, nil
+}
+
 func (t *txStore) AppendAudit(ctx context.Context, e *audit.Entry) error {
 	return audit.Append(ctx, t.tx, e)
 }
@@ -135,7 +162,7 @@ func coords(c *domain.Coordinates) (lat, lng *float64) {
 }
 
 // row converts both generated row types (identical columns) to one shape.
-func row[T sqlcgen.BusinessByIDRow | sqlcgen.BusinessBySlugRow](r T) sqlcgen.BusinessByIDRow {
+func row[T sqlcgen.BusinessByIDRow | sqlcgen.BusinessBySlugRow | sqlcgen.ListBusinessesRow](r T) sqlcgen.BusinessByIDRow {
 	return sqlcgen.BusinessByIDRow(r)
 }
 

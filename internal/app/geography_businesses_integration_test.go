@@ -3,6 +3,7 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -77,7 +78,7 @@ func TestGeographyCannotDeactivateAreasInUse(t *testing.T) {
 		t.Fatal(err)
 	}
 	b := testBusiness(t, city.ID)
-	if err := biz.WithinTx(ctx, func(tx bizapp.Tx) error { return tx.InsertBusiness(ctx, b) }); err != nil {
+	if err := biz.WithinTx(ctx, func(_ context.Context, tx bizapp.Tx) error { return tx.InsertBusiness(ctx, b) }); err != nil {
 		t.Fatal(err)
 	}
 	if n, err := biz.ActiveBusinessesInCity(ctx, city.ID); err != nil || n != 1 {
@@ -96,7 +97,7 @@ func TestGeographyCannotDeactivateAreasInUse(t *testing.T) {
 
 	// Once the business is suspended the city can be deactivated.
 	b.Suspend(time.Now().UTC())
-	if err := biz.WithinTx(ctx, func(tx bizapp.Tx) error { return tx.UpdateBusiness(ctx, b) }); err != nil {
+	if err := biz.WithinTx(ctx, func(_ context.Context, tx bizapp.Tx) error { return tx.UpdateBusiness(ctx, b) }); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := geo.UpdateCity(ctx, admin, city.ID, geoapp.CityPatch{Active: &off}); err != nil {

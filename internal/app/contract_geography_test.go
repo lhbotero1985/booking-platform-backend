@@ -12,6 +12,9 @@ import (
 	"testing"
 	"time"
 
+	bizapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/application"
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/application/biztest"
+	businesseshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/interfaces/http"
 	geoapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/application/geotest"
 	geographyhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/interfaces/http"
@@ -28,6 +31,7 @@ type geoEnv struct {
 	users    *apptest.Store
 	mailer   *apptest.Mailer
 	geo      *geotest.Store
+	biz      *biztest.Store
 }
 
 // newGeoServer wires identity (authentication, authorizer) and geography like cmd/api does.
@@ -48,8 +52,10 @@ func newGeoServer(t *testing.T) geoEnv {
 	})
 	idh := identityhttp.New(e.identity, logger, identityhttp.Options{})
 	geo := geoapp.NewService(e.geo, e.identity, e.geo, clk)
+	e.biz = biztest.NewStore()
+	biz := bizapp.NewService(bizapp.Deps{Store: e.biz, Authz: e.identity, Members: e.identity, Places: geo, Clock: clk})
 	e.srv = httptest.NewServer(NewHTTPHandler(cfg, logger, Deps{Modules: []RouteRegistrar{
-		idh, geographyhttp.New(geo, logger, idh.RequireAuth),
+		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth),
 	}}))
 	t.Cleanup(e.srv.Close)
 	return e

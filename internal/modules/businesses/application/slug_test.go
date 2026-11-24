@@ -28,6 +28,9 @@ func (slugTx) BusinessBySlug(context.Context, domain.Slug) (*domain.Business, er
 	return nil, application.ErrNotFound
 }
 func (slugTx) AppendAudit(context.Context, *audit.Entry) error { return nil }
+func (slugTx) ListBusinesses(context.Context, application.ListFilter) ([]*domain.Business, error) {
+	return nil, nil
+}
 
 func TestAllocateSlug(t *testing.T) {
 	ctx := context.Background()

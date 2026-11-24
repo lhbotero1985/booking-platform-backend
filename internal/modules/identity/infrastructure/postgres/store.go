@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
@@ -127,6 +128,18 @@ func toDomain(r sqlcgen.User) (*domain.User, error) {
 
 func (t *txStore) UpdatePasswordHash(ctx context.Context, userID uuid.UUID, hash domain.PasswordHash) error {
 	return t.q.UpdateUserPasswordHash(ctx, sqlcgen.UpdateUserPasswordHashParams{ID: userID, PasswordHash: string(hash)})
+}
+
+func (t *txStore) InsertMembership(ctx context.Context, id, userID, businessID uuid.UUID, role contract.Role, now time.Time) error {
+	err := t.q.InsertMembership(ctx, sqlcgen.InsertMembershipParams{ID: id, UserID: userID, BusinessID: businessID, Role: string(role), CreatedAt: now})
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		if pgErr.ConstraintName == "memberships_one_active_owner_idx" {
+			return contract.ErrOwnerExists
+		}
+		return contract.ErrAlreadyMember
+	}
+	return err
 }
 
 func (t *txStore) SetPlatformAdmin(ctx context.Context, userID uuid.UUID, admin bool) error {

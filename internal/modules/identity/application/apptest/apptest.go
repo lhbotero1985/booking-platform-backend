@@ -334,6 +334,23 @@ func (t *storeTx) UpdatePasswordHash(_ context.Context, id uuid.UUID, hash domai
 	return u.ChangePasswordHash(hash, u.UpdatedAt())
 }
 
+func (t *storeTx) InsertMembership(_ context.Context, _, userID, businessID uuid.UUID, role contract.Role, _ time.Time) error {
+	for _, ms := range t.s.memberships {
+		for _, m := range ms {
+			if m.BusinessID == businessID && m.Role == contract.RoleOwner && role == contract.RoleOwner {
+				return contract.ErrOwnerExists
+			}
+		}
+	}
+	for _, m := range t.s.memberships[userID] {
+		if m.BusinessID == businessID {
+			return contract.ErrAlreadyMember
+		}
+	}
+	t.s.memberships[userID] = append(t.s.memberships[userID], contract.Membership{BusinessID: businessID, Role: role})
+	return nil
+}
+
 func (t *storeTx) SetPlatformAdmin(_ context.Context, id uuid.UUID, admin bool) error {
 	u, ok := t.s.users[id]
 	if !ok {

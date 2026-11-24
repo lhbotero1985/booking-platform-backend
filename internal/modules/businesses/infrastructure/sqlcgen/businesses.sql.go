@@ -257,6 +257,108 @@ func (q *Queries) InsertBusiness(ctx context.Context, arg InsertBusinessParams) 
 	return err
 }
 
+const listBusinesses = `-- name: ListBusinesses :many
+SELECT id, name, slug::text AS slug, status, contact_phone, description, country_code, division_id,
+       city_id, address_line, latitude, longitude, time_zone, currency, slot_interval_minutes,
+       buffer_minutes, min_lead_minutes, max_advance_days, cancellation_cutoff_hours,
+       reschedule_cutoff_hours, require_customer_confirmation, reminders_enabled,
+       reminder_hours_before, created_at, updated_at
+FROM businesses
+WHERE ($1::text IS NULL OR status = $1::text)
+  AND ($2::uuid IS NULL OR city_id = $2::uuid)
+  AND ($3::uuid IS NULL OR id > $3::uuid)
+ORDER BY id
+LIMIT $4
+`
+
+type ListBusinessesParams struct {
+	Status  *string
+	CityID  *uuid.UUID
+	After   *uuid.UUID
+	MaxRows int32
+}
+
+type ListBusinessesRow struct {
+	ID                          uuid.UUID
+	Name                        string
+	Slug                        string
+	Status                      string
+	ContactPhone                string
+	Description                 string
+	CountryCode                 string
+	DivisionID                  uuid.UUID
+	CityID                      uuid.UUID
+	AddressLine                 string
+	Latitude                    *float64
+	Longitude                   *float64
+	TimeZone                    string
+	Currency                    string
+	SlotIntervalMinutes         int16
+	BufferMinutes               int16
+	MinLeadMinutes              int32
+	MaxAdvanceDays              int16
+	CancellationCutoffHours     int16
+	RescheduleCutoffHours       int16
+	RequireCustomerConfirmation bool
+	RemindersEnabled            bool
+	ReminderHoursBefore         int16
+	CreatedAt                   time.Time
+	UpdatedAt                   time.Time
+}
+
+// Administrator list: optional status and city filters, keyset pagination by id (UUIDv7, so
+// roughly by creation time).
+func (q *Queries) ListBusinesses(ctx context.Context, arg ListBusinessesParams) ([]ListBusinessesRow, error) {
+	rows, err := q.db.Query(ctx, listBusinesses,
+		arg.Status,
+		arg.CityID,
+		arg.After,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListBusinessesRow{}
+	for rows.Next() {
+		var i ListBusinessesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.Status,
+			&i.ContactPhone,
+			&i.Description,
+			&i.CountryCode,
+			&i.DivisionID,
+			&i.CityID,
+			&i.AddressLine,
+			&i.Latitude,
+			&i.Longitude,
+			&i.TimeZone,
+			&i.Currency,
+			&i.SlotIntervalMinutes,
+			&i.BufferMinutes,
+			&i.MinLeadMinutes,
+			&i.MaxAdvanceDays,
+			&i.CancellationCutoffHours,
+			&i.RescheduleCutoffHours,
+			&i.RequireCustomerConfirmation,
+			&i.RemindersEnabled,
+			&i.ReminderHoursBefore,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const slugTaken = `-- name: SlugTaken :one
 SELECT EXISTS (SELECT 1 FROM businesses WHERE slug = $1) AS taken
 `
