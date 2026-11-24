@@ -86,3 +86,18 @@ sql:
         emit_empty_slices: true
         emit_pointers_for_null_types: true
         omit_unused_structs: true
+
+  # Subscriptions module (T4.3b, ADR-0018).
+  - name: subscriptions
+    engine: postgresql
+    schema: db/migrations
+    queries: db/queries/subscriptions
+    gen:
+      go:
+        package: sqlcgen
+        out: internal/modules/subscriptions/infrastructure/sqlcgen
+        sql_package: pgx/v5
+        emit_interface: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        omit_unused_structs: true

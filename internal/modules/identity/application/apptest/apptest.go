@@ -351,6 +351,13 @@ func (t *storeTx) InsertMembership(_ context.Context, _, userID, businessID uuid
 	return nil
 }
 
+func (t *storeTx) LockUser(_ context.Context, id uuid.UUID) error {
+	if _, ok := t.s.users[id]; !ok {
+		return application.ErrNotFound
+	}
+	return nil
+}
+
 func (t *storeTx) SetPlatformAdmin(_ context.Context, id uuid.UUID, admin bool) error {
 	u, ok := t.s.users[id]
 	if !ok {

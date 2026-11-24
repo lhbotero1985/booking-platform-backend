@@ -74,3 +74,41 @@ func TestBusinessCreationRejectsServerControlledFields(t *testing.T) {
 		t.Errorf("unverified owner: %d %s (businesses %d)", r.status, r.body, h.biz.Count())
 	}
 }
+
+// TestSelfServiceOnboardingRules (ADR-0018): the caller becomes OWNER of an ACTIVE business with a
+// demo; it cannot pick another owner, status, slug or subscription; one business per account.
+func TestSelfServiceOnboardingRules(t *testing.T) {
+	h := startAuth(t)
+	h.account(t, suiteEmail)
+	tok := h.bearerToken(t, suiteEmail)
+	base := `"name":"Barbería Propia","contactPhone":"3001234567","cityId":"` + geotest.CaliID.String() + `","addressLine":"Calle 1"`
+	for _, extra := range []string{
+		`"ownerEmail":"otro@example.com"`, `"status":"ACTIVE"`, `"slug":"admin"`, `"subscription":{"status":"ACTIVE"}`,
+		`"trialEndsAt":"2099-01-01T00:00:00Z"`, `"currency":"USD"`,
+	} {
+		if r := h.call(t, http.MethodPost, "/api/v1/businesses", "{"+base+","+extra+"}", bearerH(tok)); r.status != http.StatusBadRequest {
+			t.Errorf("extra field %s: %d %s", extra, r.status, r.body)
+		}
+	}
+	if h.biz.Count() != 0 {
+		t.Fatal("a request with server-controlled fields created a business")
+	}
+	r := h.call(t, http.MethodPost, "/api/v1/businesses", "{"+base+"}", bearerH(tok))
+	var b struct{ ID, Status string }
+	if r.status != http.StatusCreated || json.Unmarshal([]byte(r.body), &b) != nil || b.Status != "ACTIVE" {
+		t.Fatalf("create: %d %s", r.status, r.body)
+	}
+	// The caller is OWNER of exactly that business, and the demo runs.
+	ms := h.call(t, http.MethodGet, "/api/v1/me/memberships", "", bearerH(tok))
+	if !strings.Contains(ms.body, `"businessId":"`+b.ID+`","role":"OWNER"`) {
+		t.Errorf("memberships = %s", ms.body)
+	}
+	if got := h.subs.AuditActions(); len(got) != 1 || got[0] != "subscription.trial_started" {
+		t.Errorf("subscription audit = %v", got)
+	}
+	// One business per account.
+	r = h.call(t, http.MethodPost, "/api/v1/businesses", "{"+base+"}", bearerH(tok))
+	if r.status != http.StatusConflict || !strings.Contains(r.body, "ALREADY_OWNER") || h.biz.Count() != 1 {
+		t.Errorf("second business: %d %s (businesses %d)", r.status, r.body, h.biz.Count())
+	}
+}

@@ -585,3 +585,22 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `tests/security` | ✅ | 5 rutas en la matriz de credenciales inválidas; no admin → 403 + `authz.denied` ×5 sin cambios; 9 campos controlados por el servidor (status, slug, id, timeZone, currency, countryCode, divisionId, bookingPolicy, createdAt) → 400; OWNER no verificado → 400 `ACCOUNT_NOT_ELIGIBLE` sin crear negocio |
 | `task check` / `sqlc:check` / `shellcheck` / `secrets` / unitarias + integración completas | ✅ | govulncheck reintentado por DNS local |
 | Despliegue y E2E en QA | ⏳ | Tras el merge |
+
+## 2026-11-24 · Fase 4 · T4.3 — CI, despliegue y E2E
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| PR #34 — ci + security | ✅ 6/6 | Squash `c2c3d77`; `release-qa` ✅ |
+| `scripts/e2e-qa.sh` con `ADMIN_EMAIL`/`ADMIN_PASSWORD` en QA | ✅ **70/70** | Alta real por el admin: `PENDING_REVIEW`, COP, `America/Bogota`, `+573001234567`; el dueño ve su membresía OWNER; activar → `ACTIVE`; suspender → `SUSPENDED`; dueño no verificado → 400 |
+
+## 2026-11-24 · Fase 4 · T4.3b — Alta autoservicio con demo de 7 días
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `go test ./internal/modules/subscriptions/...` | ✅ | domain **100 %** (demo de 7 días, `Entitled` al segundo exacto del fin, extender/reabrir, límites 1–90 días, cortesía idempotente, no extensible si ACTIVE); application **88,6 %** (inicio, vencimiento solo de las vencidas, extensión, auditoría con y sin actor, solo admin); worker **90,9 %** |
+| `go test ./internal/modules/businesses/...` | ✅ | Autoservicio `ACTIVE` con demo y OWNER = quien llama (auditoría `via=self_service`); segunda → `ErrAlreadyOwner` sin persistir; ciudad inactiva; anónimo; **fallo de la demo → ni negocio ni auditoría** (autoservicio y admin); el alta admin también inicia demo |
+| `TestSelfServiceOnboardingOnPostgres` | ✅ | **Dos solicitudes simultáneas del mismo usuario → exactamente 1 negocio** (la otra `ALREADY_OWNER`, sin filas huérfanas); suscripción `TRIALING` a 7 días; 3 entradas de auditoría; SQL real del job vence la demo (`EXPIRED`, auditoría `source=job` sin actor); negocio con OWNER no se puede borrar |
+| `TestContractSelfServiceAndSubscriptions` | ✅ | 4 operaciones nuevas contra OpenAPI: 201/400/401/403/404/409 (`ALREADY_OWNER`, `NOT_EXTENDABLE`) |
+| `tests/security` | ✅ | Autoservicio y 3 rutas admin de suscripción en la matriz de credenciales inválidas; no admin → 403; 6 campos controlados por el servidor (`ownerEmail`, status, slug, subscription, trialEndsAt, currency) → 400; quien llama queda OWNER de ese negocio; segunda → 409 |
+| `task check` / `sqlc:check` / `shellcheck` / `secrets` / unitarias + integración completas | ✅ | govulncheck reintentado por DNS local |
+| Despliegue y E2E en QA | ⏳ | Tras el merge |

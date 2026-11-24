@@ -90,7 +90,7 @@ su negocio con una demo de 7 días (T4.3b); `PLATFORM_ADMIN` puede todo sobre to
 | T4.1 ✅ | Geografía: países, divisiones, ciudades (zona horaria), datos iniciales; lectura pública, escritura `PLATFORM_ADMIN` auditada; comando `api admin grant-platform-admin` | Datos iniciales en QA; no admin → 403; auditoría en la misma transacción |
 | T4.2 ✅ | Dominio y persistencia de negocios: slug, zona horaria, moneda, ubicación, políticas, avisos; FK de membresías | Ciudad ∈ división ∈ país; migración e integración |
 | T4.3 ✅ | Alta de negocios por el administrador con su OWNER (usuario existente por email); activar/suspender | Negocio + OWNER atómicos; suspendido fuera de búsqueda; un OWNER activo |
-| T4.3b | Alta autoservicio con demo de 7 días: módulo `subscriptions` (`TRIALING`…), una demo por cuenta, vencimiento automático (River), extensión por el administrador | Negocio + OWNER + suscripción atómicos; demo vencida → no visible; auditoría |
+| T4.3b ✅ | Alta autoservicio con demo de 7 días: módulo `subscriptions` (`TRIALING`…), una demo por cuenta, vencimiento automático (River), extensión por el administrador | Negocio + OWNER + suscripción atómicos; demo vencida → no visible; auditoría |
 | T4.4 | Gestión del negocio (datos, ubicación, políticas, avisos) | OWNER sí, MANAGER 403 en lo exclusivo, otro negocio 404 |
 | T4.5 | Miembros: listar, agregar por email, cambiar rol, revocar | Solo OWNER; no se revoca el último OWNER; efecto inmediato |
 | T4.6 | Búsqueda pública por ciudad y texto, detalle por slug | Solo activos; sin datos internos |

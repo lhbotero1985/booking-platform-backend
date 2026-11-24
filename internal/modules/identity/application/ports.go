@@ -68,6 +68,8 @@ type Tx interface {
 	// InsertMembership adds an ACTIVE membership. It returns contract.ErrAlreadyMember or
 	// contract.ErrOwnerExists when a unique rule is violated.
 	InsertMembership(ctx context.Context, id, userID, businessID uuid.UUID, role contract.Role, now time.Time) error
+	// LockUser locks the user row until the end of the transaction (ErrNotFound if absent).
+	LockUser(ctx context.Context, userID uuid.UUID) error
 	// SetPlatformAdmin sets or clears the PLATFORM_ADMIN flag (operator command only).
 	SetPlatformAdmin(ctx context.Context, userID uuid.UUID, admin bool) error
 

@@ -49,3 +49,32 @@ func (s *Service) AddMember(ctx context.Context, actor contract.Principal, busin
 	})
 	return userID, err
 }
+
+// ClaimOwnership implements contract.OwnershipClaimer: the actor becomes OWNER of businessID,
+// which the caller has just created in the same transaction. One owned business per account
+// (ADR-0018); the user row is locked so two concurrent requests cannot both succeed.
+func (s *Service) ClaimOwnership(ctx context.Context, actor contract.Principal, businessID uuid.UUID) error {
+	if actor.UserID == uuid.Nil {
+		return ErrUnauthenticated
+	}
+	return s.store.WithinTx(ctx, func(tx Tx) error {
+		if err := tx.LockUser(ctx, actor.UserID); err != nil {
+			return err
+		}
+		ms, err := tx.ActiveMembershipsByUser(ctx, actor.UserID)
+		if err != nil {
+			return err
+		}
+		for _, m := range ms {
+			if m.Role == contract.RoleOwner {
+				return contract.ErrAlreadyOwner
+			}
+		}
+		if err := tx.InsertMembership(ctx, uuid.Must(uuid.NewV7()), actor.UserID, businessID, contract.RoleOwner, s.clock.Now()); err != nil {
+			return err
+		}
+		return tx.AppendAudit(ctx, *s.newAudit(ctx, AuditMembershipGranted, OutcomeSuccess).
+			actor(actor.UserID).business(businessID).resource("user", actor.UserID).
+			meta("role", string(contract.RoleOwner)).meta("via", "self_service"))
+	})
+}

@@ -101,6 +101,18 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	return i, err
 }
 
+const lockUser = `-- name: LockUser :one
+SELECT id FROM users WHERE id = $1 FOR UPDATE
+`
+
+// Serializes per-user decisions (one self-service demo per account) inside a transaction.
+func (q *Queries) LockUser(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, lockUser, id)
+	var id_2 uuid.UUID
+	err := row.Scan(&id_2)
+	return id_2, err
+}
+
 const setUserPlatformAdmin = `-- name: SetUserPlatformAdmin :exec
 UPDATE users SET is_platform_admin = $2, updated_at = now() WHERE id = $1
 `

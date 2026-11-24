@@ -61,3 +61,40 @@ func TestContractBusinessEndpoints(t *testing.T) {
 		t.Errorf("business audit = %v, want created×2, activated, suspended", got)
 	}
 }
+
+func TestContractSelfServiceAndSubscriptions(t *testing.T) {
+	c := loadContract(t)
+	e := newGeoServer(t)
+	ownerTok := e.signIn(t, "dueno@example.com")
+	userTok := e.signIn(t, "ana@example.com")
+	adminTok := e.signIn(t, "admin@example.com")
+	if err := e.identity.SetPlatformAdmin(context.Background(), "admin@example.com", true); err != nil {
+		t.Fatal(err)
+	}
+	cali := geotest.CaliID.String()
+	own := `{"name":"Barbería Propia","contactPhone":"3001234567","cityId":"` + cali + `","addressLine":"Calle 1"}`
+
+	body := c.callAuth(t, e.srv, http.MethodPost, "/api/v1/businesses", own, ownerTok, http.StatusCreated)
+	if !strings.Contains(body, `"status":"ACTIVE"`) {
+		t.Errorf("self-service business must be ACTIVE: %s", body)
+	}
+	id := regexp.MustCompile(`"id":"([^"]+)"`).FindStringSubmatch(body)[1]
+	if b := c.callAuth(t, e.srv, http.MethodPost, "/api/v1/businesses", own, ownerTok, http.StatusConflict); !strings.Contains(b, `"ALREADY_OWNER"`) {
+		t.Errorf("second business of the same account: %s", b)
+	}
+	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/businesses", `{"name":"x","contactPhone":"1","cityId":"`+cali+`","addressLine":""}`, userTok, http.StatusBadRequest)
+	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/businesses", own, "", http.StatusUnauthorized)
+
+	sub := c.callAuth(t, e.srv, http.MethodGet, "/api/v1/admin/businesses/"+id+"/subscription", "", adminTok, http.StatusOK)
+	if !strings.Contains(sub, `"status":"TRIALING"`) || !strings.Contains(sub, `"entitled":true`) {
+		t.Errorf("subscription = %s", sub)
+	}
+	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/admin/businesses/"+id+"/subscription/extend-trial", `{"days":14}`, adminTok, http.StatusOK)
+	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/admin/businesses/"+id+"/subscription/extend-trial", `{"days":0}`, adminTok, http.StatusBadRequest)
+	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/admin/businesses/"+id+"/subscription/activate", "", adminTok, http.StatusOK)
+	if b := c.callAuth(t, e.srv, http.MethodPost, "/api/v1/admin/businesses/"+id+"/subscription/extend-trial", `{"days":3}`, adminTok, http.StatusConflict); !strings.Contains(b, `"NOT_EXTENDABLE"`) {
+		t.Errorf("extend ACTIVE: %s", b)
+	}
+	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/admin/businesses/00000000-0000-0000-0000-000000000001/subscription", "", adminTok, http.StatusNotFound)
+	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/admin/businesses/"+id+"/subscription", "", ownerTok, http.StatusForbidden)
+}

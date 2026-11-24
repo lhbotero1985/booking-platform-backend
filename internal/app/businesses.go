@@ -7,6 +7,7 @@ import (
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/infrastructure/postgres"
 	geocontract "github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/contract"
 	identitycontract "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
+	subscriptionscontract "github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
 )
 
@@ -14,13 +15,15 @@ import (
 type IdentityForBusinesses interface {
 	application.Authorizer
 	identitycontract.MemberAdder
+	identitycontract.OwnershipClaimer
 }
 
 // NewBusinessesService wires the businesses use cases with identity (authorization, OWNER
-// membership in the same transaction) and geography (city → division, country, time zone,
-// currency).
-func NewBusinessesService(pool *pgxpool.Pool, identity IdentityForBusinesses, places geocontract.Places) *application.Service {
+// membership in the same transaction), geography (city → division, country, time zone,
+// currency) and subscriptions (7-day demo in the same transaction).
+func NewBusinessesService(pool *pgxpool.Pool, identity IdentityForBusinesses, places geocontract.Places, trials subscriptionscontract.Trials) *application.Service {
 	return application.NewService(application.Deps{
-		Store: postgres.NewStore(pool), Authz: identity, Members: identity, Places: places, Clock: clock.System{},
+		Store: postgres.NewStore(pool), Authz: identity, Members: identity, Owners: identity, Trials: trials,
+		Places: places, Clock: clock.System{},
 	})
 }

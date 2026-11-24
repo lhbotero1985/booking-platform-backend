@@ -1,5 +1,5 @@
-// Package httpapi exposes the businesses endpoints. T4.3: PLATFORM_ADMIN onboarding under
-// /api/v1/admin/businesses.
+// Package httpapi exposes the businesses endpoints: self-service onboarding (POST
+// /api/v1/businesses, T4.3b) and PLATFORM_ADMIN onboarding under /api/v1/admin/businesses (T4.3).
 package httpapi
 
 import (
@@ -25,11 +25,14 @@ const (
 	CodeLocationInactive = "LOCATION_INACTIVE"
 	// CodeOwnerExists: the business already has an OWNER.
 	CodeOwnerExists = "OWNER_EXISTS"
+	// CodeAlreadyOwner: the account already owns a business (one demo per account, ADR-0018).
+	CodeAlreadyOwner = "ALREADY_OWNER"
 )
 
 // Service is the subset of the application used by these handlers.
 type Service interface {
 	CreateBusiness(ctx context.Context, p contract.Principal, in application.CreateInput) (*domain.Business, error)
+	CreateOwnBusiness(ctx context.Context, p contract.Principal, in application.BusinessInput) (*domain.Business, error)
 	GetBusiness(ctx context.Context, p contract.Principal, id uuid.UUID) (*domain.Business, error)
 	ListBusinesses(ctx context.Context, p contract.Principal, status string, cityID, after uuid.UUID, limit int) ([]*domain.Business, uuid.UUID, error)
 	ActivateBusiness(ctx context.Context, p contract.Principal, id uuid.UUID) (*domain.Business, error)
@@ -38,19 +41,22 @@ type Service interface {
 
 // Handler serves the businesses endpoints.
 type Handler struct {
-	svc         Service
-	logger      *slog.Logger
-	requireAuth httpx.Middleware
+	svc           Service
+	logger        *slog.Logger
+	requireAuth   httpx.Middleware
+	createLimiter httpx.Allower
 }
 
-// New builds the handler; requireAuth is the identity module's authentication middleware.
-func New(svc Service, logger *slog.Logger, requireAuth httpx.Middleware) *Handler {
-	return &Handler{svc: svc, logger: logger, requireAuth: requireAuth}
+// New builds the handler; requireAuth is the identity module's authentication middleware and
+// createLimiter the strict per-client limit applied to self-service creation (nil disables it).
+func New(svc Service, logger *slog.Logger, requireAuth httpx.Middleware, createLimiter httpx.Allower) *Handler {
+	return &Handler{svc: svc, logger: logger, requireAuth: requireAuth, createLimiter: createLimiter}
 }
 
 // Routes registers the endpoints.
 func (h *Handler) Routes(rt *httpx.Router) {
 	auth := func(f http.HandlerFunc) http.Handler { return h.requireAuth(f) }
+	rt.Handle("POST /api/v1/businesses", httpx.RateLimit(h.createLimiter)(auth(h.createOwn)))
 	rt.Handle("POST /api/v1/admin/businesses", auth(h.create))
 	rt.Handle("GET /api/v1/admin/businesses", auth(h.list))
 	rt.Handle("GET /api/v1/admin/businesses/{id}", auth(h.get))
@@ -133,14 +139,28 @@ func toDTO(b *domain.Business) businessDTO {
 
 // --- handlers ----------------------------------------------------------------------------
 
-type createRequest struct {
+type businessFields struct {
 	Name         string          `json:"name"`
 	ContactPhone string          `json:"contactPhone"`
 	Description  string          `json:"description"`
 	CityID       uuid.UUID       `json:"cityId"`
 	AddressLine  string          `json:"addressLine"`
 	Coordinates  *coordinatesDTO `json:"coordinates"`
-	OwnerEmail   string          `json:"ownerEmail"`
+}
+
+func (f businessFields) input() application.BusinessInput {
+	in := application.BusinessInput{
+		Name: f.Name, ContactPhone: f.ContactPhone, Description: f.Description, CityID: f.CityID, AddressLine: f.AddressLine,
+	}
+	if f.Coordinates != nil {
+		in.Latitude, in.Longitude = &f.Coordinates.Latitude, &f.Coordinates.Longitude
+	}
+	return in
+}
+
+type createRequest struct {
+	businessFields
+	OwnerEmail string `json:"ownerEmail"`
 }
 
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
@@ -148,15 +168,23 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	if !httpx.DecodeJSON(w, r, &req) {
 		return
 	}
-	in := application.CreateInput{
-		Name: req.Name, ContactPhone: req.ContactPhone, Description: req.Description, CityID: req.CityID,
-		AddressLine: req.AddressLine, OwnerEmail: req.OwnerEmail,
+	p, _ := contract.PrincipalFrom(r.Context())
+	b, err := h.svc.CreateBusiness(r.Context(), p, application.CreateInput{BusinessInput: req.input(), OwnerEmail: req.OwnerEmail})
+	if err != nil {
+		h.fail(w, r, err)
+		return
 	}
-	if req.Coordinates != nil {
-		in.Latitude, in.Longitude = &req.Coordinates.Latitude, &req.Coordinates.Longitude
+	httpx.WriteJSON(w, http.StatusCreated, toDTO(b))
+}
+
+// createOwn is the self-service onboarding: the caller becomes OWNER and gets a 7-day demo.
+func (h *Handler) createOwn(w http.ResponseWriter, r *http.Request) {
+	var req businessFields
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
 	}
 	p, _ := contract.PrincipalFrom(r.Context())
-	b, err := h.svc.CreateBusiness(r.Context(), p, in)
+	b, err := h.svc.CreateOwnBusiness(r.Context(), p, req.input())
 	if err != nil {
 		h.fail(w, r, err)
 		return
@@ -247,6 +275,8 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusNotFound, httpx.CodeNotFound, ""))
 	case errors.Is(err, application.ErrLocationInactive):
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeLocationInactive, "activate the business's city, division and country first"))
+	case errors.Is(err, contract.ErrAlreadyOwner):
+		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeAlreadyOwner, "this account already has a business; contact support to add another"))
 	case errors.Is(err, contract.ErrOwnerExists):
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeOwnerExists, "the business already has an owner"))
 	default:

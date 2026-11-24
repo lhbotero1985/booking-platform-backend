@@ -53,7 +53,7 @@ func TestBusinessOnboardingOnPostgres(t *testing.T) {
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 	geo := NewGeographyService(pool, identity)
-	biz := NewBusinessesService(pool, identity, geo)
+	biz := NewBusinessesService(pool, identity, geo, NewSubscriptionsService(pool, identity))
 	admin := identitycontract.Principal{UserID: uuid.Must(uuid.NewV7()), IsPlatformAdmin: true}
 	ownerID, ownerEmail := activeUser(t, pool, "ACTIVE")
 	_, pendingEmail := activeUser(t, pool, "PENDING_VERIFICATION")

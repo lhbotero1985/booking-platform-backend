@@ -36,6 +36,8 @@ type Querier interface {
 	// Loaded per request for authorization (no cached claims, ADR-0007).
 	ListActiveMembershipsByUser(ctx context.Context, userID uuid.UUID) ([]ListActiveMembershipsByUserRow, error)
 	ListActiveUserSessions(ctx context.Context, arg ListActiveUserSessionsParams) ([]ListActiveUserSessionsRow, error)
+	// Serializes per-user decisions (one self-service demo per account) inside a transaction.
+	LockUser(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
 	MarkUserEmailVerified(ctx context.Context, arg MarkUserEmailVerifiedParams) error
 	RevokeAllUserSessions(ctx context.Context, arg RevokeAllUserSessionsParams) (int64, error)
 	// Used after an authenticated password change: keeps the current session.
