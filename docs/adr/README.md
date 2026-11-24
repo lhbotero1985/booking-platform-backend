@@ -12,7 +12,7 @@ la fase.
 | [0004](0004-double-booking-prevention.md) | Prevención de doble reserva | Aceptado |
 | [0005](0005-time-handling-utc-iana.md) | Manejo de tiempo: UTC + zona IANA | Aceptado |
 | [0006](0006-authentication-opaque-tokens-argon2id.md) | Autenticación con tokens opacos y Argon2id | Aceptado |
-| [0007](0007-authorization-rbac-tenant-isolation.md) | Autorización RBAC y aislamiento multiempresa | Aceptado |
+| [0007](0007-authorization-rbac-tenant-isolation.md) | Autorización RBAC y aislamiento multiempresa | Aceptado (regla de PLATFORM_ADMIN modificada por 0018) |
 | [0008](0008-background-jobs-river.md) | Jobs en segundo plano con River (outbox transaccional) | Aceptado |
 | [0009](0009-whatsapp-cloud-api-central-number.md) | WhatsApp Cloud API con número central | Aceptado |
 | [0010](0010-push-expo.md) | Push con Expo Push Notifications | Aceptado |
@@ -23,3 +23,4 @@ la fase.
 | [0015](0015-identifiers-and-money.md) | Identificadores UUIDv7 y dinero en unidades menores | Aceptado |
 | [0016](0016-separate-backend-frontend-repositories.md) | Repositorios separados para backend y frontend | Aceptado |
 | [0017](0017-branching-strategy-main-qa.md) | Estrategia de ramas main / qa / feature / hotfix | Aceptado |
+| [0018](0018-self-service-onboarding-trial-subscriptions.md) | Alta autoservicio, demo de 7 días y suscripciones | Aceptado |
