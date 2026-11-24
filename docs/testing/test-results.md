@@ -766,4 +766,19 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `TestEveryRouteIsDocumented` / `TestEveryBusinessRouteIsTenantIsolated` | ✅ | **57 rutas documentadas** (antes de documentar, la prueba detectó las 8 rutas nuevas); **24 operaciones `{businessId}`** aisladas con IDs reales de categoría y servicio; el catálogo de Bob no cambia; falla si queda un placeholder sin resolver |
 | `TestContractCatalog` | ✅ | 8 operaciones contra OpenAPI: 200/201/204/400/401/403/404/409 |
 | `task check` (lint 0, vuln) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
-| Despliegue y E2E en QA | ⏳ | Tras el merge (E2E ampliado con 9 comprobaciones de catálogo) |
+| PR #44 — ci + security | ✅ 6/6 | Squash `59447a3` |
+| `release-qa` | ✅ | Migración 14 aplicada, smoke test ✅ |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **126/126** | Categoría y duplicado 409; "Corte + barba" 45 min 35.000 COP; centavos 400; barbero 403 al crear y lista; cambio de precio |
+
+## 2026-11-24 · Fase 5 · T5.6 — Servicios que presta cada profesional
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `go test ./internal/modules/catalog/...` | ✅ | application **94,6 %**: asignar "Corte" y "Corte + barba" (duplicados ignorados, orden del catálogo), no-op sin auditoría, barbero lee y 403 al asignar, servicio ajeno/inexistente → `SERVICE_NOT_FOUND` por posición, >200 → `TOO_MANY_SERVICES`, profesional inexistente o de otro negocio 404, extraño 404, lista vacía |
+| `TestIsProfessionalOf` (professionals) | ✅ | Propio sí; otro negocio no |
+| `TestProfessionalServicesOnPostgres` | ✅ | Asignación y lectura del barbero; servicio ajeno rechazado (aplicación y **FK compuestas** de servicio y profesional); **8 reemplazos concurrentes → el resultado es exactamente una de las listas** |
+| Prueba de mutación del bloqueo | ✅ detecta | Sin `pg_advisory_xact_lock` la prueba falla 3/3 (`service_professionals_pkey` duplicada al mezclarse); restaurado |
+| `TestEveryRouteIsDocumented` / `TestEveryBusinessRouteIsTenantIsolated` | ✅ | **59 rutas documentadas**; **26 operaciones `{businessId}`** aisladas; las asignaciones de Bob no cambian |
+| `TestContractCatalog` | ✅ | `GET/PUT …/professionals/{id}/services`: 200/400/403/404 |
+| `task check` (lint 0, vuln) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | govulncheck tras reintento por DNS local |
+| Despliegue y E2E en QA | ⏳ | Tras el merge (E2E ampliado con 4 comprobaciones) |

@@ -1,7 +1,8 @@
 // Package application holds the catalog use cases (T5.5): only the OWNER (or PLATFORM_ADMIN)
 // manages categories and services; the staff (OWNER, PROFESSIONAL) reads them.
 //
-// Rules (enforced by depguard): may import domain, the identity and businesses contracts and
+// Rules (enforced by depguard): may import domain, the identity, businesses and professionals
+// contracts and
 // platform packages; no HTTP, database drivers or River.
 package application
 
@@ -16,6 +17,7 @@ import (
 	businesses "github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/domain"
 	identity "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
+	professionals "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/audit"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
 )
@@ -92,6 +94,7 @@ type Tx interface {
 	ServiceByID(ctx context.Context, businessID, id uuid.UUID) (domain.Service, error)
 	ListServices(ctx context.Context, businessID uuid.UUID) ([]domain.Service, error)
 	AppendAudit(ctx context.Context, e *audit.Entry) error
+	ProfessionalServicesTx
 }
 
 // Identity is what this module needs from the identity contract.
@@ -101,18 +104,19 @@ type Identity interface {
 
 // Service implements the catalog use cases.
 type Service struct {
-	store      Store
-	identity   Identity
-	currencies businesses.Currencies
-	clock      clock.Clock
+	store         Store
+	identity      Identity
+	currencies    businesses.Currencies
+	professionals professionals.Directory
+	clock         clock.Clock
 }
 
 // NewService builds the service; a nil clock defaults to the system clock.
-func NewService(store Store, id Identity, currencies businesses.Currencies, clk clock.Clock) *Service {
+func NewService(store Store, id Identity, currencies businesses.Currencies, profs professionals.Directory, clk clock.Clock) *Service {
 	if clk == nil {
 		clk = clock.System{}
 	}
-	return &Service{store: store, identity: id, currencies: currencies, clock: clk}
+	return &Service{store: store, identity: id, currencies: currencies, professionals: profs, clock: clk}
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -242,6 +242,7 @@ linters:
             - github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog
             - github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract
             - github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/contract
+            - github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/contract
           deny:
             - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules
               desc: los módulos se comunican solo vía su paquete contract

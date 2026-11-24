@@ -1960,6 +1960,80 @@ paths:
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
 
+  /api/v1/business/{businessId}/professionals/{professionalId}/services:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: professionalId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Catalog]
+      operationId: listProfessionalServices
+      summary: Services a professional performs (OWNER, PROFESSIONAL)
+      description: Ordered by `sortOrder` and name.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The services of the professional.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogServiceList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Catalog]
+      operationId: replaceProfessionalServices
+      summary: Set the services a professional performs (OWNER)
+      description: |
+        Replaces the whole list (an empty list removes every service). Every id must be a
+        service of the same business (`SERVICE_NOT_FOUND` at `serviceIds[i]`); duplicates are
+        ignored; at most 200. Audited.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfessionalServicesRequest"
+      responses:
+        "200":
+          description: The services of the professional now in force.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogServiceList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
 components:
   parameters:
     CountryCode:
@@ -3204,6 +3278,18 @@ components:
           type: integer
           minimum: 0
           maximum: 1000
+
+    ProfessionalServicesRequest:
+      type: object
+      additionalProperties: false
+      required: [serviceIds]
+      properties:
+        serviceIds:
+          type: array
+          maxItems: 200
+          items:
+            type: string
+            format: uuid
 
   responses:
     Unauthorized:

@@ -31,6 +31,7 @@ var tenantBodies = map[string]string{
 	"POST /api/v1/business/{businessId}/service-categories":                                   `{"name":"Intrusa"}`,
 	"PATCH /api/v1/business/{businessId}/service-categories/{categoryId}":                     `{"name":"Hackeada"}`,
 	"POST /api/v1/business/{businessId}/services":                                             `{"name":"Intruso","durationMinutes":30,"priceMinor":100}`,
+	"PUT /api/v1/business/{businessId}/professionals/{professionalId}/services":               `{"serviceIds":[]}`,
 	"PATCH /api/v1/business/{businessId}/services/{serviceId}":                                `{"priceMinor":100}`,
 }
 
@@ -82,7 +83,11 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 	}
 	categoryID := created("/service-categories", `{"name":"Cortes"}`)
 	serviceID := created("/services", `{"name":"Corte + barba","durationMinutes":45,"priceMinor":3500000,"categoryId":"`+categoryID+`"}`)
-	catalogURLs := []string{"/api/v1/business/" + bobBiz + "/services", "/api/v1/business/" + bobBiz + "/service-categories"}
+	if r := h.call(t, http.MethodPut, "/api/v1/business/"+bobBiz+"/professionals/"+prof.ID+"/services", `{"serviceIds":["`+serviceID+`"]}`, bearerH(bob)); r.status != http.StatusOK {
+		t.Fatalf("bob assigns a service: %d %s", r.status, r.body)
+	}
+	catalogURLs := []string{"/api/v1/business/" + bobBiz + "/services", "/api/v1/business/" + bobBiz + "/service-categories",
+		"/api/v1/business/" + bobBiz + "/professionals/" + prof.ID + "/services"}
 	catalogBefore := map[string]string{}
 	for _, u := range catalogURLs {
 		catalogBefore[u] = h.call(t, http.MethodGet, u, "", bearerH(bob)).body
@@ -126,7 +131,7 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 			tested++
 		}
 	}
-	if tested < 24 {
+	if tested < 26 {
 		t.Fatalf("only %d business-scoped operations found in the contract", tested)
 	}
 	// Nothing changed in Bob's business, and every attempt was audited as a denial.

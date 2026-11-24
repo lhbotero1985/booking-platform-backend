@@ -91,9 +91,11 @@ services(id, business_id, category_id null, name, description,
   -- T5.5 (00014): índice único (business_id, lower(name)); FK compuesta (business_id,
   -- category_id) → service_categories ON DELETE SET NULL (category_id). Sin kind ni
   -- service_components: un combo es un servicio normal (decisión 2026-11-24).
-service_professionals(business_id, service_id, professional_id,
+service_professionals(business_id, service_id, professional_id, created_at,
                       primary key(service_id, professional_id))
-  -- FK compuestas (business_id, service_id) y (business_id, professional_id)
+  -- T5.6 (00015): FK compuestas (business_id, service_id) → services y
+  -- (business_id, professional_id) → professionals, ON DELETE CASCADE; reemplazo de la lista
+  -- con pg_advisory_xact_lock por profesional.
 ```
 
 ### Scheduling

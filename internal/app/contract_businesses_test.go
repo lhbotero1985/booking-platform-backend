@@ -312,4 +312,15 @@ func TestContractCatalog(t *testing.T) {
 	c.callAuth(t, e.srv, http.MethodDelete, base+"/service-categories/"+cat, "", ownerTok, http.StatusNoContent)
 	c.callAuth(t, e.srv, http.MethodDelete, base+"/service-categories/"+cat, "", ownerTok, http.StatusNotFound)
 	c.callAuth(t, e.srv, http.MethodGet, base+"/services", "", "", http.StatusUnauthorized)
+
+	// Services per professional (T5.6).
+	prof := idOf(c.callAuth(t, e.srv, http.MethodPost, base+"/professionals", `{"email":"barbero@example.com","displayName":"Juan"}`, ownerTok, http.StatusCreated))
+	ps := base + "/professionals/" + prof + "/services"
+	if got := c.callAuth(t, e.srv, http.MethodPut, ps, `{"serviceIds":["`+svc+`"]}`, ownerTok, http.StatusOK); !strings.Contains(got, svc) {
+		t.Errorf("assigned = %s", got)
+	}
+	c.callAuth(t, e.srv, http.MethodGet, ps, "", barberTok, http.StatusOK)
+	c.callAuth(t, e.srv, http.MethodPut, ps, `{"serviceIds":["`+svc+`"]}`, barberTok, http.StatusForbidden)
+	c.callAuth(t, e.srv, http.MethodPut, ps, `{"serviceIds":["01a20aae-0000-7000-8000-000000000000"]}`, ownerTok, http.StatusBadRequest)
+	c.callAuth(t, e.srv, http.MethodGet, base+"/professionals/01a20aae-0000-7000-8000-000000000000/services", "", ownerTok, http.StatusNotFound)
 }

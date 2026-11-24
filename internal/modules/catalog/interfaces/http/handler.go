@@ -38,6 +38,7 @@ type Service interface {
 	GetService(ctx context.Context, p contract.Principal, businessID, id uuid.UUID) (domain.Service, error)
 	CreateService(ctx context.Context, p contract.Principal, businessID uuid.UUID, in application.ServiceInput) (domain.Service, error)
 	UpdateService(ctx context.Context, p contract.Principal, businessID, id uuid.UUID, in application.ServicePatch) (domain.Service, error)
+	ProfessionalServices
 }
 
 // Handler serves the catalog endpoints.
@@ -63,6 +64,8 @@ func (h *Handler) Routes(rt *httpx.Router) {
 	rt.Handle("POST /api/v1/business/{businessId}/services", auth(h.createService))
 	rt.Handle("GET /api/v1/business/{businessId}/services/{serviceId}", auth(h.getService))
 	rt.Handle("PATCH /api/v1/business/{businessId}/services/{serviceId}", auth(h.updateService))
+	rt.Handle("GET /api/v1/business/{businessId}/professionals/{professionalId}/services", auth(h.listProfessionalServices))
+	rt.Handle("PUT /api/v1/business/{businessId}/professionals/{professionalId}/services", auth(h.replaceProfessionalServices))
 }
 
 // --- DTOs ---------------------------------------------------------------------------------------

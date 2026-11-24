@@ -46,3 +46,28 @@ SELECT id, business_id, category_id, name, description, duration_minutes, price_
 FROM services
 WHERE business_id = $1
 ORDER BY sort_order, name, id;
+
+-- Services per professional (T5.6).
+
+-- LockProfessionalServices serializes replacements of the same professional's list
+-- (transaction-scoped advisory lock).
+-- name: LockProfessionalServices :exec
+SELECT pg_advisory_xact_lock(hashtextextended('service_professionals:' || sqlc.arg(professional_id)::text, 0));
+
+-- name: DeleteProfessionalServices :exec
+DELETE FROM service_professionals WHERE business_id = $1 AND professional_id = $2;
+
+-- name: InsertProfessionalService :exec
+INSERT INTO service_professionals (business_id, service_id, professional_id, created_at)
+VALUES ($1, $2, $3, $4);
+
+-- name: ServicesOfProfessional :many
+SELECT s.id, s.business_id, s.category_id, s.name, s.description, s.duration_minutes, s.price_minor,
+       s.currency, s.status, s.sort_order, s.created_at, s.updated_at
+FROM service_professionals sp
+JOIN services s ON s.business_id = sp.business_id AND s.id = sp.service_id
+WHERE sp.business_id = $1 AND sp.professional_id = $2
+ORDER BY s.sort_order, s.name, s.id;
+
+-- name: ServicesByIDs :many
+SELECT id FROM services WHERE business_id = $1 AND id = ANY(sqlc.arg(ids)::uuid[]);

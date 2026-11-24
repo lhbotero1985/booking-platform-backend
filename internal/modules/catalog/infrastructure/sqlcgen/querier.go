@@ -13,12 +13,20 @@ import (
 type Querier interface {
 	CategoryByID(ctx context.Context, arg CategoryByIDParams) (ServiceCategory, error)
 	DeleteCategory(ctx context.Context, arg DeleteCategoryParams) error
+	DeleteProfessionalServices(ctx context.Context, arg DeleteProfessionalServicesParams) error
 	// Catalog module (T5.5). Every query is scoped by business_id (ADR-0007).
 	InsertCategory(ctx context.Context, arg InsertCategoryParams) error
+	InsertProfessionalService(ctx context.Context, arg InsertProfessionalServiceParams) error
 	InsertService(ctx context.Context, arg InsertServiceParams) error
 	ListCategories(ctx context.Context, businessID uuid.UUID) ([]ServiceCategory, error)
 	ListServices(ctx context.Context, businessID uuid.UUID) ([]Service, error)
+	// Services per professional (T5.6).
+	// LockProfessionalServices serializes replacements of the same professional's list
+	// (transaction-scoped advisory lock).
+	LockProfessionalServices(ctx context.Context, professionalID string) error
 	ServiceByID(ctx context.Context, arg ServiceByIDParams) (Service, error)
+	ServicesByIDs(ctx context.Context, arg ServicesByIDsParams) ([]uuid.UUID, error)
+	ServicesOfProfessional(ctx context.Context, arg ServicesOfProfessionalParams) ([]Service, error)
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) error
 	UpdateService(ctx context.Context, arg UpdateServiceParams) error
 }
