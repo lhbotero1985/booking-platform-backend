@@ -279,6 +279,28 @@ func (s *Service) BookingPolicyOf(ctx context.Context, businessID uuid.UUID) (bi
 	return bookingPolicyOf(b), nil
 }
 
+// BusinessSummaries implements the businesses contract PublicBooking (T6.5).
+func (s *Service) BusinessSummaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]bizcontract.BusinessSummary, error) {
+	out := map[uuid.UUID]bizcontract.BusinessSummary{}
+	err := s.store.WithinTx(ctx, func(ctx context.Context, tx Tx) error {
+		for _, id := range ids {
+			if _, done := out[id]; done {
+				continue
+			}
+			b, err := tx.BusinessByID(ctx, id)
+			if errors.Is(err, ErrNotFound) {
+				continue
+			}
+			if err != nil {
+				return err
+			}
+			out[id] = bizcontract.BusinessSummary{ID: b.ID(), Name: b.Name(), Slug: string(b.Slug()), TimeZone: b.TimeZone()}
+		}
+		return nil
+	})
+	return out, err
+}
+
 func bookingPolicyOf(b *domain.Business) bizcontract.BookingPolicy {
 	p := b.Policy()
 	return bizcontract.BookingPolicy{

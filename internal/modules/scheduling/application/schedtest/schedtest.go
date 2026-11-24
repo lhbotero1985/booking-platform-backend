@@ -6,6 +6,7 @@ package schedtest
 import (
 	"context"
 	"errors"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -123,9 +124,61 @@ func (t *tx) InsertAppointmentEvent(_ context.Context, _ uuid.UUID, a domain.App
 func (t *tx) AppointmentByID(_ context.Context, id uuid.UUID) (domain.Appointment, error) {
 	a, ok := t.appts[id]
 	if !ok {
-		return domain.Appointment{}, errors.New("schedtest: no such appointment")
+		return domain.Appointment{}, application.ErrAppointmentNotFound
 	}
 	return a, nil
+}
+
+func after(a domain.Appointment, c *application.Cursor, ascending bool) bool {
+	if c == nil {
+		return true
+	}
+	if !a.Start.Equal(c.Start) {
+		return a.Start.After(c.Start) == ascending
+	}
+	return (a.ID.String() > c.ID.String()) == ascending
+}
+
+func sortAppointments(out []domain.Appointment, ascending bool) {
+	sort.Slice(out, func(i, j int) bool {
+		if !out[i].Start.Equal(out[j].Start) {
+			return out[i].Start.Before(out[j].Start) == ascending
+		}
+		return (out[i].ID.String() < out[j].ID.String()) == ascending
+	})
+}
+
+func (t *tx) AgendaAppointments(_ context.Context, businessID uuid.UUID, professionalIDs []uuid.UUID, from, to time.Time, c *application.Cursor, limit int) ([]domain.Appointment, error) {
+	var out []domain.Appointment
+	for _, a := range t.appts {
+		if a.BusinessID != businessID || a.Start.Before(from) || !a.Start.Before(to) || !after(a, c, true) {
+			continue
+		}
+		if professionalIDs != nil && !slices.Contains(professionalIDs, a.ProfessionalID) {
+			continue
+		}
+		out = append(out, a)
+	}
+	sortAppointments(out, true)
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
+func (t *tx) CustomerAppointments(_ context.Context, userID uuid.UUID, now time.Time, upcoming bool, c *application.Cursor, limit int) ([]domain.Appointment, error) {
+	var out []domain.Appointment
+	for _, a := range t.appts {
+		if a.Customer.UserID != userID || a.Start.Before(now) != !upcoming || !after(a, c, upcoming) {
+			continue
+		}
+		out = append(out, a)
+	}
+	sortAppointments(out, upcoming)
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
 }
 
 func (t *tx) ActiveAppointments(_ context.Context, businessID, professionalID uuid.UUID, from, to time.Time) ([]domain.Booked, error) {

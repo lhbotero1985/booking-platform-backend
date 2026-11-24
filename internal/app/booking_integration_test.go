@@ -393,3 +393,64 @@ func TestManualBookingOnPostgres(t *testing.T) {
 		t.Errorf("active appointments = %d", w.activeAppointments(t))
 	}
 }
+
+// TestAgendaOnPostgres (T6.5): the agenda and the customer's appointments with the real SQL
+// (keyset pagination, professional filter, upcoming/past) and the real names.
+func TestAgendaOnPostgres(t *testing.T) {
+	ctx := t.Context()
+	w := newBookingWorld(t)
+	ana := w.customer(t)
+	if _, err := w.sched.Book(ctx, ana, w.in(w.at(9, 0), "agenda-app-0900")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.sched.BookManual(ctx, w.barber, w.biz, schedapp.ManualInput{ProfessionalID: w.pro, ServiceID: w.svc, Start: w.at(10, 0), Confirmed: true, IdempotencyKey: "agenda-manual-1000",
+		Customer: &schedapp.CustomerInput{FullName: "Laura", Phone: "3115550303"}}); err != nil {
+		t.Fatal(err)
+	}
+	// A past appointment of Ana (seeded below the engine).
+	past, _ := scheddomain.NewAppointment(uuid.Must(uuid.NewV7()), w.biz, w.pro,
+		scheddomain.ServiceSnapshot{ServiceID: w.svc, Name: "Corte", DurationMinutes: 40, PriceMinor: 2_500_000, Currency: "COP"},
+		scheddomain.Customer{UserID: ana.UserID, Name: "Ana", Phone: "+573001234567"}, time.Date(2030, 2, 5, 14, 0, 0, 0, time.UTC), 0, ana.UserID, time.Now())
+	past.Status = scheddomain.StatusCompleted
+	if err := schedpg.NewStore(w.pool).WithinTx(ctx, func(ctx context.Context, tx schedapp.Tx) error { return tx.InsertAppointment(ctx, past) }); err != nil {
+		t.Fatal(err)
+	}
+
+	tuesday, _ := scheddomain.ParseLocalDate("2030-03-05")
+	for name, c := range map[string]struct {
+		p    identitycontract.Principal
+		q    schedapp.AgendaQuery
+		want int
+	}{
+		"owner, day":              {w.owner, schedapp.AgendaQuery{View: scheddomain.ViewDay, Date: tuesday}, 2},
+		"owner, Juan only":        {w.owner, schedapp.AgendaQuery{View: scheddomain.ViewDay, Date: tuesday, ProfessionalID: w.pro}, 2},
+		"barber, his week":        {w.barber, schedapp.AgendaQuery{View: scheddomain.ViewWeek, Date: tuesday}, 2},
+		"owner, month of March":   {w.owner, schedapp.AgendaQuery{View: scheddomain.ViewMonth, Date: tuesday}, 2},
+		"owner, year (with past)": {w.owner, schedapp.AgendaQuery{View: scheddomain.ViewYear, Date: tuesday}, 3},
+		"owner, the next day":     {w.owner, schedapp.AgendaQuery{View: scheddomain.ViewDay, Date: tuesday.AddDays(1)}, 0},
+	} {
+		page, err := w.sched.Agenda(ctx, c.p, w.biz, c.q)
+		if err != nil || len(page.Items) != c.want {
+			t.Errorf("%s: %d %v", name, len(page.Items), err)
+		}
+	}
+	p1, err := w.sched.Agenda(ctx, w.owner, w.biz, schedapp.AgendaQuery{View: scheddomain.ViewDay, Date: tuesday, Limit: 1})
+	if err != nil || len(p1.Items) != 1 || p1.NextCursor == "" || p1.Items[0].ProfessionalName != "Juan" || !p1.Items[0].Start.Equal(w.at(9, 0)) {
+		t.Fatalf("page 1: %+v %v", p1, err)
+	}
+	p2, err := w.sched.Agenda(ctx, w.owner, w.biz, schedapp.AgendaQuery{View: scheddomain.ViewDay, Date: tuesday, Limit: 1, Cursor: p1.NextCursor})
+	if err != nil || len(p2.Items) != 1 || p2.NextCursor != "" || p2.Items[0].Customer.Name != "Laura" {
+		t.Errorf("page 2: %+v %v", p2, err)
+	}
+
+	up, _, err := w.sched.MyAppointments(ctx, ana, schedapp.MyAppointmentsQuery{Upcoming: true})
+	if err != nil || len(up) != 1 || up[0].Business.Name != "Barbería Reservas" || up[0].ProfessionalName != "Juan" {
+		t.Errorf("upcoming: %+v %v", up, err)
+	}
+	if old, _, err := w.sched.MyAppointments(ctx, ana, schedapp.MyAppointmentsQuery{}); err != nil || len(old) != 1 || old[0].ID != past.ID {
+		t.Errorf("past: %+v %v", old, err)
+	}
+	if _, err := w.sched.MyAppointmentDetail(ctx, w.customer(t), up[0].ID); !errors.Is(err, schedapp.ErrAppointmentNotFound) {
+		t.Errorf("another customer's appointment: %v", err)
+	}
+}

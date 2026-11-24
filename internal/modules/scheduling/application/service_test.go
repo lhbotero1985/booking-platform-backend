@@ -33,6 +33,16 @@ func (f fakeBiz) PublicBookingPolicy(_ context.Context, slug string) (businesses
 	return f.pol, nil
 }
 
+func (f fakeBiz) BusinessSummaries(_ context.Context, ids []uuid.UUID) (map[uuid.UUID]businesses.BusinessSummary, error) {
+	out := map[uuid.UUID]businesses.BusinessSummary{}
+	for _, id := range ids {
+		if id == f.pol.BusinessID {
+			out[id] = businesses.BusinessSummary{ID: id, Name: "Barbería Centro", Slug: "barberia", TimeZone: f.pol.TimeZone}
+		}
+	}
+	return out, nil
+}
+
 func (f fakeBiz) BookingPolicyOf(_ context.Context, id uuid.UUID) (businesses.BookingPolicy, error) {
 	if id != f.pol.BusinessID {
 		return businesses.BookingPolicy{}, businesses.ErrBusinessNotFound
@@ -63,6 +73,7 @@ func (f *fakeCatalog) BookableService(_ context.Context, biz, svc, pro uuid.UUID
 
 type fakeAgenda struct {
 	owners   map[uuid.UUID]uuid.UUID // professional → account
+	names    map[uuid.UUID]string
 	locks    int
 	lockErr  error
 	agenda   professionals.DayAgenda
@@ -77,6 +88,14 @@ func (f *fakeAgenda) ProfessionalUserID(_ context.Context, _, professionalID uui
 		return uuid.Nil, professionals.ErrProfessionalNotFound
 	}
 	return u, nil
+}
+
+func (f *fakeAgenda) Roster(context.Context, uuid.UUID) ([]professionals.RosterEntry, error) {
+	var out []professionals.RosterEntry
+	for pro, user := range f.owners {
+		out = append(out, professionals.RosterEntry{ID: pro, UserID: user, DisplayName: f.names[pro]})
+	}
+	return out, nil
 }
 
 func (f *fakeAgenda) LockAgenda(context.Context, uuid.UUID, uuid.UUID) error {

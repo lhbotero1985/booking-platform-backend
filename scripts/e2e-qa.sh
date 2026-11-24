@@ -294,6 +294,17 @@ check "the app customer is on the list" true "$(status GET "$cust?q=3001112233" 
 check "barber cannot book the owner's agenda" 403 "$(manual "$TS" "$powner" "$slot2" "e2e-$(date +%s)-m2" "$walkin_json")"
 check "owner on the same slot -> 409" 409 "$(manual "$T1" "$pbarber" "$slot2" "e2e-$(date +%s)-m3" "\"customerId\":\"$walkin\"")"
 check "owner books the same customer (confirmed by default)" "201 CONFIRMED" "$(manual "$T1" "$pbarber" "$slot3" "e2e-$(date +%s)-m4" "\"customerId\":\"$walkin\"") $(json .status)"
+
+# --- agenda and my appointments (T6.5) --------------------------------------------------------
+ag="/api/v1/business/$mine/agenda?date=$tue"
+check "owner: barber's Tuesday (3 appointments)" 3 "$(status GET "$ag&professionalId=$pbarber" "" "$T1" >/dev/null; json '.items | length')"
+check "  in order, with names" "${tue}T10:00:00-05:00 Barbero E2E" "$(json '"\(.items[0].startLocal) \(.items[0].professionalName)"')"
+check "barber: his own week" 3 "$(status GET "$ag&view=week" "" "$TS" >/dev/null; json '.items | length')"
+check "barber cannot see the owner's agenda" 403 "$(status GET "$ag&professionalId=$powner" "" "$TS")"
+check "agenda paginated" true "$(status GET "$ag&limit=1" "" "$T1" >/dev/null; json '.nextCursor != null')"
+check "my appointments (customer, every business)" "1 $myname" "$(status GET /api/v1/me/appointments "" "$T1" >/dev/null; json '"\(.items | length) \(.items[0].business.name)"')"
+check "my appointment detail" 200 "$(status GET "/api/v1/me/appointments/$appt" "" "$T1")"
+check "someone else's appointment -> 404" 404 "$(status GET "/api/v1/me/appointments/$appt" "" "$TS")"
 status POST /api/v1/auth/logout "" "$TS" >/dev/null
 check "  one per account" 409 "$(status POST /api/v1/businesses "$own" "$T1")"
 check "  code ALREADY_OWNER" ALREADY_OWNER "$(json .code)"

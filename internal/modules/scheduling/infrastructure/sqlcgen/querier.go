@@ -14,11 +14,18 @@ type Querier interface {
 	// Active appointments of a professional whose occupied range [start_at, occupied_until)
 	// overlaps [from_at, to_at).
 	ActiveAppointmentsOverlapping(ctx context.Context, arg ActiveAppointmentsOverlappingParams) ([]ActiveAppointmentsOverlappingRow, error)
+	// Agenda of a business in [from_at, to_at) (T6.5), every status, by start; optionally only some
+	// professionals; keyset pagination after (after_start, after_id).
+	AgendaAppointments(ctx context.Context, arg AgendaAppointmentsParams) ([]Appointment, error)
 	AppointmentByID(ctx context.Context, id uuid.UUID) (Appointment, error)
 	// Waits for a concurrent transaction holding the same key; returns no row if it already exists.
 	ClaimIdempotencyKey(ctx context.Context, arg ClaimIdempotencyKeyParams) ([]uuid.UUID, error)
 	CustomerByID(ctx context.Context, arg CustomerByIDParams) (Customer, error)
 	CustomerByPhone(ctx context.Context, arg CustomerByPhoneParams) (Customer, error)
+	// Past appointments of a customer account, in every business, newest first.
+	CustomerPastAppointments(ctx context.Context, arg CustomerPastAppointmentsParams) ([]Appointment, error)
+	// Appointments of a customer account from now on, in every business, by start.
+	CustomerUpcomingAppointments(ctx context.Context, arg CustomerUpcomingAppointmentsParams) ([]Appointment, error)
 	IdempotencyKeyOf(ctx context.Context, arg IdempotencyKeyOfParams) (IdempotencyKeyOfRow, error)
 	InsertAppointment(ctx context.Context, arg InsertAppointmentParams) error
 	InsertAppointmentEvent(ctx context.Context, arg InsertAppointmentEventParams) error

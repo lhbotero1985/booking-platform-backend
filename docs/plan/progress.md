@@ -466,6 +466,19 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 6 · T6.5 — Agenda y mis citas
+
+- **Previo:** PR #51 (T6.4) → `qa`: CI 6/6 ✅, squash `15ac654`, rama borrada; `release-qa` ✅;
+  E2E en QA **166/166** (registro con celular, cita manual rápida, 403 agenda ajena, 409).
+- **Estado:** ✅ en `feature/t6.5-agenda` (commit y push; PR pendiente).
+- **Archivos:** queries `AgendaAppointments`, `CustomerUpcomingAppointments`,
+  `CustomerPastAppointments`; `domain/view.go`; `application/agenda.go`; store PostgreSQL y en
+  memoria; `interfaces/http/agenda.go`; contratos `Roster` y `BusinessSummaries`; OpenAPI (3
+  operaciones, esquemas `Agenda`, `AgendaItem`, `MyAppointment`, `MyAppointmentList`; 70 rutas);
+  pruebas; E2E; Postman (paso 10); P40 en preguntas pendientes.
+- **Problemas:** heredocs del shell (scripts a archivo); el entorno local temporal tomó los
+  puertos por defecto (el DEV original estaba apagado, sin conflicto).
+
 ## 2026-11-24 · Fase 6 · T6.4 — Clientes del negocio y citas manuales
 
 - **Previo:** PR #50 (T6.3) → `qa`: CI 6/6 ✅, squash `c05c951`, rama borrada; `release-qa` ✅;

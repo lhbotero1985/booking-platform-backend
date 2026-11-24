@@ -1,8 +1,8 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T6.4 — Clientes del negocio y citas manuales (2026-11-24), en
-`feature/t6.4-manual-appointments` (commits y push; PR y merge pendientes de autorización).
+T6.5 — Agenda y mis citas (2026-11-24), en `feature/t6.5-agenda` (commit y push; PR y merge
+pendientes de autorización).
 
 **Fase 6 en curso** (desglose aprobado 2026-11-24, ver `roadmap.md`).
 
@@ -11,9 +11,9 @@ T6.4 — Clientes del negocio y citas manuales (2026-11-24), en
 `feature/*` (nace de `qa`) → PR → `qa` → despliegue automático a QA → validación. `qa` → `main`
 solo al pasar a producción.
 
-## Próxima tarea: T6.5 — Agenda y "mis citas"
+## Próxima tarea: T6.6 — Cambios de estado de la cita
 
-- Agenda del negocio (OWNER: todos los barberos) y del barbero (la suya) por día/semana, en la
-  zona del negocio, con cliente, servicio y estado.
-- "Mis citas" del cliente (próximas y pasadas) y el detalle de una cita propia.
-- Otro negocio → 404; un cliente no ve citas ajenas (404).
+- Confirmar, cancelar y reprogramar (con los límites de horas del negocio para el cliente),
+  iniciar, completar, "no asistió"; historial en `appointment_events`.
+- Cliente reprograma → sigue `CONFIRMED`; negocio reprograma → `PENDING_CONFIRMATION` (P7).
+- Transición inválida → 409; confirmaciones repetidas idempotentes; concurrencia con `version`.

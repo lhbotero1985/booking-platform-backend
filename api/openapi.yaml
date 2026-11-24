@@ -1437,6 +1437,160 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
+  /api/v1/business/{businessId}/agenda:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Appointments]
+      operationId: getAgenda
+      summary: Agenda of the business (OWNER every professional, PROFESSIONAL its own)
+      description: |
+        Appointments (every status) starting in a day, a week (Monday to Sunday), a month or a
+        year of the business's calendar, by start, paginated. A PROFESSIONAL sees only its own
+        agenda (asking for another professional is 403); the OWNER sees every professional's,
+        or one with `professionalId` (its own included when it also serves). `date` defaults
+        to today in the business's time zone, `view` to `day`.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - name: view
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [day, week, month, year]
+            default: day
+        - name: date
+          in: query
+          required: false
+          description: Any local day inside the period (YYYY-MM-DD).
+          schema:
+            type: string
+            format: date
+        - name: professionalId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: cursor
+          in: query
+          required: false
+          description: The `nextCursor` of the previous page.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: 1–500, default 100.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+      responses:
+        "200":
+          description: A page of the agenda.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agenda"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/me/appointments:
+    get:
+      tags: [Appointments]
+      operationId: listMyAppointments
+      summary: Your appointments in every business (customer)
+      description: |
+        `scope=upcoming` (default): from now on, earliest first; `scope=past`: newest first.
+        Paginated.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [upcoming, past]
+            default: upcoming
+        - name: cursor
+          in: query
+          required: false
+          description: The `nextCursor` of the previous page.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: 1–500, default 100.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+      responses:
+        "200":
+          description: A page of your appointments.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyAppointmentList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/me/appointments/{appointmentId}:
+    parameters:
+      - name: appointmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Appointments]
+      operationId: getMyAppointment
+      summary: One of your appointments (customer)
+      description: Anyone else's appointment is a 404, identical to a missing one.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The appointment.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyAppointment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/admin/businesses/{id}/subscription:
     get:
       tags: [Subscriptions]
@@ -3765,6 +3919,152 @@ components:
             type: string
             format: uuid
 
+    Agenda:
+      type: object
+      additionalProperties: false
+      required: [view, from, to, timeZone, items, nextCursor]
+      properties:
+        view:
+          type: string
+          enum: [day, week, month, year]
+        from:
+          type: string
+          format: date
+          description: First local day of the period.
+        to:
+          type: string
+          format: date
+          description: Last local day of the period (inclusive).
+        timeZone:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgendaItem"
+        nextCursor:
+          type: [string, "null"]
+    AgendaItem:
+      type: object
+      additionalProperties: false
+      required: [id, professionalId, professionalName, serviceId, serviceName, durationMinutes, priceMinor,
+                 currency, startAt, endAt, startLocal, status, customer, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        professionalId:
+          type: string
+          format: uuid
+        professionalName:
+          type: string
+        serviceId:
+          type: string
+          format: uuid
+        serviceName:
+          type: string
+        durationMinutes:
+          type: integer
+        priceMinor:
+          type: integer
+          format: int64
+        currency:
+          type: string
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        startLocal:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [PENDING_CONFIRMATION, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW]
+        customer:
+          type: object
+          additionalProperties: false
+          required: [id, name, phone, hasAccount]
+          properties:
+            id:
+              type: [string, "null"]
+              format: uuid
+            name:
+              type: string
+            phone:
+              type: string
+            hasAccount:
+              type: boolean
+        createdAt:
+          type: string
+          format: date-time
+    MyAppointment:
+      type: object
+      additionalProperties: false
+      required: [id, business, professional, serviceName, durationMinutes, priceMinor, currency, startAt,
+                 endAt, startLocal, status, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        business:
+          type: object
+          additionalProperties: false
+          required: [id, name, slug]
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            slug:
+              type: string
+        professional:
+          type: object
+          additionalProperties: false
+          required: [id, name]
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+        serviceName:
+          type: string
+        durationMinutes:
+          type: integer
+        priceMinor:
+          type: integer
+          format: int64
+        currency:
+          type: string
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        startLocal:
+          type: string
+          format: date-time
+          description: In the business's time zone.
+        status:
+          type: string
+          enum: [PENDING_CONFIRMATION, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW]
+        createdAt:
+          type: string
+          format: date-time
+    MyAppointmentList:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MyAppointment"
+        nextCursor:
+          type: [string, "null"]
     Customer:
       type: object
       additionalProperties: false
