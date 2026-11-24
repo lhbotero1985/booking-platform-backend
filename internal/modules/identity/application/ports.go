@@ -65,9 +65,18 @@ type Tx interface {
 	EnqueueVerificationEmail(ctx context.Context, userID uuid.UUID) error
 
 	UpdatePasswordHash(ctx context.Context, userID uuid.UUID, hash domain.PasswordHash) error
-	// InsertMembership adds an ACTIVE membership. It returns contract.ErrAlreadyMember or
-	// contract.ErrOwnerExists when a unique rule is violated.
+	// InsertMembership adds an ACTIVE membership (or reactivates a revoked one with the new
+	// role). It returns contract.ErrAlreadyMember if the user is already an active member.
 	InsertMembership(ctx context.Context, id, userID, businessID uuid.UUID, role contract.Role, now time.Time) error
+	// ActiveMembers lists the active members of a business (OWNERs first).
+	ActiveMembers(ctx context.Context, businessID uuid.UUID) ([]contract.Member, error)
+	// ActiveRole returns the active role of userID in businessID, or contract.ErrMemberNotFound.
+	ActiveRole(ctx context.Context, businessID, userID uuid.UUID) (contract.Role, error)
+	// LockActiveOwners locks and returns the active OWNERs of a business until the end of the
+	// transaction (serializes removals and demotions).
+	LockActiveOwners(ctx context.Context, businessID uuid.UUID) ([]uuid.UUID, error)
+	UpdateMembershipRole(ctx context.Context, businessID, userID uuid.UUID, role contract.Role, now time.Time) error
+	RevokeMembership(ctx context.Context, businessID, userID uuid.UUID, now time.Time) error
 	// LockUser locks the user row until the end of the transaction (ErrNotFound if absent).
 	LockUser(ctx context.Context, userID uuid.UUID) error
 	// SetPlatformAdmin sets or clears the PLATFORM_ADMIN flag (operator command only).

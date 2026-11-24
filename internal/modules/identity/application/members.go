@@ -78,3 +78,76 @@ func (s *Service) ClaimOwnership(ctx context.Context, actor contract.Principal, 
 			meta("role", string(contract.RoleOwner)).meta("via", "self_service"))
 	})
 }
+
+// ListMembers returns the active members of a business to its OWNERs and MANAGERs (and
+// PLATFORM_ADMIN). Another business answers ErrNotFound.
+func (s *Service) ListMembers(ctx context.Context, actor contract.Principal, businessID uuid.UUID) ([]contract.Member, error) {
+	if _, err := s.RequireBusinessRole(ctx, actor, businessID, contract.RolesManagement...); err != nil {
+		return nil, err
+	}
+	var out []contract.Member
+	err := s.store.WithinTx(ctx, func(tx Tx) (err error) {
+		out, err = tx.ActiveMembers(ctx, businessID)
+		return err
+	})
+	return out, err
+}
+
+// ChangeMemberRole changes the role of an active member (OWNER or PLATFORM_ADMIN). A business
+// always keeps at least one OWNER (ErrLastOwner). Audited with the old and new role.
+func (s *Service) ChangeMemberRole(ctx context.Context, actor contract.Principal, businessID, userID uuid.UUID, role contract.Role) error {
+	if _, err := s.RequireBusinessRole(ctx, actor, businessID, contract.RolesOwner...); err != nil {
+		return err
+	}
+	if _, err := domain.ParseRole(string(role)); err != nil {
+		return err
+	}
+	return s.store.WithinTx(ctx, func(tx Tx) error {
+		owners, err := tx.LockActiveOwners(ctx, businessID)
+		if err != nil {
+			return err
+		}
+		current, err := tx.ActiveRole(ctx, businessID, userID)
+		if err != nil {
+			return err
+		}
+		if current == role {
+			return nil
+		}
+		if current == contract.RoleOwner && len(owners) <= 1 {
+			return contract.ErrLastOwner
+		}
+		if err := tx.UpdateMembershipRole(ctx, businessID, userID, role, s.clock.Now()); err != nil {
+			return err
+		}
+		return tx.AppendAudit(ctx, *s.newAudit(ctx, AuditMembershipRoleChanged, OutcomeSuccess).
+			actor(actor.UserID).business(businessID).resource("user", userID).
+			meta("from", string(current)).meta("to", string(role)))
+	})
+}
+
+// RemoveMember revokes an active membership (OWNER or PLATFORM_ADMIN; an OWNER may remove
+// itself while another OWNER remains). The member loses access on its next request.
+func (s *Service) RemoveMember(ctx context.Context, actor contract.Principal, businessID, userID uuid.UUID) error {
+	if _, err := s.RequireBusinessRole(ctx, actor, businessID, contract.RolesOwner...); err != nil {
+		return err
+	}
+	return s.store.WithinTx(ctx, func(tx Tx) error {
+		owners, err := tx.LockActiveOwners(ctx, businessID)
+		if err != nil {
+			return err
+		}
+		current, err := tx.ActiveRole(ctx, businessID, userID)
+		if err != nil {
+			return err
+		}
+		if current == contract.RoleOwner && len(owners) <= 1 {
+			return contract.ErrLastOwner
+		}
+		if err := tx.RevokeMembership(ctx, businessID, userID, s.clock.Now()); err != nil {
+			return err
+		}
+		return tx.AppendAudit(ctx, *s.newAudit(ctx, AuditMembershipRevoked, OutcomeSuccess).
+			actor(actor.UserID).business(businessID).resource("user", userID).meta("role", string(current)))
+	})
+}

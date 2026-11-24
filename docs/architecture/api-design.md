@@ -56,6 +56,11 @@ por cuenta, 409 `ALREADY_OWNER`; límite estricto por cliente).
 de su suscripción. `PATCH /business/{businessId}` (OWNER, PLATFORM_ADMIN; MANAGER 403): datos,
 ubicación, política de reservas y recordatorios. Otro negocio → 404 idéntico a inexistente.
 
+### Miembros (T4.5)
+`GET /business/{businessId}/members` (OWNER, MANAGER), `POST …/members` (OWNER: email + rol),
+`PATCH …/members/{userId}` (rol) y `DELETE …/members/{userId}` (OWNER); 409 `LAST_OWNER`,
+`ALREADY_MEMBER`; 400 `ACCOUNT_NOT_ELIGIBLE`.
+
 ### Descubrimiento (cliente)
 | Método | Ruta |
 |---|---|

@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
@@ -131,15 +130,57 @@ func (t *txStore) UpdatePasswordHash(ctx context.Context, userID uuid.UUID, hash
 }
 
 func (t *txStore) InsertMembership(ctx context.Context, id, userID, businessID uuid.UUID, role contract.Role, now time.Time) error {
-	err := t.q.InsertMembership(ctx, sqlcgen.InsertMembershipParams{ID: id, UserID: userID, BusinessID: businessID, Role: string(role), CreatedAt: now})
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-		if pgErr.ConstraintName == "memberships_one_active_owner_idx" {
-			return contract.ErrOwnerExists
-		}
+	n, err := t.q.UpsertMembership(ctx, sqlcgen.UpsertMembershipParams{ID: id, UserID: userID, BusinessID: businessID, Role: string(role), CreatedAt: now})
+	if err != nil {
+		return err
+	}
+	if n == 0 {
 		return contract.ErrAlreadyMember
 	}
-	return err
+	return nil
+}
+
+func (t *txStore) ActiveMembers(ctx context.Context, businessID uuid.UUID) ([]contract.Member, error) {
+	rows, err := t.q.ListActiveMembersOfBusiness(ctx, businessID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]contract.Member, 0, len(rows))
+	for _, r := range rows {
+		role, err := domain.ParseRole(r.Role)
+		if err != nil {
+			return nil, fmt.Errorf("membership role %q: %w", r.Role, err)
+		}
+		out = append(out, contract.Member{UserID: r.UserID, FullName: r.FullName, Email: r.Email, Role: contract.Role(role), Since: r.UpdatedAt})
+	}
+	return out, nil
+}
+
+func (t *txStore) ActiveRole(ctx context.Context, businessID, userID uuid.UUID) (contract.Role, error) {
+	r, err := t.q.ActiveMembershipRole(ctx, sqlcgen.ActiveMembershipRoleParams{BusinessID: businessID, UserID: userID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", contract.ErrMemberNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	role, err := domain.ParseRole(r)
+	if err != nil {
+		return "", fmt.Errorf("membership role %q: %w", r, err)
+	}
+	return contract.Role(role), nil
+}
+
+func (t *txStore) LockActiveOwners(ctx context.Context, businessID uuid.UUID) ([]uuid.UUID, error) {
+	return t.q.LockActiveOwners(ctx, businessID)
+}
+
+func (t *txStore) UpdateMembershipRole(ctx context.Context, businessID, userID uuid.UUID, role contract.Role, now time.Time) error {
+	return t.q.UpdateMembershipRole(ctx, sqlcgen.UpdateMembershipRoleParams{BusinessID: businessID, UserID: userID, Role: string(role), UpdatedAt: now})
+}
+
+func (t *txStore) RevokeMembership(ctx context.Context, businessID, userID uuid.UUID, now time.Time) error {
+	return t.q.RevokeMembership(ctx, sqlcgen.RevokeMembershipParams{BusinessID: businessID, UserID: userID, UpdatedAt: now})
 }
 
 func (t *txStore) LockUser(ctx context.Context, userID uuid.UUID) error {

@@ -23,8 +23,6 @@ const (
 	// CodeLocationInactive: the business cannot be activated while its city, division or
 	// country is inactive.
 	CodeLocationInactive = "LOCATION_INACTIVE"
-	// CodeOwnerExists: the business already has an OWNER.
-	CodeOwnerExists = "OWNER_EXISTS"
 	// CodeAlreadyOwner: the account already owns a business (one demo per account, ADR-0018).
 	CodeAlreadyOwner = "ALREADY_OWNER"
 )
@@ -280,8 +278,6 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeLocationInactive, "activate the business's city, division and country first"))
 	case errors.Is(err, contract.ErrAlreadyOwner):
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeAlreadyOwner, "this account already has a business; contact support to add another"))
-	case errors.Is(err, contract.ErrOwnerExists):
-		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeOwnerExists, "the business already has an owner"))
 	default:
 		h.logger.ErrorContext(r.Context(), "businesses request failed",
 			slog.String("request_id", httpx.RequestIDFrom(r.Context())),

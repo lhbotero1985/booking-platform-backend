@@ -61,11 +61,12 @@ login() { # email password -> status (read the token with token right after)
   status POST /api/v1/auth/login "{\"email\":\"$1\",\"password\":\"$2\",\"clientType\":\"MOBILE\"}"
 }
 
-# mail_link PATH_FRAGMENT -> newest link in the user's mailbox containing it (waits up to 30 s)
+# mail_link PATH_FRAGMENT [EMAIL] -> newest link in the mailbox (default: the e2e user)
+# containing it (waits up to 30 s)
 mail_link() {
-  local id link
+  local id link to=${2:-$EMAIL}
   for _ in $(seq 1 30); do
-    for id in $(curl -s "$M/api/v1/search?query=to:$EMAIL" | jq -r '.messages[].ID'); do
+    for id in $(curl -s "$M/api/v1/search?query=to:$to" | jq -r '.messages[].ID'); do
       link=$(curl -s "$M/api/v1/message/$id" | jq -r '.Text' |
         grep -o "https://[^ ]*$1?token=[A-Za-z0-9_%.-]*" | head -1)
       [[ -n $link ]] && { echo "$link"; return; }
@@ -145,6 +146,20 @@ check "  demo running" "TRIALING true" "$(json '"\(.subscription.status) \(.subs
 check "owner edits the business" 200 "$(status PATCH "/api/v1/business/$mine" '{"description":"Cortes y barba","bookingPolicy":{"slotIntervalMinutes":15}}' "$T1")"
 check "  changes applied" "Cortes y barba 15" "$(json '"\(.description) \(.bookingPolicy.slotIntervalMinutes)"')"
 check "another business -> 404" 404 "$(status GET /api/v1/business/01a20aae-0000-7000-8000-000000000000 "" "$T1")"
+
+# --- members (T4.5): the OWNER (person in charge) adds a barber, changes its role, removes it ---
+STAFF="staff-$EMAIL"
+check "register staff account" 202 "$(status POST /api/v1/auth/register "{\"email\":\"$STAFF\",\"password\":\"$PW1\",\"fullName\":\"Barbero E2E\"}")"
+slink=$(mail_link verify-email "$STAFF")
+check "  staff verified" 200 "$(status POST /api/v1/auth/verify-email "{\"token\":\"${slink##*token=}\"}")"
+check "add barber (PROFESSIONAL)" 201 "$(status POST "/api/v1/business/$mine/members" "{\"email\":\"$STAFF\",\"role\":\"PROFESSIONAL\"}" "$T1")"
+staff=$(json .userId)
+check "members: owner + barber" "OWNER,PROFESSIONAL" "$(status GET "/api/v1/business/$mine/members" "" "$T1" >/dev/null; json '[.items[].role] | join(",")')"
+check "change role to MANAGER" 204 "$(status PATCH "/api/v1/business/$mine/members/$staff" '{"role":"MANAGER"}' "$T1")"
+check "remove member" 204 "$(status DELETE "/api/v1/business/$mine/members/$staff" "" "$T1")"
+owner_id=$(status GET /api/v1/me "" "$T1" >/dev/null; json .id)
+check "last owner cannot leave" 409 "$(status DELETE "/api/v1/business/$mine/members/$owner_id" "" "$T1")"
+check "  code LAST_OWNER" LAST_OWNER "$(json .code)"
 check "  one per account" 409 "$(status POST /api/v1/businesses "$own" "$T1")"
 check "  code ALREADY_OWNER" ALREADY_OWNER "$(json .code)"
 if [[ -n ${ADMIN_EMAIL:-} && -n ${ADMIN_PASSWORD:-} ]]; then

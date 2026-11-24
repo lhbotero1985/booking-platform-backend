@@ -183,3 +183,61 @@ func identityAdmin(id uuid.UUID) identitycontract.Principal {
 }
 
 func uuidMust(s string) uuid.UUID { return uuid.MustParse(s) }
+
+// TestMembersAreTenantScoped (T4.5): only OWNERs manage members; members of another business
+// are invisible (404 identical to a missing business); a removed member loses access at once;
+// there is always an OWNER.
+func TestMembersAreTenantScoped(t *testing.T) {
+	h := startAuth(t)
+	for _, email := range []string{suiteEmail, "bob@example.com", "barbero@example.com"} {
+		h.account(t, email)
+	}
+	ana, bob, barbero := h.bearerToken(t, suiteEmail), h.bearerToken(t, "bob@example.com"), h.bearerToken(t, "barbero@example.com")
+	create := func(tok, name string) string {
+		r := h.call(t, http.MethodPost, "/api/v1/businesses", `{"name":"`+name+`","contactPhone":"3001234567","cityId":"`+geotest.CaliID.String()+`","addressLine":"Calle 1"}`, bearerH(tok))
+		var b struct{ ID string }
+		if r.status != http.StatusCreated || json.Unmarshal([]byte(r.body), &b) != nil {
+			t.Fatalf("create: %d %s", r.status, r.body)
+		}
+		return b.ID
+	}
+	anaBiz, bobBiz := create(ana, "Barbería Ana"), create(bob, "Barbería Bob")
+	if r := h.call(t, http.MethodPost, "/api/v1/business/"+anaBiz+"/members", `{"email":"barbero@example.com","role":"PROFESSIONAL"}`, bearerH(ana)); r.status != http.StatusCreated {
+		t.Fatalf("add barber: %d %s", r.status, r.body)
+	}
+
+	// Ana cannot see or touch Bob's members; same 404 as a business that does not exist.
+	bobID := h.store.User("bob@example.com").ID().String()
+	for _, rt := range []struct{ method, path, body string }{
+		{http.MethodGet, "/api/v1/business/%s/members", ""},
+		{http.MethodPost, "/api/v1/business/%s/members", `{"email":"barbero@example.com","role":"OWNER"}`},
+		{http.MethodPatch, "/api/v1/business/%s/members/" + bobID, `{"role":"PROFESSIONAL"}`},
+		{http.MethodDelete, "/api/v1/business/%s/members/" + bobID, ""},
+	} {
+		cross := h.call(t, rt.method, strings.Replace(rt.path, "%s", bobBiz, 1), rt.body, bearerH(ana))
+		none := h.call(t, rt.method, strings.Replace(rt.path, "%s", "01a20aae-0000-7000-8000-000000000000", 1), rt.body, bearerH(ana))
+		if cross.status != http.StatusNotFound || normalizeReply(t, cross) != normalizeReply(t, none) {
+			t.Errorf("%s %s on another business: %d %s", rt.method, rt.path, cross.status, cross.body)
+		}
+	}
+	// A PROFESSIONAL cannot manage members (not even promote itself).
+	barberoID := h.store.User("barbero@example.com").ID().String()
+	if r := h.call(t, http.MethodPatch, "/api/v1/business/"+anaBiz+"/members/"+barberoID, `{"role":"OWNER"}`, bearerH(barbero)); r.status != http.StatusForbidden {
+		t.Errorf("self-promotion: %d %s", r.status, r.body)
+	}
+	// Removal is immediate: the same session loses access to the business.
+	if r := h.call(t, http.MethodGet, "/api/v1/business/"+anaBiz, "", bearerH(barbero)); r.status != http.StatusOK {
+		t.Fatalf("barber before removal: %d", r.status)
+	}
+	if r := h.call(t, http.MethodDelete, "/api/v1/business/"+anaBiz+"/members/"+barberoID, "", bearerH(ana)); r.status != http.StatusNoContent {
+		t.Fatalf("remove: %d %s", r.status, r.body)
+	}
+	if r := h.call(t, http.MethodGet, "/api/v1/business/"+anaBiz, "", bearerH(barbero)); r.status != http.StatusNotFound {
+		t.Errorf("barber after removal: %d", r.status)
+	}
+	// There is always an OWNER.
+	anaID := h.store.User(suiteEmail).ID().String()
+	if r := h.call(t, http.MethodDelete, "/api/v1/business/"+anaBiz+"/members/"+anaID, "", bearerH(ana)); r.status != http.StatusConflict || !strings.Contains(r.body, "LAST_OWNER") {
+		t.Errorf("last owner leaves: %d %s", r.status, r.body)
+	}
+}

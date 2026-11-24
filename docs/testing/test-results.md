@@ -625,3 +625,22 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `TestSelfServiceOnboardingOnPostgres` (ampliada) | ✅ | Dueño traslada a Medellín → `division_id` de Antioquia en BD; vista con demo; extraño → 404; auditoría `business.updated` con `fields=location` |
 | `task check` / `sqlc:check` / `shellcheck` / `secrets` / unitarias + integración completas | ✅ | govulncheck reintentado por DNS local |
 | Despliegue y E2E en QA | ⏳ | Tras el merge |
+
+## 2026-11-24 · Fase 4 · T4.4 — CI, despliegue y E2E
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| PR #36 — ci + security | ✅ 6/6 | Squash `ffb2eae`; `release-qa` ✅ |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **79/79** | Dueño ve su negocio con demo `TRIALING`, lo edita (descripción, intervalo 15), negocio ajeno → 404 |
+
+## 2026-11-24 · Fase 4 · T4.5 — Miembros del negocio
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestManageMembers` / `TestAddMember` (identity) | ✅ | Listar: OWNER y MANAGER sí, PROFESSIONAL 403, ajeno 404; solo OWNER agrega/cambia; último OWNER no se degrada ni retira; **cambio de dueño** (nuevo OWNER → el anterior baja y sale); retirado pierde acceso; re-agregar reactiva; varios OWNER permitidos; mismo rol = sin auditoría; auditoría de cambios y revocaciones |
+| `TestBusinessAlwaysKeepsAnOwner` (PostgreSQL) | ✅ | **Dos OWNER se retiran mutuamente a la vez → exactamente uno lo logra y queda 1 OWNER**; re-agregar reactiva la misma fila; miembro activo → `ErrAlreadyMember` |
+| `TestMembershipConstraints` (esquema) | ✅ | Actualizada: segundo OWNER aceptado; duplicado usuario-negocio y rol desconocido rechazados |
+| `TestContractBusinessMembers` | ✅ | 4 operaciones contra OpenAPI: 201/204/400/403/404/409 (`ALREADY_MEMBER`, `LAST_OWNER`) |
+| `tests/security` `TestMembersAreTenantScoped` | ✅ | 4 operaciones sobre miembros de otro negocio → 404 idéntico a inexistente; barbero no se autopromueve (403); retiro inmediato (misma sesión → 404); último OWNER no sale; 4 rutas en la matriz de credenciales inválidas |
+| `task check` / `sqlc:check` / `shellcheck` / `secrets` / unitarias + integración completas | ✅ | govulncheck reintentado por DNS local |
+| Despliegue y E2E en QA | ⏳ | Tras el merge |

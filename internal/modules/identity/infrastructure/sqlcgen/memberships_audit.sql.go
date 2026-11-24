@@ -13,6 +13,23 @@ import (
 	"github.com/google/uuid"
 )
 
+const activeMembershipRole = `-- name: ActiveMembershipRole :one
+SELECT role FROM memberships
+WHERE business_id = $1 AND user_id = $2 AND status = 'ACTIVE'
+`
+
+type ActiveMembershipRoleParams struct {
+	BusinessID uuid.UUID
+	UserID     uuid.UUID
+}
+
+func (q *Queries) ActiveMembershipRole(ctx context.Context, arg ActiveMembershipRoleParams) (string, error) {
+	row := q.db.QueryRow(ctx, activeMembershipRole, arg.BusinessID, arg.UserID)
+	var role string
+	err := row.Scan(&role)
+	return role, err
+}
+
 const createMembership = `-- name: CreateMembership :one
 INSERT INTO memberships (id, user_id, business_id, role)
 VALUES ($1, $2, $3, $4)
@@ -81,28 +98,46 @@ func (q *Queries) InsertAuditEntry(ctx context.Context, arg InsertAuditEntryPara
 	return err
 }
 
-const insertMembership = `-- name: InsertMembership :exec
-INSERT INTO memberships (id, user_id, business_id, role, status, created_at, updated_at)
-VALUES ($1, $2, $3, $4, 'ACTIVE', $5, $5)
+const listActiveMembersOfBusiness = `-- name: ListActiveMembersOfBusiness :many
+SELECT m.user_id, u.full_name, u.email::text AS email, m.role, m.updated_at
+FROM memberships m
+JOIN users u ON u.id = m.user_id
+WHERE m.business_id = $1 AND m.status = 'ACTIVE'
+ORDER BY CASE m.role WHEN 'OWNER' THEN 0 WHEN 'MANAGER' THEN 1 ELSE 2 END, u.full_name, m.user_id
 `
 
-type InsertMembershipParams struct {
-	ID         uuid.UUID
-	UserID     uuid.UUID
-	BusinessID uuid.UUID
-	Role       string
-	CreatedAt  time.Time
+type ListActiveMembersOfBusinessRow struct {
+	UserID    uuid.UUID
+	FullName  string
+	Email     string
+	Role      string
+	UpdatedAt time.Time
 }
 
-func (q *Queries) InsertMembership(ctx context.Context, arg InsertMembershipParams) error {
-	_, err := q.db.Exec(ctx, insertMembership,
-		arg.ID,
-		arg.UserID,
-		arg.BusinessID,
-		arg.Role,
-		arg.CreatedAt,
-	)
-	return err
+func (q *Queries) ListActiveMembersOfBusiness(ctx context.Context, businessID uuid.UUID) ([]ListActiveMembersOfBusinessRow, error) {
+	rows, err := q.db.Query(ctx, listActiveMembersOfBusiness, businessID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListActiveMembersOfBusinessRow{}
+	for rows.Next() {
+		var i ListActiveMembersOfBusinessRow
+		if err := rows.Scan(
+			&i.UserID,
+			&i.FullName,
+			&i.Email,
+			&i.Role,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listActiveMembershipsByUser = `-- name: ListActiveMembershipsByUser :many
@@ -134,4 +169,102 @@ func (q *Queries) ListActiveMembershipsByUser(ctx context.Context, userID uuid.U
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockActiveOwners = `-- name: LockActiveOwners :many
+SELECT user_id FROM memberships
+WHERE business_id = $1 AND role = 'OWNER' AND status = 'ACTIVE'
+FOR UPDATE
+`
+
+// Locks the OWNER rows of a business: removing or demoting an OWNER is serialized so the
+// business can never end up without one.
+func (q *Queries) LockActiveOwners(ctx context.Context, businessID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, lockActiveOwners, businessID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []uuid.UUID{}
+	for rows.Next() {
+		var user_id uuid.UUID
+		if err := rows.Scan(&user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, user_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const revokeMembership = `-- name: RevokeMembership :exec
+UPDATE memberships SET status = 'REVOKED', updated_at = $3
+WHERE business_id = $1 AND user_id = $2 AND status = 'ACTIVE'
+`
+
+type RevokeMembershipParams struct {
+	BusinessID uuid.UUID
+	UserID     uuid.UUID
+	UpdatedAt  time.Time
+}
+
+func (q *Queries) RevokeMembership(ctx context.Context, arg RevokeMembershipParams) error {
+	_, err := q.db.Exec(ctx, revokeMembership, arg.BusinessID, arg.UserID, arg.UpdatedAt)
+	return err
+}
+
+const updateMembershipRole = `-- name: UpdateMembershipRole :exec
+UPDATE memberships SET role = $3, updated_at = $4
+WHERE business_id = $1 AND user_id = $2 AND status = 'ACTIVE'
+`
+
+type UpdateMembershipRoleParams struct {
+	BusinessID uuid.UUID
+	UserID     uuid.UUID
+	Role       string
+	UpdatedAt  time.Time
+}
+
+func (q *Queries) UpdateMembershipRole(ctx context.Context, arg UpdateMembershipRoleParams) error {
+	_, err := q.db.Exec(ctx, updateMembershipRole,
+		arg.BusinessID,
+		arg.UserID,
+		arg.Role,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
+const upsertMembership = `-- name: UpsertMembership :execrows
+INSERT INTO memberships (id, user_id, business_id, role, status, created_at, updated_at)
+VALUES ($1, $2, $3, $4, 'ACTIVE', $5, $5)
+ON CONFLICT (user_id, business_id) DO UPDATE
+SET role = EXCLUDED.role, status = 'ACTIVE', updated_at = EXCLUDED.updated_at
+WHERE memberships.status = 'REVOKED'
+`
+
+type UpsertMembershipParams struct {
+	ID         uuid.UUID
+	UserID     uuid.UUID
+	BusinessID uuid.UUID
+	Role       string
+	CreatedAt  time.Time
+}
+
+// Adds an ACTIVE membership, or reactivates a REVOKED one with the new role. 0 rows = the user
+// is already an active member.
+func (q *Queries) UpsertMembership(ctx context.Context, arg UpsertMembershipParams) (int64, error) {
+	result, err := q.db.Exec(ctx, upsertMembership,
+		arg.ID,
+		arg.UserID,
+		arg.BusinessID,
+		arg.Role,
+		arg.CreatedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

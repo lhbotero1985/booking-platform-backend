@@ -82,7 +82,7 @@ Estado: **Propuesta — Fase 0.** ADR-0006 y ADR-0007.
 
 | Conjunto | Roles | Acciones (Fase 4 en adelante) |
 |---|---|---|
-| `RolesOwner` | OWNER | Configuración y suspensión del negocio, membresías y roles |
+| `RolesOwner` | OWNER (responsable; puede haber varios, siempre al menos uno) | Configuración y suspensión del negocio, membresías y roles |
 | `RolesManagement` | OWNER, MANAGER | Catálogo, profesionales y horarios, agenda completa, clientes |
 | `RolesStaff` | OWNER, MANAGER, PROFESSIONAL | Agenda propia; el caso de uso además compara el dueño del recurso con el principal |
 | — (sin membresía) | CUSTOMER | Solo recursos propios (`/me/...`); nunca datos internos de un negocio |

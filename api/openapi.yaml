@@ -1064,6 +1064,145 @@ paths:
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
 
+  /api/v1/business/{businessId}/members:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Businesses]
+      operationId: listBusinessMembers
+      summary: Members of your business (OWNER, MANAGER)
+      description: Active members, OWNERs first. Another business answers 404.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Active members.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Businesses]
+      operationId: addBusinessMember
+      summary: Add a member by email (OWNER)
+      description: |
+        The account must be registered and verified (`ACCOUNT_NOT_ELIGIBLE`). OWNER is the
+        person in charge of the business; there may be several. A previously removed member is
+        reactivated with the new role. Audited (`membership.granted`).
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddMemberRequest"
+      responses:
+        "201":
+          description: Member added.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddMemberResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/business/{businessId}/members/{userId}:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      tags: [Businesses]
+      operationId: changeBusinessMemberRole
+      summary: Change a member's role (OWNER)
+      description: |
+        The business always keeps at least one OWNER (409 `LAST_OWNER`). Changing owner: make
+        the new person OWNER, then the previous OWNER can be demoted or removed. Audited.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangeMemberRoleRequest"
+      responses:
+        "204":
+          description: Role changed (or already that role).
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+    delete:
+      tags: [Businesses]
+      operationId: removeBusinessMember
+      summary: Remove a member (OWNER)
+      description: |
+        The member loses access on its next request. The last OWNER cannot be removed (409
+        `LAST_OWNER`); an OWNER may remove itself while another OWNER remains. Audited.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "204":
+          description: Member removed.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
 components:
   parameters:
     CountryCode:
@@ -1830,6 +1969,68 @@ components:
             hoursBefore:
               type: integer
 
+    MemberRole:
+      type: string
+      enum: [OWNER, MANAGER, PROFESSIONAL]
+      description: OWNER is the person in charge of the business (several allowed, at least one).
+
+    Member:
+      type: object
+      additionalProperties: false
+      required: [userId, fullName, email, role, since]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        email:
+          type: string
+        role:
+          $ref: "#/components/schemas/MemberRole"
+        since:
+          type: string
+          format: date-time
+
+    MemberList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Member"
+
+    AddMemberRequest:
+      type: object
+      additionalProperties: false
+      required: [email, role]
+      properties:
+        email:
+          type: string
+        role:
+          $ref: "#/components/schemas/MemberRole"
+
+    AddMemberResponse:
+      type: object
+      additionalProperties: false
+      required: [userId, role]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        role:
+          $ref: "#/components/schemas/MemberRole"
+
+    ChangeMemberRoleRequest:
+      type: object
+      additionalProperties: false
+      required: [role]
+      properties:
+        role:
+          $ref: "#/components/schemas/MemberRole"
+
   responses:
     Unauthorized:
       description: |
@@ -1921,8 +2122,9 @@ components:
         A record with the same code or name already exists (`ALREADY_EXISTS`), a country,
         division or city with active businesses cannot be deactivated (`IN_USE`), a business
         cannot be activated while its location is inactive (`LOCATION_INACTIVE`), the account
-        already owns a business (`ALREADY_OWNER`), or the subscription is not a demo
-        (`NOT_EXTENDABLE`).
+        already owns a business (`ALREADY_OWNER`), the subscription is not a demo
+        (`NOT_EXTENDABLE`), the account is already a member (`ALREADY_MEMBER`) or the change
+        would leave the business without an OWNER (`LAST_OWNER`).
       headers:
         X-Request-ID:
           $ref: "#/components/headers/XRequestID"

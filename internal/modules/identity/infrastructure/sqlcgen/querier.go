@@ -11,6 +11,7 @@ import (
 )
 
 type Querier interface {
+	ActiveMembershipRole(ctx context.Context, arg ActiveMembershipRoleParams) (string, error)
 	// Atomically marks a valid token as used and returns its user (single use).
 	ConsumeEmailVerificationToken(ctx context.Context, arg ConsumeEmailVerificationTokenParams) (uuid.UUID, error)
 	// Atomically marks a valid token as used and returns its user (single use).
@@ -28,18 +29,22 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	// occurred_at comes from the application clock (ADR-0005), not from now().
 	InsertAuditEntry(ctx context.Context, arg InsertAuditEntryParams) error
-	InsertMembership(ctx context.Context, arg InsertMembershipParams) error
 	// Issuing a new token invalidates the previous unused ones.
 	InvalidateEmailVerificationTokens(ctx context.Context, arg InvalidateEmailVerificationTokensParams) error
 	// Issuing a new token (or changing the password) invalidates previous unused ones.
 	InvalidatePasswordResetTokens(ctx context.Context, arg InvalidatePasswordResetTokensParams) error
+	ListActiveMembersOfBusiness(ctx context.Context, businessID uuid.UUID) ([]ListActiveMembersOfBusinessRow, error)
 	// Loaded per request for authorization (no cached claims, ADR-0007).
 	ListActiveMembershipsByUser(ctx context.Context, userID uuid.UUID) ([]ListActiveMembershipsByUserRow, error)
 	ListActiveUserSessions(ctx context.Context, arg ListActiveUserSessionsParams) ([]ListActiveUserSessionsRow, error)
+	// Locks the OWNER rows of a business: removing or demoting an OWNER is serialized so the
+	// business can never end up without one.
+	LockActiveOwners(ctx context.Context, businessID uuid.UUID) ([]uuid.UUID, error)
 	// Serializes per-user decisions (one self-service demo per account) inside a transaction.
 	LockUser(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
 	MarkUserEmailVerified(ctx context.Context, arg MarkUserEmailVerifiedParams) error
 	RevokeAllUserSessions(ctx context.Context, arg RevokeAllUserSessionsParams) (int64, error)
+	RevokeMembership(ctx context.Context, arg RevokeMembershipParams) error
 	// Used after an authenticated password change: keeps the current session.
 	RevokeOtherUserSessions(ctx context.Context, arg RevokeOtherUserSessionsParams) (int64, error)
 	RevokeSession(ctx context.Context, arg RevokeSessionParams) (int64, error)
@@ -47,8 +52,12 @@ type Querier interface {
 	SetUserPlatformAdmin(ctx context.Context, arg SetUserPlatformAdminParams) error
 	// Sliding idle expiry, never beyond the absolute expiry.
 	TouchSession(ctx context.Context, arg TouchSessionParams) error
+	UpdateMembershipRole(ctx context.Context, arg UpdateMembershipRoleParams) error
 	UpdateUserPasswordHash(ctx context.Context, arg UpdateUserPasswordHashParams) error
 	UpdateUserStatus(ctx context.Context, arg UpdateUserStatusParams) error
+	// Adds an ACTIVE membership, or reactivates a REVOKED one with the new role. 0 rows = the user
+	// is already an active member.
+	UpsertMembership(ctx context.Context, arg UpsertMembershipParams) (int64, error)
 }
 
 var _ Querier = (*Queries)(nil)
