@@ -1,21 +1,20 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T4.7 — Cierre de la Fase 4 (2026-11-24), en `feature/t4.7-phase-4-closure` (commit y push; PR y
-aprobación del cierre pendientes). Ver `docs/plan/phase-4-closure.md`.
+T5.1 — Quitar el rol MANAGER (2026-11-24), en `feature/t5.1-remove-manager-role` (commit y
+push; PR y merge pendientes de autorización).
+
+**Fase 5 en curso** (desglose aprobado 2026-11-24, ver `roadmap.md`).
 
 ## Flujo de ramas (ADR-0017)
 
 `feature/*` (nace de `qa`) → PR → `qa` → despliegue automático a QA → validación. `qa` → `main`
 solo al pasar a producción.
 
-## Pendiente de autorización
+## Próxima tarea: T5.2 — Profesionales
 
-1. Aprobación del cierre de la Fase 4.
-2. PR `feature/t4.7-phase-4-closure` → `qa`.
-
-## Después: Fase 5 — Profesionales y servicios
-
-Desglose para aprobación: profesionales (barberos) vinculados a miembros, horarios semanales,
-descansos, ausencias, categorías y servicios con precio y duración, servicios por profesional;
-la búsqueda pública pasa a exigir al menos un servicio activo (ADR-0018).
+- Nuevo módulo `professionals` (o dentro de `businesses`, a decidir con el diseño de
+  `domain-model.md` §5): perfil ligado a la cuenta de un miembro del negocio (PROFESSIONAL u
+  OWNER que atiende), nombre visible, descripción, activo/inactivo, orden.
+- Solo el OWNER crea/edita; un miembro solo tiene un perfil por negocio; retirar la membresía
+  desactiva el perfil; otro negocio → 404; auditoría.

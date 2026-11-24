@@ -52,12 +52,13 @@ por cuenta, 409 `ALREADY_OWNER`; límite estricto por cliente).
 (`days` 1–90), `POST /admin/businesses/{id}/subscription/activate` (cortesía hasta la Fase 11B).
 
 ### Gestión del negocio (T4.4)
-`GET /business/{businessId}` (OWNER, MANAGER, PROFESSIONAL, PLATFORM_ADMIN): negocio + resumen
-de su suscripción. `PATCH /business/{businessId}` (OWNER, PLATFORM_ADMIN; MANAGER 403): datos,
+`GET /business/{businessId}` (OWNER, PROFESSIONAL, PLATFORM_ADMIN): negocio + resumen de su
+suscripción. `PATCH /business/{businessId}` (OWNER, PLATFORM_ADMIN; PROFESSIONAL 403): datos,
 ubicación, política de reservas y recordatorios. Otro negocio → 404 idéntico a inexistente.
 
 ### Miembros (T4.5)
-`GET /business/{businessId}/members` (OWNER, MANAGER), `POST …/members` (OWNER: email + rol),
+`GET /business/{businessId}/members` (OWNER), `POST …/members` (OWNER: email + rol OWNER o
+PROFESSIONAL),
 `PATCH …/members/{userId}` (rol) y `DELETE …/members/{userId}` (OWNER); 409 `LAST_OWNER`,
 `ALREADY_MEMBER`; 400 `ACCOUNT_NOT_ELIGIBLE`.
 

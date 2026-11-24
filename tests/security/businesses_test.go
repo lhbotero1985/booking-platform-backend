@@ -117,7 +117,7 @@ func TestSelfServiceOnboardingRules(t *testing.T) {
 }
 
 // TestBusinessManagementIsTenantScoped (T4.4, ADR-0007): another business is a 404 byte-for-byte
-// identical to a business that does not exist; MANAGER reads but cannot edit; non-editable
+// identical to a business that does not exist; a PROFESSIONAL reads but cannot edit; non-editable
 // fields are rejected; PLATFORM_ADMIN can act on any business.
 func TestBusinessManagementIsTenantScoped(t *testing.T) {
 	h := startAuth(t)
@@ -138,7 +138,7 @@ func TestBusinessManagementIsTenantScoped(t *testing.T) {
 	}
 	anaBiz, bobBiz := create(ana, "Barbería Ana"), create(bob, "Barbería Bob")
 	adminP := h.store.User("admin@example.com").ID()
-	if _, err := h.svc.AddMember(context.Background(), identityAdmin(adminP), uuidMust(anaBiz), "gerente@example.com", "MANAGER"); err != nil {
+	if _, err := h.svc.AddMember(context.Background(), identityAdmin(adminP), uuidMust(anaBiz), "gerente@example.com", "PROFESSIONAL"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -159,7 +159,7 @@ func TestBusinessManagementIsTenantScoped(t *testing.T) {
 		t.Error("Bob's business was modified by Ana")
 	}
 
-	// MANAGER reads, cannot edit.
+	// A PROFESSIONAL (barber) reads, cannot edit.
 	if r := h.call(t, http.MethodGet, "/api/v1/business/"+anaBiz, "", bearerH(gerente)); r.status != http.StatusOK {
 		t.Errorf("manager read: %d", r.status)
 	}

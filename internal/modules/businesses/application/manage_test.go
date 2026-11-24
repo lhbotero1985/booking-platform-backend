@@ -57,7 +57,7 @@ func newManageEnv(t *testing.T) manageEnv {
 	}
 	id := e.biz.ID()
 	authz.Memberships[e.owner.UserID] = []identity.Membership{{BusinessID: id, Role: identity.RoleOwner}}
-	authz.Memberships[e.manager.UserID] = []identity.Membership{{BusinessID: id, Role: identity.RoleManager}}
+	authz.Memberships[e.manager.UserID] = []identity.Membership{{BusinessID: id, Role: identity.RoleProfessional}}
 	authz.Memberships[e.professional.UserID] = []identity.Membership{{BusinessID: id, Role: identity.RoleProfessional}}
 	authz.Memberships[e.x.UserID] = []identity.Membership{{BusinessID: uuid.Must(uuid.NewV7()), Role: identity.RoleOwner}}
 	return e

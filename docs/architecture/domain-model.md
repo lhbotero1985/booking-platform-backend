@@ -34,11 +34,11 @@ mínimo si se repiten; se decidirá en Fase 1 evitando un "shared kernel" grande
   `createdAt`, `lastSeenAt`, `idleExpiresAt`, `absoluteExpiresAt`, `revokedAt?`, `ip`, `userAgent`.
   - Invariantes: sesión válida ⇔ no revocada ∧ `now < idleExpiresAt` ∧ `now < absoluteExpiresAt`.
 - **PasswordResetToken (A)**: `tokenHash`, `userId`, `expiresAt` (30 min), `usedAt?`. Un solo uso.
-- **Membership (A)**: `userId`, `businessId`, `role` (`OWNER`, `MANAGER`, `PROFESSIONAL`),
+- **Membership (A)**: `userId`, `businessId`, `role` (`OWNER`, `PROFESSIONAL`; MANAGER eliminado en T5.1),
   `status`. Un usuario puede tener membresías en varios negocios (p. ej. dueño de dos locales).
   - Invariante: cada negocio tiene **al menos un** `OWNER` activo. El OWNER es el responsable
     del negocio y puede haber varios (decisión del usuario, 2026-11-24, T4.5): un responsable
-    agrega otros responsables, gerentes y barberos (`PROFESSIONAL`); el cambio de dueño es
+    agrega otros responsables y barberos (`PROFESSIONAL`); el cambio de dueño es
     asignar al nuevo responsable y luego retirar al anterior.
 - **AuditEntry**: registro inmutable (actor, acción, recurso, business_id, IP, resultado, fecha).
 

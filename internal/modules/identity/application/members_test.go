@@ -35,7 +35,7 @@ func TestAddMember(t *testing.T) {
 		t.Errorf("audit = %+v", last)
 	}
 	// The OWNER may add members to their business.
-	if _, err := e.svc.AddMember(ctx, owner, biz, "staff@example.com", contract.RoleManager); err != nil {
+	if _, err := e.svc.AddMember(ctx, owner, biz, "staff@example.com", contract.RoleProfessional); err != nil {
 		t.Fatalf("owner adds manager: %v", err)
 	}
 	// Rules.
@@ -45,10 +45,10 @@ func TestAddMember(t *testing.T) {
 		role  contract.Role
 		want  error
 	}{
-		"already member":      {admin, "owner@example.com", contract.RoleManager, contract.ErrAlreadyMember},
-		"unverified account":  {admin, "pending@example.com", contract.RoleManager, contract.ErrAccountNotEligible},
-		"unknown account":     {admin, "nobody@example.com", contract.RoleManager, contract.ErrAccountNotEligible},
-		"malformed email":     {admin, "not-an-email", contract.RoleManager, contract.ErrAccountNotEligible},
+		"already member":      {admin, "owner@example.com", contract.RoleProfessional, contract.ErrAlreadyMember},
+		"unverified account":  {admin, "pending@example.com", contract.RoleProfessional, contract.ErrAccountNotEligible},
+		"unknown account":     {admin, "nobody@example.com", contract.RoleProfessional, contract.ErrAccountNotEligible},
+		"malformed email":     {admin, "not-an-email", contract.RoleProfessional, contract.ErrAccountNotEligible},
 		"manager cannot add":  {contract.Principal{UserID: e.store.User("staff@example.com").ID()}, "pending@example.com", contract.RoleProfessional, contract.ErrForbidden},
 		"other business user": {contract.Principal{UserID: uuid.Must(uuid.NewV7())}, "pending@example.com", contract.RoleProfessional, contract.ErrNotFound},
 	} {
@@ -86,7 +86,7 @@ func TestManageMembers(t *testing.T) {
 		t.Fatal(err)
 	}
 	ana := p("ana@example.com")
-	if _, err := e.svc.AddMember(ctx, ana, biz, "bob@example.com", contract.RoleManager); err != nil {
+	if _, err := e.svc.AddMember(ctx, ana, biz, "bob@example.com", contract.RoleProfessional); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.svc.AddMember(ctx, ana, biz, "carla@example.com", contract.RoleProfessional); err != nil {
@@ -94,8 +94,8 @@ func TestManageMembers(t *testing.T) {
 	}
 	e.store.GrantMembership(id("otro@example.com"), uuid.Must(uuid.NewV7()), contract.RoleOwner)
 
-	// List: OWNER and MANAGER; PROFESSIONAL 403; owner of another business 404.
-	ms, err := e.svc.ListMembers(ctx, p("bob@example.com"), biz)
+	// List: OWNER only; PROFESSIONAL 403; owner of another business 404.
+	ms, err := e.svc.ListMembers(ctx, ana, biz)
 	if err != nil || len(ms) != 3 || ms[0].Role != contract.RoleOwner || ms[0].Email != "ana@example.com" {
 		t.Fatalf("members = %+v %v", ms, err)
 	}
@@ -107,7 +107,7 @@ func TestManageMembers(t *testing.T) {
 	}
 
 	// Only OWNERs manage members.
-	if err := e.svc.ChangeMemberRole(ctx, p("bob@example.com"), biz, id("carla@example.com"), contract.RoleManager); !errors.Is(err, contract.ErrForbidden) {
+	if err := e.svc.ChangeMemberRole(ctx, p("bob@example.com"), biz, id("carla@example.com"), contract.RoleProfessional); !errors.Is(err, contract.ErrForbidden) {
 		t.Errorf("manager changes a role: %v", err)
 	}
 	if _, err := e.svc.AddMember(ctx, p("bob@example.com"), biz, "otro@example.com", contract.RoleProfessional); !errors.Is(err, contract.ErrForbidden) {
@@ -115,7 +115,7 @@ func TestManageMembers(t *testing.T) {
 	}
 
 	// The only OWNER can be neither demoted nor removed.
-	if err := e.svc.ChangeMemberRole(ctx, ana, biz, id("ana@example.com"), contract.RoleManager); !errors.Is(err, contract.ErrLastOwner) {
+	if err := e.svc.ChangeMemberRole(ctx, ana, biz, id("ana@example.com"), contract.RoleProfessional); !errors.Is(err, contract.ErrLastOwner) {
 		t.Errorf("demote the last owner: %v", err)
 	}
 	if err := e.svc.RemoveMember(ctx, ana, biz, id("ana@example.com")); !errors.Is(err, contract.ErrLastOwner) {
@@ -126,7 +126,7 @@ func TestManageMembers(t *testing.T) {
 	if err := e.svc.ChangeMemberRole(ctx, ana, biz, id("bob@example.com"), contract.RoleOwner); err != nil {
 		t.Fatal(err)
 	}
-	if err := e.svc.ChangeMemberRole(ctx, ana, biz, id("ana@example.com"), contract.RoleManager); err != nil {
+	if err := e.svc.ChangeMemberRole(ctx, ana, biz, id("ana@example.com"), contract.RoleProfessional); err != nil {
 		t.Fatalf("demote with another owner: %v", err)
 	}
 	if err := e.svc.RemoveMember(ctx, p("bob@example.com"), biz, id("ana@example.com")); err != nil {

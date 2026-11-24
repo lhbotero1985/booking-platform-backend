@@ -39,7 +39,7 @@ type MemberAdder interface {
 	AddMember(ctx context.Context, actor Principal, businessID uuid.UUID, email string, role Role) (userID uuid.UUID, err error)
 }
 
-// Member is an active member of a business as its OWNERs and MANAGERs see it.
+// Member is an active member of a business as its OWNERs see it.
 type Member struct {
 	UserID   uuid.UUID
 	FullName string

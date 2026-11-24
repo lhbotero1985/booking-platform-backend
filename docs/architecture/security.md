@@ -46,9 +46,8 @@ Estado: **Propuesta — Fase 0.** ADR-0006 y ADR-0007.
 | Rol | Alcance |
 |---|---|
 | `PLATFORM_ADMIN` | Global: geografía, usuarios, auditoría y **cualquier acción sobre cualquier negocio** (ADR-0018, auditada con el administrador como actor). |
-| `OWNER` | Su negocio: todo, incluida configuración y membresías. |
-| `MANAGER` | Su negocio: operación (agenda, servicios, profesionales, clientes); no membresías ni suspensión. |
-| `PROFESSIONAL` | Su propia agenda dentro del negocio. |
+| `OWNER` | Responsable de su negocio (puede haber varios, siempre al menos uno): todo — configuración, miembros, catálogo, profesionales, horarios. Puede también atender como barbero. |
+| `PROFESSIONAL` | Barbero o estilista: agenda citas a clientes (Fase 6), ajusta sus propios descansos y registra sus propias ausencias. |
 | `CUSTOMER` (implícito) | Sus propias citas, perfil y dispositivos. |
 
 ### Modelo de verificación
@@ -82,9 +81,8 @@ Estado: **Propuesta — Fase 0.** ADR-0006 y ADR-0007.
 
 | Conjunto | Roles | Acciones (Fase 4 en adelante) |
 |---|---|---|
-| `RolesOwner` | OWNER (responsable; puede haber varios, siempre al menos uno) | Configuración y suspensión del negocio, membresías y roles |
-| `RolesManagement` | OWNER, MANAGER | Catálogo, profesionales y horarios, agenda completa, clientes |
-| `RolesStaff` | OWNER, MANAGER, PROFESSIONAL | Agenda propia; el caso de uso además compara el dueño del recurso con el principal |
+| `RolesOwner` | OWNER (responsable; puede haber varios, siempre al menos uno) | Configuración del negocio, miembros y roles, catálogo, profesionales y horarios (el rol MANAGER se eliminó en T5.1) |
+| `RolesStaff` | OWNER, PROFESSIONAL | Ver el negocio, agenda, descansos y ausencias propios; el caso de uso además compara el dueño del recurso con el principal |
 | — (sin membresía) | CUSTOMER | Solo recursos propios (`/me/...`); nunca datos internos de un negocio |
 | `RequirePlatformAdmin` | PLATFORM_ADMIN | Geografía, alta/suspensión de negocios, auditoría. El rol solo se otorga con `api admin grant-platform-admin` en el servidor (auditado); se lee en cada petición, así que revocarlo es inmediato |
 

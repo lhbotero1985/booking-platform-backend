@@ -27,7 +27,7 @@ SELECT m.user_id, u.full_name, u.email::text AS email, m.role, m.updated_at
 FROM memberships m
 JOIN users u ON u.id = m.user_id
 WHERE m.business_id = $1 AND m.status = 'ACTIVE'
-ORDER BY CASE m.role WHEN 'OWNER' THEN 0 WHEN 'MANAGER' THEN 1 ELSE 2 END, u.full_name, m.user_id;
+ORDER BY CASE m.role WHEN 'OWNER' THEN 0 ELSE 1 END, u.full_name, m.user_id;
 
 -- name: ActiveMembershipRole :one
 SELECT role FROM memberships

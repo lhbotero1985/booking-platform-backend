@@ -211,7 +211,7 @@ func TestParseStatusAndRole(t *testing.T) {
 			t.Errorf("ParseUserStatus(%q) accepted", s)
 		}
 	}
-	for _, s := range []string{"OWNER", "MANAGER", "PROFESSIONAL"} {
+	for _, s := range []string{"OWNER", "PROFESSIONAL", "PROFESSIONAL"} {
 		if _, err := ParseRole(s); err != nil {
 			t.Errorf("ParseRole(%q): %v", s, err)
 		}

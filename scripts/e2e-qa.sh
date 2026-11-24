@@ -164,7 +164,9 @@ check "  staff verified" 200 "$(status POST /api/v1/auth/verify-email "{\"token\
 check "add barber (PROFESSIONAL)" 201 "$(status POST "/api/v1/business/$mine/members" "{\"email\":\"$STAFF\",\"role\":\"PROFESSIONAL\"}" "$T1")"
 staff=$(json .userId)
 check "members: owner + barber" "OWNER,PROFESSIONAL" "$(status GET "/api/v1/business/$mine/members" "" "$T1" >/dev/null; json '[.items[].role] | join(",")')"
-check "change role to MANAGER" 204 "$(status PATCH "/api/v1/business/$mine/members/$staff" '{"role":"MANAGER"}' "$T1")"
+check "promote barber to OWNER" 204 "$(status PATCH "/api/v1/business/$mine/members/$staff" '{"role":"OWNER"}' "$T1")"
+check "back to PROFESSIONAL" 204 "$(status PATCH "/api/v1/business/$mine/members/$staff" '{"role":"PROFESSIONAL"}' "$T1")"
+check "MANAGER no longer exists" 400 "$(status PATCH "/api/v1/business/$mine/members/$staff" '{"role":"MANAGER"}' "$T1")"
 check "remove member" 204 "$(status DELETE "/api/v1/business/$mine/members/$staff" "" "$T1")"
 owner_id=$(status GET /api/v1/me "" "$T1" >/dev/null; json .id)
 check "last owner cannot leave" 409 "$(status DELETE "/api/v1/business/$mine/members/$owner_id" "" "$T1")"

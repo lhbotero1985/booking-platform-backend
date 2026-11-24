@@ -1075,7 +1075,7 @@ paths:
       operationId: getManagedBusiness
       summary: Your business (staff)
       description: |
-        For its OWNER, MANAGER and PROFESSIONAL (and PLATFORM_ADMIN): the business and its
+        For its OWNERs and PROFESSIONALs (and PLATFORM_ADMIN): the business and its
         subscription (demo end, whether it is visible). Another business answers 404, identical
         to a business that does not exist.
       security:
@@ -1100,7 +1100,7 @@ paths:
       operationId: updateManagedBusiness
       summary: Update your business (OWNER)
       description: |
-        OWNER and PLATFORM_ADMIN (MANAGER: 403). Only the fields present change; `coordinates:
+        OWNER and PLATFORM_ADMIN (PROFESSIONAL: 403). Only the fields present change; `coordinates:
         null` removes them. Moving to another city of the same country also takes that city's
         time zone (another country: `CITY_OTHER_COUNTRY`, the currency belongs to the country).
         Slug, status and currency are not editable here. Audited with the changed fields.
@@ -1145,7 +1145,7 @@ paths:
     get:
       tags: [Businesses]
       operationId: listBusinessMembers
-      summary: Members of your business (OWNER, MANAGER)
+      summary: Members of your business (OWNER)
       description: Active members, OWNERs first. Another business answers 404.
       security:
         - bearerAuth: []
@@ -1511,7 +1511,7 @@ components:
           format: uuid
         role:
           type: string
-          enum: [OWNER, MANAGER, PROFESSIONAL]
+          enum: [OWNER, PROFESSIONAL]
 
     ForgotPasswordRequest:
       type: object
@@ -2041,7 +2041,7 @@ components:
 
     MemberRole:
       type: string
-      enum: [OWNER, MANAGER, PROFESSIONAL]
+      enum: [OWNER, PROFESSIONAL]
       description: OWNER is the person in charge of the business (several allowed, at least one).
 
     Member:

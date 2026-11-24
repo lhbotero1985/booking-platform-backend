@@ -33,9 +33,9 @@ func TestMyMembershipsEndpoint(t *testing.T) {
 	}
 
 	biz := uuid.New()
-	f.store.GrantMembership(f.anaID(t), biz, contract.RoleManager)
+	f.store.GrantMembership(f.anaID(t), biz, contract.RoleProfessional)
 	r = f.do(t, http.MethodGet, "/api/v1/me/memberships", "", bearer(tok))
-	want := fmt.Sprintf(`{"items":[{"businessId":"%s","role":"MANAGER"}]}`, biz)
+	want := fmt.Sprintf(`{"items":[{"businessId":"%s","role":"PROFESSIONAL"}]}`, biz)
 	if r.status != http.StatusOK || strings.TrimSpace(r.body) != want {
 		t.Fatalf("manager: %d %s", r.status, r.body)
 	}

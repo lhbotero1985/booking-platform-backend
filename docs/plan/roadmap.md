@@ -8,8 +8,8 @@ Orden obligatorio. **No se avanza de fase sin aprobación explícita del usuario
 | 1 | Cimientos técnicos | Proyecto Go, Docker, PG, SQLC, Goose, River, OpenAPI, CI | ✅ Aprobada 2026-11-19 (`phase-1-closure.md`) |
 | 2 | Autenticación y autorización | Usuarios, sesiones, Argon2id, RBAC, auditoría | ✅ Aprobada 2026-11-19 (`phase-2-closure.md`) |
 | 3 | DigitalOcean QA | Droplet QA, HTTPS, backups, deploy QA (requiere autorización de costos) | ✅ Aprobada 2026-11-23 (`phase-3-closure.md`) |
-| 4 | Geografía y negocios | Países/divisiones/ciudades, negocios, aislamiento | 🟡 En curso (desglose aprobado 2026-11-23) |
-| 5 | Profesionales y servicios | Profesionales, horarios, descansos, ausencias, catálogo | ⏳ |
+| 4 | Geografía y negocios | Países/divisiones/ciudades, negocios, aislamiento | ✅ Aprobada 2026-11-24 (`phase-4-closure.md`) |
+| 5 | Profesionales y servicios | Profesionales, horarios, descansos, ausencias, catálogo | 🟡 En curso (desglose aprobado 2026-11-24) |
 | 6 | Disponibilidad y reservas | Motor de slots, citas, estados, concurrencia | ⏳ |
 | 7 | WhatsApp y push | Meta Cloud API, Expo, River jobs, webhooks | ⏳ |
 | 8 | Portal del negocio | Next.js | ⏳ |
@@ -96,7 +96,27 @@ su negocio con una demo de 7 días (T4.3b); `PLATFORM_ADMIN` puede todo sobre to
 | T4.6 ✅ | Búsqueda pública por ciudad y texto, detalle por slug | Solo activos; sin datos internos |
 | T4.7 ✅ | Suite cross-tenant/IDOR, contrato, E2E en QA, cierre de fase | Suite verde; cierre aprobado |
 
-Las fases 5–13 se desglosarán en tareas al iniciar cada una.
+## Fase 5 — Profesionales y servicios (tareas)
+
+Desglose aprobado por el usuario el 2026-11-24. Actores: administrador de la plataforma,
+responsable del negocio (OWNER, puede ser también barbero), barbero/estilista (PROFESSIONAL) y
+cliente. Todo barbero tiene cuenta propia. El responsable gestiona todo; el barbero agenda citas a
+clientes (Fase 6), ajusta sus propios descansos y registra sus propias ausencias. Cada servicio
+tiene una sola duración y un solo precio, iguales para todos los barberos; los combos ("corte +
+barba") son servicios normales con su propio precio y duración.
+
+| ID | Tarea | Criterio de aceptación principal |
+|---|---|---|
+| T5.1 ✅ | Quitar el rol MANAGER: solo OWNER (responsable) y PROFESSIONAL (barbero/estilista) | MANAGER rechazado por API y esquema; lo que hacía lo hace solo el OWNER |
+| T5.2 | Profesionales: perfil ligado a la cuenta de un miembro (barbero o responsable que atiende), nombre visible, descripción, activo/inactivo, orden | Solo OWNER gestiona; otro negocio 404; auditoría |
+| T5.3 | Horario semanal (franjas por día, definido por el OWNER) y descansos recurrentes (OWNER o el propio barbero) | Sin solapes; descanso dentro de una franja; zona horaria del negocio |
+| T5.4 | Ausencias (OWNER o el propio barbero) | Sin solapes por profesional (exclusion constraint) |
+| T5.5 | Catálogo: categorías opcionales y servicios (nombre, descripción, duración, precio en COP) | Moneda del negocio, unidades menores, nombre único por negocio |
+| T5.6 | Servicios que presta cada profesional | Mismo negocio; solo OWNER |
+| T5.7 | Vista pública de profesionales y servicios; la búsqueda exige al menos un servicio y un profesional activos | Sin datos internos |
+| T5.8 | Suite de aislamiento, E2E en QA, cierre de fase | Aprobación del usuario |
+
+Las fases 6–13 se desglosarán en tareas al iniciar cada una.
 
 ## Riesgos identificados
 

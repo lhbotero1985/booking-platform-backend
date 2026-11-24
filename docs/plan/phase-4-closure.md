@@ -1,6 +1,6 @@
 # Cierre de la Fase 4 — Geografía y negocios
 
-Fecha: 2026-11-24 · Estado: **Pendiente de aprobación del usuario**
+Fecha: 2026-11-24 · Estado: **✅ Aprobada por el usuario (2026-11-24)**
 
 ## 1. Entregables
 
@@ -83,4 +83,4 @@ paquete) se ejercitan con las pruebas de contrato y de seguridad de otros paquet
 
 ## 6. Aprobación
 
-- [ ] Usuario aprueba el cierre de la Fase 4.
+- [x] Usuario aprueba el cierre de la Fase 4 (2026-11-24, tras validar el flujo del dueño sin administrador).

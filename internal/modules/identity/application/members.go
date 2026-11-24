@@ -79,10 +79,10 @@ func (s *Service) ClaimOwnership(ctx context.Context, actor contract.Principal, 
 	})
 }
 
-// ListMembers returns the active members of a business to its OWNERs and MANAGERs (and
+// ListMembers returns the active members of a business to its OWNERs (and
 // PLATFORM_ADMIN). Another business answers ErrNotFound.
 func (s *Service) ListMembers(ctx context.Context, actor contract.Principal, businessID uuid.UUID) ([]contract.Member, error) {
-	if _, err := s.RequireBusinessRole(ctx, actor, businessID, contract.RolesManagement...); err != nil {
+	if _, err := s.RequireBusinessRole(ctx, actor, businessID, contract.RolesOwner...); err != nil {
 		return nil, err
 	}
 	var out []contract.Member
