@@ -45,7 +45,7 @@ Estado: **Propuesta — Fase 0.** ADR-0006 y ADR-0007.
 ### Roles
 | Rol | Alcance |
 |---|---|
-| `PLATFORM_ADMIN` | Global (geografía, negocios, usuarios, auditoría). Sin acceso a datos de citas salvo auditoría. |
+| `PLATFORM_ADMIN` | Global: geografía, usuarios, auditoría y **cualquier acción sobre cualquier negocio** (ADR-0018, auditada con el administrador como actor). |
 | `OWNER` | Su negocio: todo, incluida configuración y membresías. |
 | `MANAGER` | Su negocio: operación (agenda, servicios, profesionales, clientes); no membresías ni suspensión. |
 | `PROFESSIONAL` | Su propia agenda dentro del negocio. |
@@ -71,8 +71,9 @@ Estado: **Propuesta — Fase 0.** ADR-0006 y ADR-0007.
 - Reglas de `RequireBusinessRole(principal, businessID, roles...)`:
   sin membresía activa en ese negocio → `ErrNotFound` (404) · membresía con rol no permitido →
   `ErrForbidden` (403) · lista de roles vacía → `ErrForbidden` (falla cerrado).
-- `PLATFORM_ADMIN` **no** tiene rol implícito en los negocios: las operaciones de administración
-  usan casos de uso propios protegidos con `RequirePlatformAdmin` (mínimo privilegio y auditoría).
+- `PLATFORM_ADMIN` puede ejecutar cualquier caso de uso de cualquier negocio (decisión del
+  usuario, ADR-0018; reemplaza "sin rol implícito"). El autorizador lo permite y cada acción queda
+  auditada con el administrador como actor. El rol solo se otorga en el servidor (`api admin`).
 - Errores compartidos en `internal/platform/authz`; `httpx.WriteAuthzProblem` los traduce. El
   404 es idéntico al de una ruta inexistente (sin `detail`).
 - `GET /api/v1/me/memberships` lista los negocios y roles activos del usuario.

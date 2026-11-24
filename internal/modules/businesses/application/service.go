@@ -10,6 +10,7 @@ import (
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/domain"
 	geography "github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/contract"
 	identity "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
+	subscriptions "github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/audit"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
 )
@@ -20,6 +21,9 @@ const (
 	AuditBusinessActivated = "business.activated"
 	AuditBusinessSuspended = "business.suspended"
 )
+
+// ErrUnauthenticated is returned when a self-service request has no authenticated account.
+var ErrUnauthenticated = errors.New("businesses: authentication required")
 
 // ErrLocationInactive is returned when the business's city, division or country is inactive, so it cannot be
 // activated (it would be unreachable).
@@ -81,6 +85,8 @@ type Service struct {
 	store   Store
 	authz   Authorizer
 	members identity.MemberAdder
+	owners  identity.OwnershipClaimer
+	trials  subscriptions.Trials
 	places  geography.Places
 	clock   clock.Clock
 }
@@ -90,6 +96,8 @@ type Deps struct {
 	Store   Store
 	Authz   Authorizer
 	Members identity.MemberAdder
+	Owners  identity.OwnershipClaimer
+	Trials  subscriptions.Trials
 	Places  geography.Places
 	Clock   clock.Clock
 }
@@ -99,42 +107,90 @@ func NewService(d Deps) *Service {
 	if d.Clock == nil {
 		d.Clock = clock.System{}
 	}
-	return &Service{store: d.Store, authz: d.Authz, members: d.Members, places: d.Places, clock: d.Clock}
+	return &Service{store: d.Store, authz: d.Authz, members: d.Members, owners: d.Owners, trials: d.Trials, places: d.Places, clock: d.Clock}
 }
 
-// CreateInput creates a business with its OWNER (PLATFORM_ADMIN, T4.3).
-type CreateInput struct {
+// BusinessInput are the data of a new business.
+type BusinessInput struct {
 	Name, ContactPhone, Description string
 	CityID                          uuid.UUID
 	AddressLine                     string
 	Latitude, Longitude             *float64
-	OwnerEmail                      string
+}
+
+// CreateInput creates a business with its OWNER (PLATFORM_ADMIN, T4.3).
+type CreateInput struct {
+	BusinessInput
+	OwnerEmail string
 }
 
 // maxInsertAttempts retries when a concurrent creation takes the allocated slug.
 const maxInsertAttempts = 3
 
 // CreateBusiness creates a business in PENDING_REVIEW (invisible until activated, decision of
-// 2026-11-24) and makes the account with OwnerEmail its OWNER. Business, membership and audit
-// entries commit atomically. Time zone and currency come from the city and its country.
+// 2026-11-24) with a 7-day demo, and makes the account with OwnerEmail its OWNER
+// (PLATFORM_ADMIN). Business, membership, subscription and audit entries commit atomically.
 func (s *Service) CreateBusiness(ctx context.Context, p identity.Principal, in CreateInput) (*domain.Business, error) {
 	if err := s.authz.RequirePlatformAdmin(ctx, p); err != nil {
 		return nil, err
 	}
 	var verr ValidationError
-	name, err := domain.ParseName(in.Name)
+	if strings.TrimSpace(in.OwnerEmail) == "" {
+		verr.add("ownerEmail", CodeRequired)
+	}
+	v, err := s.validate(ctx, in.BusinessInput, &verr)
 	if err != nil {
+		return nil, err
+	}
+	return s.create(ctx, p, v, domain.StatusPendingReview, "admin", func(ctx context.Context, businessID uuid.UUID) error {
+		if _, err := s.members.AddMember(ctx, p, businessID, in.OwnerEmail, identity.RoleOwner); err != nil {
+			if errors.Is(err, identity.ErrAccountNotEligible) {
+				return invalid("ownerEmail", CodeAccountNotEligible)
+			}
+			return err
+		}
+		return nil
+	})
+}
+
+// CreateOwnBusiness is the self-service onboarding (ADR-0018): the authenticated account
+// creates its business, which is ACTIVE at once (it can take real bookings during the demo),
+// becomes its OWNER and gets a 7-day demo. One per account (identity.ErrAlreadyOwner).
+func (s *Service) CreateOwnBusiness(ctx context.Context, p identity.Principal, in BusinessInput) (*domain.Business, error) {
+	if p.UserID == uuid.Nil {
+		return nil, ErrUnauthenticated
+	}
+	var verr ValidationError
+	v, err := s.validate(ctx, in, &verr)
+	if err != nil {
+		return nil, err
+	}
+	return s.create(ctx, p, v, domain.StatusActive, "self_service", func(ctx context.Context, businessID uuid.UUID) error {
+		return s.owners.ClaimOwnership(ctx, p, businessID)
+	})
+}
+
+// validated are the parsed inputs of a new business.
+type validated struct {
+	name, description, address, phone string
+	coords                            *domain.Coordinates
+	place                             geography.Place
+}
+
+// validate parses in, adding field errors to verr (which may already hold some) and returning
+// it if any; other errors (geography unavailable) are returned as they are.
+func (s *Service) validate(ctx context.Context, in BusinessInput, verr *ValidationError) (validated, error) {
+	var v validated
+	var err error
+	if v.name, err = domain.ParseName(in.Name); err != nil {
 		verr.add("name", required(in.Name, CodeInvalidName))
 	}
-	description, err := domain.ParseDescription(in.Description)
-	if err != nil {
+	if v.description, err = domain.ParseDescription(in.Description); err != nil {
 		verr.add("description", CodeInvalidDescription)
 	}
-	address, err := domain.ParseAddress(in.AddressLine)
-	if err != nil {
+	if v.address, err = domain.ParseAddress(in.AddressLine); err != nil {
 		verr.add("addressLine", required(in.AddressLine, CodeInvalidAddress))
 	}
-	var coords *domain.Coordinates
 	switch {
 	case in.Latitude == nil && in.Longitude == nil:
 	case in.Latitude == nil || in.Longitude == nil:
@@ -144,46 +200,45 @@ func (s *Service) CreateBusiness(ctx context.Context, p identity.Principal, in C
 		if err != nil {
 			verr.add("coordinates", CodeInvalidCoordinates)
 		}
-		coords = &c
+		v.coords = &c
 	}
-	if strings.TrimSpace(in.OwnerEmail) == "" {
-		verr.add("ownerEmail", CodeRequired)
-	}
-	var place geography.Place
 	if in.CityID == uuid.Nil {
 		verr.add("cityId", CodeRequired)
-	} else if place, err = s.places.PlaceOfCity(ctx, in.CityID); errors.Is(err, geography.ErrCityNotFound) {
+	} else if v.place, err = s.places.PlaceOfCity(ctx, in.CityID); errors.Is(err, geography.ErrCityNotFound) {
 		verr.add("cityId", CodeUnknownCity)
 	} else if err != nil {
-		return nil, err
-	} else if !place.Active {
+		return validated{}, err
+	} else if !v.place.Active {
 		verr.add("cityId", CodeCityInactive)
 	}
-	var phone string
-	if place.CountryCode != "" {
-		if phone, err = domain.ParsePhone(in.ContactPhone, place.CountryCode); err != nil {
+	if v.place.CountryCode != "" {
+		if v.phone, err = domain.ParsePhone(in.ContactPhone, v.place.CountryCode); err != nil {
 			verr.add("contactPhone", required(in.ContactPhone, CodeInvalidPhone))
 		}
 	}
-	if err := verr.orNil(); err != nil {
-		return nil, err
-	}
+	return v, verr.orNil()
+}
 
+// create inserts the business, attaches its OWNER and starts the demo in one transaction (the
+// other modules join it through ctx), retrying if a concurrent creation takes the slug.
+func (s *Service) create(ctx context.Context, p identity.Principal, v validated, status domain.Status, via string,
+	attachOwner func(ctx context.Context, businessID uuid.UUID) error) (*domain.Business, error) {
 	var b *domain.Business
+	var err error
 	for attempt := 1; ; attempt++ {
 		err = s.store.WithinTx(ctx, func(ctx context.Context, tx Tx) error {
-			slug, err := AllocateSlug(ctx, tx, name)
+			slug, err := AllocateSlug(ctx, tx, v.name)
 			if err != nil {
 				return err
 			}
 			b, err = domain.NewBusiness(domain.NewBusinessParams{
-				ID: uuid.Must(uuid.NewV7()), Name: name, Slug: slug, Status: domain.StatusPendingReview,
-				ContactPhone: phone, Description: description,
+				ID: uuid.Must(uuid.NewV7()), Name: v.name, Slug: slug, Status: status,
+				ContactPhone: v.phone, Description: v.description,
 				Location: domain.Location{
-					CountryCode: place.CountryCode, DivisionID: place.DivisionID, CityID: place.CityID,
-					AddressLine: address, Coordinates: coords,
+					CountryCode: v.place.CountryCode, DivisionID: v.place.DivisionID, CityID: v.place.CityID,
+					AddressLine: v.address, Coordinates: v.coords,
 				},
-				TimeZone: place.TimeZone, Currency: place.Currency,
+				TimeZone: v.place.TimeZone, Currency: v.place.Currency,
 				Policy: domain.DefaultBookingPolicy(), Reminders: domain.DefaultReminders(), Now: s.clock.Now(),
 			})
 			if err != nil {
@@ -192,11 +247,15 @@ func (s *Service) CreateBusiness(ctx context.Context, p identity.Principal, in C
 			if err := tx.InsertBusiness(ctx, b); err != nil {
 				return err
 			}
-			// Same transaction (ctx carries it): no business without its OWNER.
-			if _, err := s.members.AddMember(ctx, p, b.ID(), in.OwnerEmail, identity.RoleOwner); err != nil {
-				return ownerError(err)
+			// Same transaction (ctx carries it): no business without its OWNER and its demo.
+			if err := attachOwner(ctx, b.ID()); err != nil {
+				return err
 			}
-			return tx.AppendAudit(ctx, s.audit(ctx, p, AuditBusinessCreated, b).Meta("city", place.CityID.String()))
+			if err := s.trials.StartTrial(ctx, b.ID()); err != nil {
+				return err
+			}
+			return tx.AppendAudit(ctx, s.audit(ctx, p, AuditBusinessCreated, b).
+				Meta("city", v.place.CityID.String()).Meta("via", via))
 		})
 		if !errors.Is(err, ErrSlugTaken) || attempt == maxInsertAttempts {
 			break
@@ -206,13 +265,6 @@ func (s *Service) CreateBusiness(ctx context.Context, p identity.Principal, in C
 		return nil, err
 	}
 	return b, nil
-}
-
-func ownerError(err error) error {
-	if errors.Is(err, identity.ErrAccountNotEligible) {
-		return invalid("ownerEmail", CodeAccountNotEligible)
-	}
-	return err
 }
 
 // GetBusiness returns any business (PLATFORM_ADMIN).

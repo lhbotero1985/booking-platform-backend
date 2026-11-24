@@ -19,6 +19,7 @@ import (
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/app"
 	identityworker "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/infrastructure/worker"
+	subscriptionsworker "github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/infrastructure/worker"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/buildinfo"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/config"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/db"
@@ -87,7 +88,11 @@ func run() error {
 	if err := identityworker.Register(workers, identitySvc); err != nil {
 		return err
 	}
-	client, err := jobs.NewWorkerClient(pool, logger, workers, river.Config{})
+	subscriptionsSvc := app.NewSubscriptionsService(pool, identitySvc)
+	if err := subscriptionsworker.Register(workers, subscriptionsSvc, logger); err != nil {
+		return err
+	}
+	client, err := jobs.NewWorkerClient(pool, logger, workers, river.Config{PeriodicJobs: subscriptionsworker.PeriodicJobs()})
 	if err != nil {
 		return err
 	}

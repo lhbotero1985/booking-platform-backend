@@ -163,3 +163,40 @@ type Authorizer struct{}
 func (Authorizer) RequirePlatformAdmin(_ context.Context, p identity.Principal) error {
 	return identity.CheckPlatformAdmin(p)
 }
+
+// Owners records self-service ownership claims; a second claim by the same user fails like the
+// identity module (one owned business per account). Err makes every claim fail.
+type Owners struct {
+	Err   error
+	owned map[uuid.UUID]bool
+}
+
+// ClaimOwnership implements identity.OwnershipClaimer.
+func (o *Owners) ClaimOwnership(_ context.Context, p identity.Principal, _ uuid.UUID) error {
+	if o.Err != nil {
+		return o.Err
+	}
+	if o.owned == nil {
+		o.owned = map[uuid.UUID]bool{}
+	}
+	if o.owned[p.UserID] {
+		return identity.ErrAlreadyOwner
+	}
+	o.owned[p.UserID] = true
+	return nil
+}
+
+// Trials records started demos; Err makes StartTrial fail.
+type Trials struct {
+	Err     error
+	Started []uuid.UUID
+}
+
+// StartTrial implements subscriptions contract Trials.
+func (t *Trials) StartTrial(_ context.Context, businessID uuid.UUID) error {
+	if t.Err != nil {
+		return t.Err
+	}
+	t.Started = append(t.Started, businessID)
+	return nil
+}

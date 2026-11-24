@@ -42,6 +42,15 @@ tags:
       existing verified account; the administrator activates it when it is ready. Time zone and
       currency come from the city and its country.
 
+      Self-service (ADR-0018): a verified account creates its own business, which is `ACTIVE` at
+      once with a 7-day demo; one per account.
+  - name: Subscriptions
+    description: |
+      The right to use the service, separate from the business status (ADR-0018). A business is
+      visible and bookable only if its status is `ACTIVE` and its subscription is entitled
+      (demo running, or paid). Payments arrive in phase 11B; meanwhile `PLATFORM_ADMIN` may
+      extend demos or activate a subscription as a courtesy.
+
 paths:
   /healthz:
     get:
@@ -846,6 +855,143 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/businesses:
+    post:
+      tags: [Businesses]
+      operationId: createOwnBusiness
+      summary: Create your own business (self-service, 7-day demo)
+      description: |
+        The authenticated (verified) account becomes OWNER of a new `ACTIVE` business with a
+        7-day demo subscription; business, membership, subscription and audit entries are created
+        atomically. One per account: an account that already owns a business gets 409
+        `ALREADY_OWNER` (another one is requested from support). Strict per-client rate limit.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOwnBusinessRequest"
+      responses:
+        "201":
+          description: Business created; the demo has started.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Business"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/v1/admin/businesses/{id}/subscription:
+    get:
+      tags: [Subscriptions]
+      operationId: getSubscriptionAsAdmin
+      summary: Subscription of a business (PLATFORM_ADMIN)
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses:
+        "200":
+          description: The subscription.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/admin/businesses/{id}/subscription/extend-trial:
+    post:
+      tags: [Subscriptions]
+      operationId: extendTrial
+      summary: Extend or reopen a demo (PLATFORM_ADMIN)
+      description: |
+        The demo ends `days` days from now (1–90). Works on running and expired demos (409
+        `NOT_EXTENDABLE` otherwise). Audited.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExtendTrialRequest"
+      responses:
+        "200":
+          description: The updated subscription.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/admin/businesses/{id}/subscription/activate:
+    post:
+      tags: [Subscriptions]
+      operationId: activateSubscriptionCourtesy
+      summary: Activate a subscription without payment (PLATFORM_ADMIN)
+      description: Courtesy activation until payments exist (phase 11B). Idempotent. Audited.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceID"
+      responses:
+        "200":
+          description: The active subscription.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   parameters:
     CountryCode:
@@ -1485,6 +1631,59 @@ components:
           type: string
           description: Email of an active (verified) account that becomes OWNER.
 
+    CreateOwnBusinessRequest:
+      type: object
+      additionalProperties: false
+      required: [name, contactPhone, cityId, addressLine]
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        contactPhone:
+          type: string
+        description:
+          type: string
+          maxLength: 1000
+        cityId:
+          type: string
+          format: uuid
+        addressLine:
+          type: string
+          maxLength: 200
+        coordinates:
+          $ref: "#/components/schemas/Coordinates"
+
+    Subscription:
+      type: object
+      additionalProperties: false
+      required: [businessId, status, trialEndsAt, expiredAt, entitled]
+      properties:
+        businessId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [TRIALING, ACTIVE, PAST_DUE, EXPIRED, CANCELED]
+        trialEndsAt:
+          type: [string, "null"]
+          format: date-time
+        expiredAt:
+          type: [string, "null"]
+          format: date-time
+        entitled:
+          type: boolean
+          description: Whether the business may be visible and take bookings now.
+
+    ExtendTrialRequest:
+      type: object
+      additionalProperties: false
+      required: [days]
+      properties:
+        days:
+          type: integer
+          minimum: 1
+          maximum: 90
+
   responses:
     Unauthorized:
       description: |
@@ -1574,8 +1773,10 @@ components:
     Conflict:
       description: |
         A record with the same code or name already exists (`ALREADY_EXISTS`), a country,
-        division or city with active businesses cannot be deactivated (`IN_USE`), or a business
-        cannot be activated while its location is inactive (`LOCATION_INACTIVE`).
+        division or city with active businesses cannot be deactivated (`IN_USE`), a business
+        cannot be activated while its location is inactive (`LOCATION_INACTIVE`), the account
+        already owns a business (`ALREADY_OWNER`), or the subscription is not a demo
+        (`NOT_EXTENDABLE`).
       headers:
         X-Request-ID:
           $ref: "#/components/headers/XRequestID"

@@ -21,6 +21,9 @@ import (
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application/apptest"
 	identityhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/interfaces/http"
+	subapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/application"
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/application/subtest"
+	subscriptionshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/interfaces/http"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/config"
 )
@@ -32,6 +35,7 @@ type geoEnv struct {
 	mailer   *apptest.Mailer
 	geo      *geotest.Store
 	biz      *biztest.Store
+	subs     *subtest.Store
 }
 
 // newGeoServer wires identity (authentication, authorizer) and geography like cmd/api does.
@@ -52,10 +56,12 @@ func newGeoServer(t *testing.T) geoEnv {
 	})
 	idh := identityhttp.New(e.identity, logger, identityhttp.Options{})
 	geo := geoapp.NewService(e.geo, e.identity, e.geo, clk)
-	e.biz = biztest.NewStore()
-	biz := bizapp.NewService(bizapp.Deps{Store: e.biz, Authz: e.identity, Members: e.identity, Places: geo, Clock: clk})
+	e.biz, e.subs = biztest.NewStore(), subtest.NewStore()
+	subs := subapp.NewService(e.subs, e.identity, clk)
+	biz := bizapp.NewService(bizapp.Deps{Store: e.biz, Authz: e.identity, Members: e.identity, Owners: e.identity, Trials: subs, Places: geo, Clock: clk})
 	e.srv = httptest.NewServer(NewHTTPHandler(cfg, logger, Deps{Modules: []RouteRegistrar{
-		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth),
+		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),
+		subscriptionshttp.New(subs, logger, idh.RequireAuth),
 	}}))
 	t.Cleanup(e.srv.Close)
 	return e

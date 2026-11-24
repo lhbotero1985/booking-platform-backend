@@ -10,6 +10,8 @@
 #   SKIP_RATE_LIMIT=1 skips the rate-limit check (it blocks auth endpoints for this IP ~1 min)
 #   ADMIN_EMAIL / ADMIN_PASSWORD (optional) run the business onboarding checks as PLATFORM_ADMIN;
 #                each run leaves one SUSPENDED business "QA E2E <timestamp>" behind
+# Each run also leaves one self-service business "QA E2E propia <timestamp>" whose 7-day demo
+# then expires on its own.
 #
 # Exit status: number of failed checks (0 = all green).
 set -uo pipefail
@@ -132,6 +134,13 @@ check "admin write as normal user" 403 "$(status POST /api/v1/admin/cities "{\"d
 # --- business onboarding (Phase 4, PLATFORM_ADMIN; optional: needs ADMIN_EMAIL/ADMIN_PASSWORD) --
 cali=$(curl -s "${X[@]}" "$B/api/v1/divisions/$valle/cities" | jq -r '.items[] | select(.name=="Cali") | .id')
 check "business list as normal user" 403 "$(status GET /api/v1/admin/businesses "" "$T1")"
+
+# --- self-service onboarding (ADR-0018): ACTIVE business + 7-day demo, one per account --------
+own="{\"name\":\"QA E2E propia $(date +%s)\",\"contactPhone\":\"3001234567\",\"cityId\":\"$cali\",\"addressLine\":\"Calle 1\"}"
+check "self-service business" 201 "$(status POST /api/v1/businesses "$own" "$T1")"
+check "  ACTIVE at once (demo)" ACTIVE "$(json .status)"
+check "  one per account" 409 "$(status POST /api/v1/businesses "$own" "$T1")"
+check "  code ALREADY_OWNER" ALREADY_OWNER "$(json .code)"
 if [[ -n ${ADMIN_EMAIL:-} && -n ${ADMIN_PASSWORD:-} ]]; then
   check "admin login" 200 "$(login "$ADMIN_EMAIL" "$ADMIN_PASSWORD")"
   TA=$(token)

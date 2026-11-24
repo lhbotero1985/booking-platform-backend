@@ -16,6 +16,7 @@ Orden obligatorio. **No se avanza de fase sin aprobación explícita del usuario
 | 9 | App del cliente | Expo | ⏳ |
 | 10 | App del profesional | Expo | ⏳ |
 | 11 | Portal administrador | Next.js | ⏳ |
+| 11B | Suscripciones y pagos | Proveedor de pagos, planes, cobro recurrente, webhooks, reactivación, retención 30 días, facturación (ADR-0018) | ⏳ (aprobada 2026-11-24) |
 | 12 | Pruebas integrales y piloto | E2E, carga, seguridad, piloto | ⏳ |
 | 13 | DigitalOcean PROD | Infra productiva independiente | ⏳ |
 
@@ -80,14 +81,16 @@ Costo: solo el Droplet; cualquier recurso con costo adicional requiere autorizac
 ## Fase 4 — Geografía y negocios (tareas)
 
 Desglose aprobado por el usuario el 2026-11-23. Decisiones: piloto Colombia con Valle del Cauca
-(Cali, Yumbo) y Antioquia (Medellín, Itagüí) (P5); **solo el administrador crea negocios** (P10);
-miembros agregados por email de un usuario registrado.
+(Cali, Yumbo) y Antioquia (Medellín, Itagüí) (P5); miembros agregados por email de un usuario
+registrado. **Ajuste 2026-11-24 (ADR-0018):** además del alta por el administrador, el dueño crea
+su negocio con una demo de 7 días (T4.3b); `PLATFORM_ADMIN` puede todo sobre todos los negocios.
 
 | ID | Tarea | Criterio de aceptación principal |
 |---|---|---|
 | T4.1 ✅ | Geografía: países, divisiones, ciudades (zona horaria), datos iniciales; lectura pública, escritura `PLATFORM_ADMIN` auditada; comando `api admin grant-platform-admin` | Datos iniciales en QA; no admin → 403; auditoría en la misma transacción |
 | T4.2 ✅ | Dominio y persistencia de negocios: slug, zona horaria, moneda, ubicación, políticas, avisos; FK de membresías | Ciudad ∈ división ∈ país; migración e integración |
 | T4.3 ✅ | Alta de negocios por el administrador con su OWNER (usuario existente por email); activar/suspender | Negocio + OWNER atómicos; suspendido fuera de búsqueda; un OWNER activo |
+| T4.3b ✅ | Alta autoservicio con demo de 7 días: módulo `subscriptions` (`TRIALING`…), una demo por cuenta, vencimiento automático (River), extensión por el administrador | Negocio + OWNER + suscripción atómicos; demo vencida → no visible; auditoría |
 | T4.4 | Gestión del negocio (datos, ubicación, políticas, avisos) | OWNER sí, MANAGER 403 en lo exclusivo, otro negocio 404 |
 | T4.5 | Miembros: listar, agregar por email, cambiar rol, revocar | Solo OWNER; no se revoca el último OWNER; efecto inmediato |
 | T4.6 | Búsqueda pública por ciudad y texto, detalle por slug | Solo activos; sin datos internos |
@@ -106,7 +109,7 @@ Las fases 5–13 se desglosarán en tareas al iniciar cada una.
 | R5 | Costos de WhatsApp crecen sin control | Media | Medio | Topes por negocio, solo mensajes utility, kill switch, métricas |
 | R6 | PostgreSQL autogestionado: pérdida de datos | Baja | Crítico | Backups cifrados diarios fuera del Droplet, pruebas de restauración, evaluar Managed PG en PROD |
 | R7 | Secretos filtrados en Git | Baja | Alto | gitleaks pre-commit + CI, push protection, `.gitignore`, rotación inmediata |
-| R8 | Alcance del MVP crece (pagos, reseñas…) | Alta | Medio | Roadmap estricto; módulos futuros fuera del MVP |
+| R8 | Alcance del MVP crece (pagos, reseñas…) | Alta | Medio | Roadmap estricto; pagos aceptados en la Fase 11B (ADR-0018); reseñas y otros fuera del MVP |
 | R9 | Notificaciones obsoletas (recordatorio de cita cancelada) | Media | Medio | Verificación de versión al ejecutar job + cancelación de jobs |
 | R10 | Cumplimiento legal de datos personales por país | Media | Alto | Consentimiento registrado, minimización, definir países del piloto |
 | R11 | Entorno local Windows sin Go/herramientas | Alta | Bajo | T1.1 instala toolchain; todo reproducible también en Docker/CI |

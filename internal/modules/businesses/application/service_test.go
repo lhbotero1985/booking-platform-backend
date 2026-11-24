@@ -31,27 +31,33 @@ type env struct {
 	svc     *application.Service
 	store   *biztest.Store
 	members *biztest.Members
+	owners  *biztest.Owners
+	trials  *biztest.Trials
 	places  biztest.Places
 }
 
 func newEnv() env {
-	e := env{store: biztest.NewStore(), members: &biztest.Members{}, places: biztest.Places{
+	e := env{store: biztest.NewStore(), members: &biztest.Members{}, owners: &biztest.Owners{}, trials: &biztest.Trials{}, places: biztest.Places{
 		cali:   caliCity,
 		closed: {CityID: closed, DivisionID: valle, CountryCode: "CO", TimeZone: "America/Bogota", Currency: "COP", Active: false},
 	}}
 	e.svc = application.NewService(application.Deps{
-		Store: e.store, Authz: biztest.Authorizer{}, Members: e.members, Places: e.places,
+		Store: e.store, Authz: biztest.Authorizer{}, Members: e.members, Owners: e.owners, Trials: e.trials, Places: e.places,
 		Clock: clock.NewFixed(time.Date(2026, 11, 24, 12, 0, 0, 0, time.UTC)),
 	})
 	return e
 }
 
-func validInput() application.CreateInput {
+func validBusiness() application.BusinessInput {
 	lat, lng := 3.4516, -76.532
-	return application.CreateInput{
+	return application.BusinessInput{
 		Name: "Barbería El Paisa", ContactPhone: "300 123 4567", Description: "Cortes clásicos",
-		CityID: cali, AddressLine: "Calle 5 # 38-25", Latitude: &lat, Longitude: &lng, OwnerEmail: "dueno@example.com",
+		CityID: cali, AddressLine: "Calle 5 # 38-25", Latitude: &lat, Longitude: &lng,
 	}
+}
+
+func validInput() application.CreateInput {
+	return application.CreateInput{BusinessInput: validBusiness(), OwnerEmail: "dueno@example.com"}
 }
 
 func fieldCodes(t *testing.T, err error) map[string]string {
@@ -86,6 +92,9 @@ func TestCreateBusiness(t *testing.T) {
 	}
 	if len(e.members.Added) != 1 || e.members.Added[0].BusinessID != b.ID() || e.members.Added[0].Role != identity.RoleOwner {
 		t.Errorf("owner membership = %+v", e.members.Added)
+	}
+	if len(e.trials.Started) != 1 || e.trials.Started[0] != b.ID() {
+		t.Errorf("demo not started for the admin-created business: %v", e.trials.Started)
 	}
 	if got := e.store.AuditActions(); !reflect.DeepEqual(got, []string{application.AuditBusinessCreated}) {
 		t.Errorf("audit = %v", got)
@@ -123,9 +132,9 @@ func TestCreateBusinessValidation(t *testing.T) {
 	ctx := context.Background()
 	e := newEnv()
 	lat := 3.4
-	_, err := e.svc.CreateBusiness(ctx, admin, application.CreateInput{
+	_, err := e.svc.CreateBusiness(ctx, admin, application.CreateInput{BusinessInput: application.BusinessInput{
 		Name: "x", ContactPhone: "123", AddressLine: "", Latitude: &lat, Description: "a\x07b",
-	})
+	}})
 	want := map[string]string{
 		"name": application.CodeInvalidName, "addressLine": application.CodeRequired, "coordinates": application.CodeInvalidCoordinates,
 		"ownerEmail": application.CodeRequired, "cityId": application.CodeRequired, "description": application.CodeInvalidDescription,
@@ -245,5 +254,63 @@ func TestActivateSuspendAndList(t *testing.T) {
 	}
 	if _, _, err := e.svc.ListBusinesses(ctx, admin, "DELETED", uuid.Nil, uuid.Nil, 0); fieldCodes(t, err)["status"] != application.CodeInvalidStatus {
 		t.Errorf("invalid status filter: %v", err)
+	}
+}
+
+func TestSelfServiceOnboarding(t *testing.T) {
+	ctx := context.Background()
+	e := newEnv()
+	owner := identity.Principal{UserID: uuid.Must(uuid.NewV7())}
+
+	b, err := e.svc.CreateOwnBusiness(ctx, owner, validBusiness())
+	if err != nil {
+		t.Fatal(err)
+	}
+	// ACTIVE at once (real bookings during the demo), demo started, OWNER = caller.
+	if b.Status() != domain.StatusActive || !b.IsBookable() {
+		t.Errorf("self-service business must be ACTIVE, got %s", b.Status())
+	}
+	if len(e.trials.Started) != 1 || e.trials.Started[0] != b.ID() {
+		t.Errorf("demo: %v", e.trials.Started)
+	}
+	if len(e.members.Added) != 0 {
+		t.Error("self-service must not use the admin AddMember path")
+	}
+	if a := e.store.Audit[len(e.store.Audit)-1]; a.Metadata["via"] != "self_service" || *a.ActorUserID != owner.UserID {
+		t.Errorf("audit = %+v", a)
+	}
+
+	// One demo per account: nothing persisted on the second attempt.
+	before := e.store.Count()
+	if _, err := e.svc.CreateOwnBusiness(ctx, owner, validBusiness()); !errors.Is(err, identity.ErrAlreadyOwner) {
+		t.Errorf("second self-service business: %v, want ErrAlreadyOwner", err)
+	}
+	if e.store.Count() != before {
+		t.Error("business persisted although the account already owns one")
+	}
+	// Validation and authentication.
+	in := validBusiness()
+	in.CityID = closed
+	if got := fieldCodes(t, mustFail(e.svc.CreateOwnBusiness(ctx, identity.Principal{UserID: uuid.Must(uuid.NewV7())}, in))); got["cityId"] != application.CodeCityInactive {
+		t.Errorf("inactive city: %v", got)
+	}
+	if _, err := e.svc.CreateOwnBusiness(ctx, identity.Principal{}, validBusiness()); !errors.Is(err, application.ErrUnauthenticated) {
+		t.Errorf("anonymous: %v", err)
+	}
+}
+
+func TestCreationIsAtomicWithTheDemo(t *testing.T) {
+	ctx := context.Background()
+	e := newEnv()
+	boom := errors.New("subscriptions down")
+	e.trials.Err = boom
+	if _, err := e.svc.CreateOwnBusiness(ctx, identity.Principal{UserID: uuid.Must(uuid.NewV7())}, validBusiness()); !errors.Is(err, boom) {
+		t.Fatalf("err = %v", err)
+	}
+	if _, err := e.svc.CreateBusiness(ctx, admin, validInput()); !errors.Is(err, boom) {
+		t.Fatalf("err = %v", err)
+	}
+	if e.store.Count() != 0 || len(e.store.Audit) != 0 {
+		t.Errorf("business persisted without its demo: %d %v", e.store.Count(), e.store.AuditActions())
 	}
 }

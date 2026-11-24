@@ -15,7 +15,17 @@ var (
 	ErrAlreadyMember = errors.New("identity: already a member of the business")
 	// ErrOwnerExists: the business already has an active OWNER.
 	ErrOwnerExists = errors.New("identity: the business already has an owner")
+	// ErrAlreadyOwner: the account already owns a business; another one (another demo) must be
+	// requested from support (ADR-0018: one demo per account).
+	ErrAlreadyOwner = errors.New("identity: the account already owns a business")
 )
+
+// OwnershipClaimer makes the authenticated account the OWNER of a business it has just created
+// (self-service onboarding, ADR-0018). Refused with ErrAlreadyOwner if the account already owns
+// a business. Called with the caller's transaction in ctx; audited (membership.granted).
+type OwnershipClaimer interface {
+	ClaimOwnership(ctx context.Context, actor Principal, businessID uuid.UUID) error
+}
 
 // MemberAdder grants a role in a business to an existing account, found by email. It is
 // authorized for PLATFORM_ADMIN and for the business OWNER, and audited (membership.granted).

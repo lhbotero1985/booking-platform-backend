@@ -155,7 +155,16 @@ ssh -S ~/.ssh/bp-tun -O exit deploy@HOST                                      # 
 ```
 
 Con `ADMIN_EMAIL`/`ADMIN_PASSWORD` (cuenta `PLATFORM_ADMIN` de QA) el script también prueba el
-alta de negocios; cada corrida deja un negocio `QA E2E <timestamp>` en estado `SUSPENDED`.
+alta de negocios; cada corrida deja un negocio `QA E2E <timestamp>` en estado `SUSPENDED`. Cada
+corrida también deja un negocio autoservicio `QA E2E propia <timestamp>` cuya demo vence sola a
+los 7 días.
+
+### Vencimiento de demos (T4.3b)
+
+El worker ejecuta cada hora (y al arrancar) el job `subscriptions.expire_trials` (cola
+`maintenance`, único por hora): las suscripciones `TRIALING` vencidas pasan a `EXPIRED` y se
+auditan (`subscription.expired`, `source=job`). Revisar con
+`docker compose logs worker | grep "demos expired"`.
 
 Después, comprobar en `audit_log` que las acciones quedaron con la IP pública del cliente.
 

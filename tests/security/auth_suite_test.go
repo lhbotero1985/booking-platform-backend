@@ -26,6 +26,9 @@ import (
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application/apptest"
 	identityhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/interfaces/http"
+	subapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/application"
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/application/subtest"
+	subscriptionshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/interfaces/http"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/config"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/logging"
@@ -45,6 +48,7 @@ type authHarness struct {
 	logs   *syncBuffer
 	geo    *geotest.Store
 	biz    *biztest.Store
+	subs   *subtest.Store
 }
 
 func startAuth(t *testing.T) authHarness {
@@ -59,7 +63,7 @@ func startAuth(t *testing.T) authHarness {
 		t.Fatal(err)
 	}
 	h := authHarness{store: apptest.NewStore(), mailer: &apptest.Mailer{}, logs: &syncBuffer{},
-		clock: clock.NewFixed(time.Date(2026, 11, 19, 12, 0, 0, 0, time.UTC)), geo: geotest.NewSeededStore(), biz: biztest.NewStore()}
+		clock: clock.NewFixed(time.Date(2026, 11, 19, 12, 0, 0, 0, time.UTC)), geo: geotest.NewSeededStore(), biz: biztest.NewStore(), subs: subtest.NewStore()}
 	logger := logging.New(h.logs, slog.LevelDebug)
 	h.svc = application.NewService(application.Deps{
 		Store: h.store, Hasher: &apptest.Hasher{}, Mailer: h.mailer, Clock: h.clock,
@@ -68,9 +72,11 @@ func startAuth(t *testing.T) authHarness {
 	// Same composition as cmd/api: geography uses identity's authentication and authorizer.
 	idh := identityhttp.New(h.svc, logger, identityhttp.Options{AllowedOrigins: cfg.HTTP.CORSAllowedOrigins})
 	geo := geoapp.NewService(h.geo, h.svc, h.geo, h.clock)
-	biz := bizapp.NewService(bizapp.Deps{Store: h.biz, Authz: h.svc, Members: h.svc, Places: geo, Clock: h.clock})
+	subs := subapp.NewService(h.subs, h.svc, h.clock)
+	biz := bizapp.NewService(bizapp.Deps{Store: h.biz, Authz: h.svc, Members: h.svc, Owners: h.svc, Trials: subs, Places: geo, Clock: h.clock})
 	h.srv = httptest.NewServer(app.NewHTTPHandler(cfg, logger, app.Deps{Modules: []app.RouteRegistrar{
-		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth),
+		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),
+		subscriptionshttp.New(subs, logger, idh.RequireAuth),
 	}}))
 	t.Cleanup(h.srv.Close)
 	return h
@@ -178,11 +184,17 @@ var businessAdminRoutes = []struct{ method, path, body string }{
 	{http.MethodGet, "/api/v1/admin/businesses/01a20aae-7e5d-73d7-b7d3-a11c5afb9655", ""},
 	{http.MethodPost, "/api/v1/admin/businesses/01a20aae-7e5d-73d7-b7d3-a11c5afb9655/activate", ""},
 	{http.MethodPost, "/api/v1/admin/businesses/01a20aae-7e5d-73d7-b7d3-a11c5afb9655/suspend", ""},
+	{http.MethodGet, "/api/v1/admin/businesses/01a20aae-7e5d-73d7-b7d3-a11c5afb9655/subscription", ""},
+	{http.MethodPost, "/api/v1/admin/businesses/01a20aae-7e5d-73d7-b7d3-a11c5afb9655/subscription/extend-trial", `{"days":30}`},
+	{http.MethodPost, "/api/v1/admin/businesses/01a20aae-7e5d-73d7-b7d3-a11c5afb9655/subscription/activate", ""},
 }
 
 func init() {
 	authenticatedRoutes = append(authenticatedRoutes, geographyAdminRoutes...)
 	authenticatedRoutes = append(authenticatedRoutes, businessAdminRoutes...)
+	authenticatedRoutes = append(authenticatedRoutes, struct{ method, path, body string }{
+		http.MethodPost, "/api/v1/businesses", `{"name":"Mía","contactPhone":"3001234567","cityId":"` + geotest.CaliID.String() + `","addressLine":"Calle 1"}`,
+	})
 }
 
 // TestAuthenticatedRoutesRejectInvalidCredentials: route × credential matrix. Every case is

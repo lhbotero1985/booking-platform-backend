@@ -23,7 +23,7 @@ la Fase 0, se adopta la propuesta.
 | P7 | Estado tras reprogramar | Cliente reprograma → mantiene `CONFIRMED` si lo estaba; negocio reprograma → `PENDING_CONFIRMATION`. |
 | P8 | ¿Auto-cancelación de pendientes no confirmadas? | No en MVP. |
 | P9 | ¿Opción "cualquier profesional" al reservar? | Fuera del MVP (cada reserva elige profesional, como dice el prompt). |
-| P10 | ¿Negocio nuevo queda `ACTIVE` al registrarse o requiere revisión admin? | ✅ Decidido 2026-11-23: **por ahora solo el administrador crea negocios** (sin autoregistro). Miembros: se agregan por email de un usuario registrado (revela a un OWNER si un email tiene cuenta: aceptado). |
+| P10 | ¿Negocio nuevo queda `ACTIVE` al registrarse o requiere revisión admin? | ✅ Actualizado 2026-11-24 (ADR-0018): **el dueño crea su negocio** (autoservicio) con demo de 7 días en la que ya recibe reservas; también el administrador puede crearlo (nace `PENDING_REVIEW`). Sin pago al vencer: no visible y datos eliminados a los 30 días. Pagos en la Fase 11B. Miembros por email de un usuario registrado. |
 | P11 | Crear una ausencia/bloqueo sobre citas existentes | Rechazar con lista de citas en conflicto; el negocio debe reprogramarlas/cancelarlas primero. |
 | P12 | ¿El cliente necesita cuenta para reservar? | Sí desde la app; el negocio puede crear clientes sin cuenta en reservas manuales. |
 | P13 | Proveedor de email para PROD | **QA usa Mailpit** (decisión 2026-11-19). Para PROD elegir proveedor con SMTP+TLS antes de la Fase 13 (p. ej. Amazon SES, Resend, Postmark, Brevo); requiere dominio con SPF/DKIM. |
@@ -49,6 +49,7 @@ la Fase 0, se adopta la propuesta.
 | P32 | MFA para PLATFORM_ADMIN | ✅ Decidido 2026-11-19: **Fase 12** (TOTP obligatorio para administradores antes de PROD). |
 | P33 | Listado y cierre selectivo de sesiones (ASVS V3.3.4) | ✅ Decidido 2026-11-19: **Fase 12** (`GET /me/sessions`, `DELETE /me/sessions/{id}`). |
 | P38 | Copia externa de los backups QA | Hoy solo en el mismo Droplet (sin costo). Si se pierde el Droplet se pierden datos de QA (sintéticos). Opciones: (a) aceptar en QA (recomendado); (b) descarga manual periódica (`scp`); (c) DO Spaces (US$ 5/mes) u otro almacenamiento, obligatorio para PROD. |
+| P39 | Proveedor de pagos, planes y precios | Fase 11B: Wompi, Mercado Pago o PayU (Colombia); precio mensual por negocio vs por profesional; facturación electrónica DIAN (validar con el contador). Requiere autorización de costos. |
 | P37 | Protección de las ramas `qa`/`main` | ✅ Decidido 2026-11-23: **seguir así** (regla de proceso: solo merges de PR). El repo es privado en el plan Free: GitHub no aplica protección de ramas ni rulesets (verificado 2026-11-23: `qa` sin protección). Hoy la regla es de proceso (solo merges de PR). Como cada push a `qa` despliega, opciones: (a) seguir así; (b) GitHub Pro (US$ 4/mes) para protección y aprobadores; (c) repo público (no recomendado). |
 | P34 | Tamaño del Droplet QA | ✅ Decidido 2026-11-22: **seguir con 1 GB + 2 GB de swap y validar**; subir a 2 GB (`s-1vcpu-2gb-intel`, US$ 14/mes) solo si las mediciones lo exigen. Medición T3.2: 650 MB usados, 28 MB de swap. |
 | P35 | DNS gratuito para QA | ✅ Decidido 2026-11-22: **DuckDNS** `booking-platform-col.duckdns.org` → `174.138.92.121` (verificado). |

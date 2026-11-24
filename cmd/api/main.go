@@ -28,6 +28,7 @@ import (
 	businesseshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/interfaces/http"
 	geographyhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/interfaces/http"
 	identityhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/interfaces/http"
+	subscriptionshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/interfaces/http"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/buildinfo"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/config"
@@ -109,7 +110,8 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 
 	identityHandler := identityhttp.New(identitySvc, logger, identityhttp.Options{AllowedOrigins: cfg.HTTP.CORSAllowedOrigins, AuthLimiter: limiters.Auth})
 	geographySvc := app.NewGeographyService(pool, identitySvc)
-	businessesSvc := app.NewBusinessesService(pool, identitySvc, geographySvc)
+	subscriptionsSvc := app.NewSubscriptionsService(pool, identitySvc)
+	businessesSvc := app.NewBusinessesService(pool, identitySvc, geographySvc, subscriptionsSvc)
 
 	handler := app.NewHTTPHandler(cfg, logger, app.Deps{
 		Readiness: []app.Check{
@@ -119,7 +121,8 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		Modules: []app.RouteRegistrar{
 			identityHandler,
 			geographyhttp.New(geographySvc, logger, identityHandler.RequireAuth),
-			businesseshttp.New(businessesSvc, logger, identityHandler.RequireAuth),
+			businesseshttp.New(businessesSvc, logger, identityHandler.RequireAuth, limiters.Auth),
+			subscriptionshttp.New(subscriptionsSvc, logger, identityHandler.RequireAuth),
 		},
 		APILimiter: limiters.API,
 	})

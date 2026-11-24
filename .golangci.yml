@@ -141,6 +141,7 @@ linters:
             - github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses
             - github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract
             - github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/contract
+            - github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/contract
           deny:
             - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules
               desc: los módulos se comunican solo vía su paquete contract
@@ -167,6 +168,38 @@ linters:
             - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/infrastructure
               desc: la aplicación depende de puertos, no de su implementación
             - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/interfaces
+              desc: la aplicación no conoce el transporte
+
+        # Fronteras del módulo subscriptions (T4.3b, ADR-0018).
+        subscriptions-module-boundary:
+          list-mode: lax
+          files:
+            - "**/internal/modules/subscriptions/**"
+          allow:
+            - github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions
+            - github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract
+          deny:
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules
+              desc: los módulos se comunican solo vía su paquete contract
+        subscriptions-domain-inward:
+          list-mode: lax
+          files:
+            - "**/internal/modules/subscriptions/domain/**"
+          deny:
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/application
+              desc: el dominio no conoce los casos de uso
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/infrastructure
+              desc: el dominio no conoce la infraestructura
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/identity
+              desc: el dominio de subscriptions no depende de otros módulos
+        subscriptions-application-inward:
+          list-mode: lax
+          files:
+            - "**/internal/modules/subscriptions/application/**"
+          deny:
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/infrastructure
+              desc: la aplicación depende de puertos, no de su implementación
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/interfaces
               desc: la aplicación no conoce el transporte
     forbidigo:
       forbid:

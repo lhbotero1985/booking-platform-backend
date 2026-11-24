@@ -466,6 +466,21 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 4 · T4.3b — Alta autoservicio con demo de 7 días (ADR-0018)
+
+- **Previo:** PR #34 (T4.3) → `qa`: 6/6 ✅, `c2c3d77`, desplegado; E2E en QA **70/70** con la
+  cuenta admin (alta real de negocio). Decisiones del usuario: demo con reservas reales,
+  retención 30 días, nueva Fase 11B de pagos, PLATFORM_ADMIN puede todo; MANAGER solo ve
+  (propuesta sin objeción). ADR-0018 y plan actualizados (`a6e94b0`).
+- **Estado:** ✅ en `feature/t4.3b-self-service-trial` (commit y push; PR pendiente).
+- **Archivos:** migración `00007_subscriptions.sql`, módulo `internal/modules/subscriptions/`
+  (domain, contract, application + subtest, store, worker periódico, HTTP admin),
+  `identity` (`ClaimOwnership`, `LockUser`), `businesses` (`CreateOwnBusiness`, creación
+  compartida con demo atómica, `POST /api/v1/businesses` con límite estricto), `cmd/api`,
+  `cmd/worker` (job horario), `internal/app/subscriptions.go`, `.golangci.yml`, `sqlc.yaml`,
+  OpenAPI (4 operaciones), pruebas, `scripts/e2e-qa.sh`, docs.
+- **Problemas:** heredocs largos rompían el shell → scripts por archivo; hallazgos menores de lint.
+
 ## 2026-11-24 · Fase 4 · T4.3 — Alta de negocios por el administrador
 
 - **Previo:** PR #33 (T4.2) → `qa`: 6/6 ✅, `b85b596`, desplegado (migración 6; `app_runtime`

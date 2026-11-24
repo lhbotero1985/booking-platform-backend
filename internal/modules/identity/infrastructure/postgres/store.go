@@ -142,6 +142,14 @@ func (t *txStore) InsertMembership(ctx context.Context, id, userID, businessID u
 	return err
 }
 
+func (t *txStore) LockUser(ctx context.Context, userID uuid.UUID) error {
+	_, err := t.q.LockUser(ctx, userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return application.ErrNotFound
+	}
+	return err
+}
+
 func (t *txStore) SetPlatformAdmin(ctx context.Context, userID uuid.UUID, admin bool) error {
 	return t.q.SetUserPlatformAdmin(ctx, sqlcgen.SetUserPlatformAdminParams{ID: userID, IsPlatformAdmin: admin})
 }

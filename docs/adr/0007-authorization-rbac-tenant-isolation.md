@@ -1,6 +1,7 @@
 # ADR-0007: Autorización RBAC y aislamiento multiempresa
 
 - Estado: Aceptado (aprobación Fase 0, 2026-11-18) · Fecha: 2026-11-18
+- Modificado por ADR-0018 (2026-11-24): `PLATFORM_ADMIN` puede actuar sobre cualquier negocio (auditado).
 
 ## Decisión
 - Roles: `PLATFORM_ADMIN` (global), `OWNER`, `MANAGER`, `PROFESSIONAL` (por membresía en
