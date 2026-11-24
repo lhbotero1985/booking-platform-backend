@@ -550,4 +550,7 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `tests/security` | ✅ | 6 rutas admin en la matriz de 12 credenciales inválidas (401); no admin → 403 + `authz.denied` × 6; revocación de `PLATFORM_ADMIN` inmediata con la misma sesión; asignación masiva (id, createdAt, code, countryCode, divisionId) → 400; rutas malformadas/inyección → 404 genérico; país público sin campos internos |
 | `task check` / `task sqlc:check` / `task shellcheck` | ✅ | 0 issues, sin vulnerabilidades |
 | Suite completa `go test -tags=integration ./...` | ✅ | Todos los paquetes |
-| Despliegue y E2E en QA | ⏳ | Tras el merge |
+| PR #32 — ci + security | ✅ 6/6 | Squash `0449274`; `release-qa` ✅ (migración 5 aplicada en QA, 4 ciudades) |
+| `api admin grant-platform-admin admin@booking-qa.test` en QA | ✅ | Cuenta sintética (Mailpit) verificada; `is_platform_admin=t`; auditoría `admin.platform_admin_granted` `source=cli` |
+| Escrituras admin en QA | ✅ | Ciudad duplicada → 409; zona inválida → 400; desactivar Yumbo → desaparece de la lista pública; reactivar → vuelve; 2 entradas `geography.city_updated` con IP real |
+| `scripts/e2e-qa.sh` en `0449274` | ✅ **62/62** | 1.ª corrida 61/62: la comparación por regex del script no escapaba `+57` (error del script, no del API) → corregido |

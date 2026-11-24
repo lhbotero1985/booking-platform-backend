@@ -481,6 +481,8 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
   operaciones), `.golangci.yml` (fronteras del módulo), `sqlc.yaml`, pruebas (unitarias,
   integración, contrato, seguridad), `scripts/e2e-qa.sh` (geografía), docs.
 - **Problemas:** ninguno relevante (un hallazgo de `gocritic` en una prueba, corregido).
+- **Integrada:** PR #32 → `qa` (6/6 ✅, `0449274`), desplegada; administrador QA
+  `admin@booking-qa.test` creado con el comando de operador; E2E 62/62 en QA.
 
 ## 2026-11-23 · Fase 3 · T3.8 — Cierre de la fase ✅ (Fase 3 aprobada)
 

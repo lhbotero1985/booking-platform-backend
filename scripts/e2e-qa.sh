@@ -114,7 +114,7 @@ check "  no memberships yet" 0 "$(json '.items | length')"
 
 # --- geography (Phase 4): public reference data, writes only for PLATFORM_ADMIN ------------
 check "GET /countries" 200 "$(status GET /api/v1/countries)"
-check "  Colombia COP +57" "CO COP +57" "$(json '.items[] | select(.code=="CO") | "\(.code) \(.defaultCurrency) \(.phoneCode)"')"
+check "  Colombia COP +57" "CO COP \+57" "$(json '.items[] | select(.code=="CO") | "\(.code) \(.defaultCurrency) \(.phoneCode)"')"
 check "GET /countries/CO/divisions" 200 "$(status GET /api/v1/countries/CO/divisions)"
 check "  Antioquia, Valle del Cauca" "CO-ANT,CO-VAC" "$(json '[.items[].code] | join(",")')"
 valle=$(json '.items[] | select(.code=="CO-VAC") | .id')
