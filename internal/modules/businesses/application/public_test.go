@@ -202,3 +202,18 @@ func TestPublicBusinessID(t *testing.T) {
 		}
 	}
 }
+
+func TestPublicBookingPolicy(t *testing.T) {
+	ctx := context.Background()
+	e := newPublicEnv(t, []string{"Barbería Pública", "Barbería Vencida"}, "Barbería Pública")
+	got, err := e.svc.PublicBookingPolicy(ctx, "barberia-publica")
+	want := bizcontract.BookingPolicy{BusinessID: e.ids["Barbería Pública"], TimeZone: "America/Bogota", SlotIntervalMinutes: 10, BufferMinutes: 0, MinLeadMinutes: 60, MaxAdvanceDays: 60}
+	if err != nil || got != want {
+		t.Errorf("policy = %+v %v", got, err)
+	}
+	for _, slug := range []string{"barberia-vencida", "no-existe", "NO VÁLIDO"} {
+		if _, err := e.svc.PublicBookingPolicy(ctx, slug); !errors.Is(err, bizcontract.ErrBusinessNotFound) {
+			t.Errorf("%s: %v", slug, err)
+		}
+	}
+}

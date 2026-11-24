@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	businesses "github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/contract"
+	catalog "github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/domain"
 	professionals "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/contract"
 )
@@ -215,4 +216,44 @@ func ordered(ids []uuid.UUID, pros []professionals.PublicProfessional) []uuid.UU
 		}
 	}
 	return out
+}
+
+// BookableService implements the catalog contract Booking (T6.2): the duration of an ACTIVE
+// service the professional performs, if that professional is bookable; catalog.ErrNotBookable
+// otherwise.
+func (s *Service) BookableService(ctx context.Context, businessID, serviceID, professionalID uuid.UUID) (int, error) {
+	if s.public.Professionals == nil {
+		return 0, errNotConfigured
+	}
+	var (
+		svc      domain.Service
+		performs bool
+	)
+	err := s.store.WithinTx(ctx, func(ctx context.Context, tx Tx) (err error) {
+		if svc, err = tx.ServiceByID(ctx, businessID, serviceID); err != nil {
+			return err
+		}
+		assigned, err := tx.ServicesOfProfessional(ctx, businessID, professionalID)
+		for _, a := range assigned {
+			performs = performs || a.ID == serviceID
+		}
+		return err
+	})
+	if errors.Is(err, ErrNotFound) {
+		return 0, catalog.ErrNotBookable
+	}
+	if err != nil {
+		return 0, err
+	}
+	if svc.Status != domain.StatusActive || !performs {
+		return 0, catalog.ErrNotBookable
+	}
+	bookable, err := s.public.Professionals.BookableProfessionals(ctx, []uuid.UUID{businessID})
+	if err != nil {
+		return 0, err
+	}
+	if !bookableSet(bookable)[professionalID] {
+		return 0, catalog.ErrNotBookable
+	}
+	return svc.DurationMinutes, nil
 }

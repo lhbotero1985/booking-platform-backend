@@ -22,6 +22,8 @@ servers:
     description: DEV (Docker Compose)
 
 tags:
+  - name: Availability
+    description: Bookable start times of a professional (T6.2).
   - name: Catalog
     description: Service categories and services of a business (T5.5).
   - name: Operations
@@ -1001,6 +1003,60 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PublicCatalog"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/businesses/{slug}/availability:
+    get:
+      tags: [Availability]
+      operationId: getPublicAvailability
+      summary: Bookable start times of a professional for a service on a local day (public)
+      description: |
+        Informative (the booking revalidates). Working ranges and breaks of the weekday minus
+        absences and booked appointments, on a grid of the business's slot interval anchored to
+        each working range, with its buffer, minimum notice and booking horizon. Times are UTC
+        (`startAt`, `endAt`) plus `startLocal` with the business's offset. 404, identical for a
+        business customers cannot see, an unknown or inactive service, a professional who does
+        not perform it or is not bookable. 400 `DATE_OUTSIDE_BOOKING_WINDOW` for a date before
+        today or beyond the horizon (in the business's calendar).
+      security: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: serviceId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: professionalId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: date
+          in: query
+          required: true
+          description: Local day of the business (YYYY-MM-DD).
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: The bookable start times, earliest first (empty when nothing is free).
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Availability"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -3322,6 +3378,44 @@ components:
             type: string
             format: uuid
 
+    Availability:
+      type: object
+      additionalProperties: false
+      required: [date, timeZone, serviceId, professionalId, durationMinutes, slots]
+      properties:
+        date:
+          type: string
+          format: date
+        timeZone:
+          type: string
+          description: IANA time zone of the business.
+        serviceId:
+          type: string
+          format: uuid
+        professionalId:
+          type: string
+          format: uuid
+        durationMinutes:
+          type: integer
+        slots:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [startAt, endAt, startLocal]
+            properties:
+              startAt:
+                type: string
+                format: date-time
+                description: UTC.
+              endAt:
+                type: string
+                format: date-time
+                description: UTC, end of the service (without the buffer).
+              startLocal:
+                type: string
+                format: date-time
+                description: Same instant with the business's offset, for display.
     PublicCatalog:
       type: object
       additionalProperties: false

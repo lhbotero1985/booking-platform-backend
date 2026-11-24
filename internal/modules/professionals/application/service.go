@@ -9,6 +9,7 @@ import (
 	"errors"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -372,4 +373,35 @@ func (s *Service) BookableProfessionals(ctx context.Context, businessIDs []uuid.
 		}
 	}
 	return out, nil
+}
+
+// DayAgenda implements the professionals contract Agenda (T6.2): working ranges and breaks of
+// the weekday and the absences overlapping [from, to). No authorization.
+func (s *Service) DayAgenda(ctx context.Context, businessID, professionalID uuid.UUID, weekday time.Weekday, from, to time.Time) (profcontract.DayAgenda, error) {
+	var out profcontract.DayAgenda
+	err := s.store.WithinTx(ctx, func(ctx context.Context, tx Tx) error {
+		if _, err := tx.ProfessionalByID(ctx, businessID, professionalID); err != nil {
+			return err
+		}
+		w, err := tx.WeeklySchedule(ctx, businessID, professionalID)
+		if err != nil {
+			return err
+		}
+		day := w.Days[weekday]
+		for _, r := range day.WorkingHours {
+			out.WorkingHours = append(out.WorkingHours, profcontract.MinuteRange{Start: int(r.Start), End: int(r.End)})
+		}
+		for _, r := range day.Breaks {
+			out.Breaks = append(out.Breaks, profcontract.MinuteRange{Start: int(r.Start), End: int(r.End)})
+		}
+		absences, err := tx.ListAbsences(ctx, businessID, professionalID, from.UTC(), to.UTC(), MaxListedAbsences)
+		for _, a := range absences {
+			out.Absences = append(out.Absences, profcontract.Interval{Start: a.Start, End: a.End})
+		}
+		return err
+	})
+	if errors.Is(err, ErrNotFound) {
+		return profcontract.DayAgenda{}, profcontract.ErrProfessionalNotFound
+	}
+	return out, err
 }

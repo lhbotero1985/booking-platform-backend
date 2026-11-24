@@ -32,6 +32,8 @@ import (
 	profapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/application/proftest"
 	professionalshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/interfaces/http"
+	schedapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/application"
+	schedulinghttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/interfaces/http"
 	subapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/application/subtest"
 	subscriptionshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/interfaces/http"
@@ -83,11 +85,13 @@ func startAuth(t *testing.T) authHarness {
 	profs := profapp.NewService(proftest.NewStore(), h.svc, h.clock)
 	cat := catapp.NewService(catalogtest.NewStore(), h.svc, biz, profs, h.clock)
 	app.LinkPublicCatalog(biz, cat, profs, biz)
+	sched := schedapp.NewService(schedapp.Deps{Businesses: biz, Catalog: cat, Professionals: profs, Clock: h.clock})
 	h.srv = httptest.NewServer(app.NewHTTPHandler(cfg, logger, app.Deps{Modules: []app.RouteRegistrar{
 		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),
 		subscriptionshttp.New(subs, logger, idh.RequireAuth),
 		professionalshttp.New(profs, logger, idh.RequireAuth),
 		cataloghttp.New(cat, logger, idh.RequireAuth),
+		schedulinghttp.New(sched, logger),
 	}}))
 	t.Cleanup(h.srv.Close)
 	return h

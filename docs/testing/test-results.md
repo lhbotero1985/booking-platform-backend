@@ -825,3 +825,19 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Mutaciones (ignorar la preparación de la cita existente; rejilla anclada al segmento) | ✅ detectadas | Ambas hacen fallar `TestAvailable` y `TestAvailableMatchesNaive`; código restaurado |
 | Cobertura `scheduling/domain` | ✅ 100 % | |
 | `task check` (lint 0, vuln) | ✅ | |
+
+## 2026-11-24 · Fase 6 · T6.2 — Disponibilidad pública
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestPublicAvailability` (scheduling) | ✅ | Contratos llamados con los ids correctos; ausencias leídas del día local completo en un día de DST (Nueva York, 23 h); horas con ausencia descontada; 404 único para negocio, servicio y barbero; fuera de ventana; errores inesperados propagados; zona horaria inválida no se disfraza de 404. Cobertura 96,8 % |
+| `TestBookableService` (catalog) | ✅ | Duración del servicio; 404 si no lo presta, inactivo, barbero no reservable, servicio inexistente u otro negocio; falla explícita sin dependencias |
+| `TestDayAgenda` (professionals) | ✅ | Franjas y descansos del día en minutos; ausencias del periodo (excluye la de otro día); día libre vacío; otro negocio → `ErrProfessionalNotFound` |
+| `TestPublicBookingPolicy` (businesses) | ✅ | Política y zona del negocio público; vencido / inexistente / inválido → `ErrBusinessNotFound` |
+| `TestContractPublicAvailability` | ✅ | Contra OpenAPI: 09:00–09:30, 10:30, 11:30 (descanso y ausencia); día sin horario `[]`; ayer y hoy+61 → 400; 404 negocio / servicio no asignado / inexistente / barbero INACTIVE |
+| `TestEveryRouteIsDocumented` | ✅ | **61 rutas documentadas** |
+| `TestPublicSearchExposesOnlyBookableBusinesses` (seguridad) | ✅ | Disponibilidad solo con campos públicos; suspendido, y servicio o barbero de otro negocio bajo un slug visible → 404 idéntico a inexistente |
+| `TestPublicAvailabilityOnPostgres` | ✅ | Módulos y SQL reales: no asignado → 404; tras asignar 08:00–08:30 y 09:20–09:30 (descanso; huecos cortos por la ausencia descartados); ausencia del día siguiente no cuenta; barbero retirado → 404 |
+| Postman + Newman (entorno local temporal) | ✅ 3 corridas | 22 peticiones, 35 comprobaciones, 0 fallos (cuenta nueva y cuenta existente); horas 09:00–12:30, 14:00–14:30, 16:00–17:30 |
+| `task check` (lint 0, vuln) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
+| Despliegue y E2E en QA | ⏳ | Tras el merge (E2E ampliado con 8 comprobaciones de disponibilidad) |

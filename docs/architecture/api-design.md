@@ -95,6 +95,14 @@ sin centavos) + `currency` del negocio. `categoryId: null` en PATCH quita la cat
 `{"serviceIds": [...]}` (OWNER) que reemplaza la lista completa; `SERVICE_NOT_FOUND` en
 `serviceIds[i]` si el servicio no es del negocio; profesional inexistente o ajeno → 404.
 
+### Disponibilidad pública (T6.2)
+`GET /api/v1/businesses/{slug}/availability?serviceId=&professionalId=&date=YYYY-MM-DD` (sin
+autenticación, límite general): `date`, `timeZone`, `serviceId`, `professionalId`,
+`durationMinutes` y `slots[]` con `startAt`/`endAt` (UTC) y `startLocal` (con el offset del
+negocio). Informativa: la reserva revalida. 404 idéntico para negocio no público, servicio no
+reservable con ese barbero o barbero no reservable; 400 `DATE_OUTSIDE_BOOKING_WINDOW`.
+Colección de Postman para validarla en QA: `docs/testing/postman/`.
+
 ### Catálogo público (T5.7)
 `GET /api/v1/businesses/{slug}/catalog` (sin autenticación, límite general): `categories`
 (id, nombre), `services` (id, categoryId, nombre, descripción, duración, `priceMinor`,

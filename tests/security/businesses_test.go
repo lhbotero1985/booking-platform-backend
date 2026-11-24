@@ -273,21 +273,26 @@ func TestPublicSearchExposesOnlyBookableBusinesses(t *testing.T) {
 		return v.ID
 	}
 	// offer creates a service and, if performed, a professional (the owner) who performs it.
-	offer := func(tok, biz, email string, performed bool) {
+	// It also gives the professional a Friday 09:00–10:00 schedule (public availability, T6.2).
+	offer := func(tok, biz, email string, performed bool) (svc, prof string) {
 		base := "/api/v1/business/" + biz
-		svc := post(tok, base+"/services", `{"name":"Corte","durationMinutes":30,"priceMinor":2500000}`, http.StatusCreated)
+		svc = post(tok, base+"/services", `{"name":"Corte","durationMinutes":30,"priceMinor":2500000}`, http.StatusCreated)
 		if !performed {
-			return
+			return svc, ""
 		}
-		prof := post(tok, base+"/professionals", `{"email":"`+email+`","displayName":"Barbero"}`, http.StatusCreated)
+		prof = post(tok, base+"/professionals", `{"email":"`+email+`","displayName":"Barbero"}`, http.StatusCreated)
 		if r := h.call(t, http.MethodPut, base+"/professionals/"+prof+"/services", `{"serviceIds":["`+svc+`"]}`, bearerH(tok)); r.status != http.StatusOK {
 			t.Fatalf("assign: %d %s", r.status, r.body)
 		}
+		if r := h.call(t, http.MethodPut, base+"/professionals/"+prof+"/schedule", `{"days":[{"weekday":"FRIDAY","workingHours":[{"start":"09:00","end":"10:00"}]}]}`, bearerH(tok)); r.status != http.StatusOK {
+			t.Fatalf("schedule: %d %s", r.status, r.body)
+		}
+		return svc, prof
 	}
-	offer(ana, mk(ana, "Barbería Visible"), suiteEmail, true)
+	visSvc, visProf := offer(ana, mk(ana, "Barbería Visible"), suiteEmail, true)
 	offer(carla, mk(carla, "Barbería Sin Barberos"), "carla@example.com", false) // nothing bookable: hidden
 	hidden := mk(bob, "Barbería Suspendida")
-	offer(bob, hidden, "bob@example.com", true)
+	hidSvc, hidProf := offer(bob, hidden, "bob@example.com", true)
 	if r := h.call(t, http.MethodPost, "/api/v1/admin/businesses/"+hidden+"/suspend", "", bearerH(admin)); r.status != http.StatusOK {
 		t.Fatalf("suspend: %d", r.status)
 	}
@@ -326,6 +331,42 @@ func TestPublicSearchExposesOnlyBookableBusinesses(t *testing.T) {
 	catSuspended := h.call(t, http.MethodGet, "/api/v1/businesses/barberia-suspendida/catalog", "", nil)
 	if catSuspended.status != http.StatusNotFound || normalizeReply(t, catSuspended) != normalizeReply(t, catMissing) {
 		t.Errorf("suspended business catalog: %d %s", catSuspended.status, catSuspended.body)
+	}
+	// Public availability (T6.2): only public fields; suspended business, and another business's
+	// service and professional under a visible slug, are the same 404 as a missing business.
+	avail := func(slug, svc, prof string) reply {
+		return h.call(t, http.MethodGet, "/api/v1/businesses/"+slug+"/availability?serviceId="+svc+"&professionalId="+prof+"&date=2026-11-20", "", nil)
+	}
+	av := avail("barberia-visible", visSvc, visProf)
+	var a map[string]any
+	if av.status != http.StatusOK || json.Unmarshal([]byte(av.body), &a) != nil {
+		t.Fatalf("public availability: %d %s", av.status, av.body)
+	}
+	for k := range a {
+		switch k {
+		case "date", "timeZone", "serviceId", "professionalId", "durationMinutes", "slots":
+		default:
+			t.Errorf("internal field %q exposed in the public availability", k)
+		}
+	}
+	slots, _ := a["slots"].([]any)
+	if len(slots) != 4 {
+		t.Fatalf("slots = %s", av.body)
+	}
+	for k := range slots[0].(map[string]any) {
+		if k != "startAt" && k != "endAt" && k != "startLocal" {
+			t.Errorf("internal field %q exposed in a slot", k)
+		}
+	}
+	avMissing := avail("no-existe", visSvc, visProf)
+	for name, r := range map[string]reply{
+		"suspended business":              avail("barberia-suspendida", hidSvc, hidProf),
+		"another business's service/prof": avail("barberia-visible", hidSvc, hidProf),
+		"another business's professional": avail("barberia-visible", visSvc, hidProf),
+	} {
+		if r.status != http.StatusNotFound || normalizeReply(t, r) != normalizeReply(t, avMissing) {
+			t.Errorf("availability, %s: %d %s", name, r.status, r.body)
+		}
 	}
 	notFound := h.call(t, http.MethodGet, "/api/v1/businesses/no-existe", "", nil)
 	suspended := h.call(t, http.MethodGet, "/api/v1/businesses/barberia-suspendida", "", nil)

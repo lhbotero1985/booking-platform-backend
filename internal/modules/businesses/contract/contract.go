@@ -22,3 +22,19 @@ type Currencies interface {
 type PublicDirectory interface {
 	PublicBusinessID(ctx context.Context, slug string) (uuid.UUID, error)
 }
+
+// BookingPolicy is what the availability engine needs from a public business (T6.2).
+type BookingPolicy struct {
+	BusinessID          uuid.UUID
+	TimeZone            string // IANA
+	SlotIntervalMinutes int
+	BufferMinutes       int
+	MinLeadMinutes      int
+	MaxAdvanceDays      int
+}
+
+// PublicBooking resolves the slug of a business customers can see (same rules as
+// PublicDirectory) to its booking policy; ErrBusinessNotFound otherwise.
+type PublicBooking interface {
+	PublicBookingPolicy(ctx context.Context, slug string) (BookingPolicy, error)
+}
