@@ -39,4 +39,8 @@ type PublicBooking interface {
 	PublicBookingPolicy(ctx context.Context, slug string) (BookingPolicy, error)
 	// PublicBookingPolicyOf is the same by id (T6.3: customers book by business id).
 	PublicBookingPolicyOf(ctx context.Context, businessID uuid.UUID) (BookingPolicy, error)
+	// BookingPolicyOf returns the policy of any existing business, without the public
+	// visibility rules (T6.4: its staff books manually). No authorization: callers check the
+	// caller's role first.
+	BookingPolicyOf(ctx context.Context, businessID uuid.UUID) (BookingPolicy, error)
 }

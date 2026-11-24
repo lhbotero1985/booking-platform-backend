@@ -15,6 +15,7 @@ import (
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/application/schedtest"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/domain"
+	"github.com/lhbotero1985/booking-platform-backend/internal/platform/authz"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
 )
 
@@ -28,7 +29,25 @@ func (f fakeCustomers) CustomerProfile(_ context.Context, id uuid.UUID) (identit
 	return c, nil
 }
 
+// fakeAuthz grants roles per (business, account); anything else is authz.ErrNotFound.
+type fakeAuthz map[[2]uuid.UUID]identity.Role
+
+func (f fakeAuthz) RequireBusinessRole(_ context.Context, p identity.Principal, biz uuid.UUID, allowed ...identity.Role) (identity.Role, error) {
+	role, ok := f[[2]uuid.UUID{biz, p.UserID}]
+	if !ok {
+		return "", authz.ErrNotFound
+	}
+	for _, a := range allowed {
+		if a == role {
+			return role, nil
+		}
+	}
+	return "", authz.ErrForbidden
+}
+
 type bookingEnv struct {
+	clk      *clock.Fixed
+	roles    fakeAuthz
 	svc      *application.Service
 	store    *schedtest.Store
 	cat      *fakeCatalog
@@ -52,13 +71,15 @@ func newBookingEnv(t *testing.T) bookingEnv {
 		day: func(h, m int) time.Time { return time.Date(2030, 3, 5, h, m, 0, 0, bog) },
 	}
 	pol := businesses.BookingPolicy{BusinessID: e.biz, TimeZone: "America/Bogota", SlotIntervalMinutes: 10, BufferMinutes: 10, MinLeadMinutes: 60, MaxAdvanceDays: 60}
+	e.roles = fakeAuthz{}
+	e.clk = clock.NewFixed(time.Date(2030, 3, 1, 17, 0, 0, 0, time.UTC))
 	e.svc = application.NewService(application.Deps{
-		Store: e.store, Businesses: fakeBiz{pol: pol}, Catalog: e.cat, Professionals: e.ag,
+		Store: e.store, Authz: e.roles, Businesses: fakeBiz{pol: pol}, Catalog: e.cat, Professionals: e.ag,
 		Customers: fakeCustomers{
 			e.ana.UserID: {UserID: e.ana.UserID, FullName: "Ana Cliente", Phone: "+573001112233"},
 			e.bob.UserID: {UserID: e.bob.UserID, FullName: "Bob Cliente", Phone: "+573004445566"},
 		},
-		Clock: clock.NewFixed(time.Date(2030, 3, 1, 17, 0, 0, 0, time.UTC)),
+		Clock: e.clk,
 	})
 	return e
 }

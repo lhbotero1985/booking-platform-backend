@@ -31,4 +31,16 @@ type Appointment struct {
 	CreatedBy       uuid.UUID
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+	CustomerID      *uuid.UUID
+}
+
+type Customer struct {
+	ID         uuid.UUID
+	BusinessID uuid.UUID
+	FullName   string
+	Phone      string
+	UserID     *uuid.UUID
+	CreatedBy  uuid.UUID
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }

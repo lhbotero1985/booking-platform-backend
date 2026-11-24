@@ -15,8 +15,8 @@ import (
 // NewSchedulingService wires the scheduling use cases (T6.2, T6.3) with their store and the
 // contracts they read: booking policy of public businesses, bookable services, the
 // professionals' agendas (and their lock) and the customer's profile.
-func NewSchedulingService(pool *pgxpool.Pool, biz businesses.PublicBooking, cat catalog.Booking, profs professionals.Agenda, customers identity.Customers) *application.Service {
+func NewSchedulingService(pool *pgxpool.Pool, authz identity.Authorizer, biz businesses.PublicBooking, cat catalog.Booking, profs professionals.Agenda, customers identity.Customers) *application.Service {
 	return application.NewService(application.Deps{
-		Store: postgres.NewStore(pool), Businesses: biz, Catalog: cat, Professionals: profs, Customers: customers, Clock: clock.System{},
+		Store: postgres.NewStore(pool), Authz: authz, Businesses: biz, Catalog: cat, Professionals: profs, Customers: customers, Clock: clock.System{},
 	})
 }

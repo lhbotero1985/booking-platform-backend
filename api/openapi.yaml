@@ -1180,6 +1180,233 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
+  /api/v1/business/{businessId}/customers:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Appointments]
+      operationId: listCustomers
+      summary: Customers of your business (OWNER, PROFESSIONAL)
+      description: |
+        Up to 50, by name. `q` filters by name (contains, ignoring case) or mobile (digits;
+        spaces, dashes and + ignored). Customers who booked from the app appear too
+        (`hasAccount`).
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 60
+      responses:
+        "200":
+          description: The customers.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Appointments]
+      operationId: createCustomer
+      summary: Add a customer to your business (OWNER, PROFESSIONAL)
+      description: |
+        Name and mobile (normalized to E.164; a 10-digit Colombian mobile gets +57). The mobile
+        is unique per business (409 `CUSTOMER_PHONE_TAKEN`). Field codes `REQUIRED`,
+        `INVALID_NAME`, `INVALID_PHONE`.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [fullName, phone]
+              properties:
+                fullName:
+                  type: string
+                  maxLength: 120
+                phone:
+                  type: string
+                  maxLength: 32
+      responses:
+        "201":
+          description: Customer created.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/business/{businessId}/customers/{customerId}:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: customerId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      tags: [Appointments]
+      operationId: updateCustomer
+      summary: Change a customer of your business (OWNER, PROFESSIONAL)
+      description: Omitted fields are unchanged. Same codes as the creation.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                fullName:
+                  type: string
+                  maxLength: 120
+                phone:
+                  type: string
+                  maxLength: 32
+      responses:
+        "200":
+          description: Customer updated.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/business/{businessId}/appointments:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [Appointments]
+      operationId: bookManualAppointment
+      summary: Book a customer of your business (OWNER any agenda, PROFESSIONAL its own)
+      description: |
+        Manual booking by the staff (T6.4): a start time on the professional's grid inside its
+        working hours, not overlapping breaks, absences or active appointments, without the
+        minimum notice (the customer may be present) and whether or not the business is public.
+        `confirmed` (default `true`) books it `CONFIRMED`; `false` leaves it
+        `PENDING_CONFIRMATION`. Same guarantees and `Idempotency-Key` semantics as the customer
+        booking. A PROFESSIONAL booking another professional's agenda gets 403. Field codes
+        `CUSTOMER_NOT_FOUND`, `PROFESSIONAL_NOT_BOOKABLE`, `SERVICE_NOT_BOOKABLE`.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Za-z0-9_-]{8,100}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [professionalId, serviceId, customerId, startAt]
+              properties:
+                professionalId:
+                  type: string
+                  format: uuid
+                serviceId:
+                  type: string
+                  format: uuid
+                customerId:
+                  type: string
+                  format: uuid
+                startAt:
+                  type: string
+                  format: date-time
+                confirmed:
+                  type: boolean
+                  default: true
+      responses:
+        "201":
+          description: The appointment (also on an idempotent replay).
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
   /api/v1/admin/businesses/{id}/subscription:
     get:
       tags: [Subscriptions]
@@ -3508,6 +3735,37 @@ components:
             type: string
             format: uuid
 
+    Customer:
+      type: object
+      additionalProperties: false
+      required: [id, fullName, phone, hasAccount, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        phone:
+          type: string
+          description: E.164.
+        hasAccount:
+          type: boolean
+          description: The person has booked from the app with an account.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CustomerList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Customer"
     Appointment:
       type: object
       additionalProperties: false

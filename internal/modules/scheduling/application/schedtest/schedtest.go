@@ -6,6 +6,8 @@ package schedtest
 import (
 	"context"
 	"errors"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -36,22 +38,26 @@ type Event struct {
 type Store struct {
 	mu           sync.Mutex
 	Appointments map[uuid.UUID]domain.Appointment
+	Customers    map[uuid.UUID]domain.BusinessCustomer
 	Events       []Event
 	keys         map[key]idem
 }
 
 // NewStore returns an empty store.
 func NewStore() *Store {
-	return &Store{Appointments: map[uuid.UUID]domain.Appointment{}, keys: map[key]idem{}}
+	return &Store{Appointments: map[uuid.UUID]domain.Appointment{}, Customers: map[uuid.UUID]domain.BusinessCustomer{}, keys: map[key]idem{}}
 }
 
 // WithinTx implements application.Store: all-or-nothing on a copy, one transaction at a time.
 func (s *Store) WithinTx(ctx context.Context, fn func(ctx context.Context, tx application.Tx) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	t := &tx{s: s, appts: map[uuid.UUID]domain.Appointment{}, keys: map[key]idem{}}
+	t := &tx{s: s, appts: map[uuid.UUID]domain.Appointment{}, customers: map[uuid.UUID]domain.BusinessCustomer{}, keys: map[key]idem{}}
 	for id, a := range s.Appointments {
 		t.appts[id] = a
+	}
+	for id, c := range s.Customers {
+		t.customers[id] = c
 	}
 	for k, v := range s.keys {
 		t.keys[k] = v
@@ -61,15 +67,16 @@ func (s *Store) WithinTx(ctx context.Context, fn func(ctx context.Context, tx ap
 	if err := fn(ctx, t); err != nil {
 		return err
 	}
-	s.Appointments, s.keys, s.Events = t.appts, t.keys, t.events
+	s.Appointments, s.Customers, s.keys, s.Events = t.appts, t.customers, t.keys, t.events
 	return nil
 }
 
 type tx struct {
-	s      *Store
-	appts  map[uuid.UUID]domain.Appointment
-	keys   map[key]idem
-	events []Event
+	s         *Store
+	customers map[uuid.UUID]domain.BusinessCustomer
+	appts     map[uuid.UUID]domain.Appointment
+	keys      map[key]idem
+	events    []Event
 }
 
 func (t *tx) SetBookingTimeouts(context.Context) error { return nil }
@@ -128,6 +135,67 @@ func (t *tx) ActiveAppointments(_ context.Context, businessID, professionalID uu
 			a.Start.Before(to) && a.OccupiedUntil().After(from) {
 			out = append(out, domain.Booked{Start: a.Start, End: a.End, Buffer: a.Buffer})
 		}
+	}
+	return out, nil
+}
+
+func (t *tx) phoneTaken(c domain.BusinessCustomer) bool {
+	for _, o := range t.customers {
+		if o.ID != c.ID && o.BusinessID == c.BusinessID && o.Phone == c.Phone {
+			return true
+		}
+	}
+	return false
+}
+
+func (t *tx) InsertCustomer(_ context.Context, c domain.BusinessCustomer) error {
+	if t.phoneTaken(c) {
+		return application.ErrCustomerPhoneTaken
+	}
+	t.customers[c.ID] = c
+	return nil
+}
+
+func (t *tx) UpdateCustomer(_ context.Context, c domain.BusinessCustomer) error {
+	if _, ok := t.customers[c.ID]; !ok {
+		return application.ErrCustomerNotFound
+	}
+	if t.phoneTaken(c) {
+		return application.ErrCustomerPhoneTaken
+	}
+	t.customers[c.ID] = c
+	return nil
+}
+
+func (t *tx) CustomerByID(_ context.Context, businessID, id uuid.UUID) (domain.BusinessCustomer, error) {
+	c, ok := t.customers[id]
+	if !ok || c.BusinessID != businessID {
+		return domain.BusinessCustomer{}, application.ErrCustomerNotFound
+	}
+	return c, nil
+}
+
+func (t *tx) CustomerByPhone(_ context.Context, businessID uuid.UUID, phone string) (domain.BusinessCustomer, error) {
+	for _, c := range t.customers {
+		if c.BusinessID == businessID && c.Phone == phone {
+			return c, nil
+		}
+	}
+	return domain.BusinessCustomer{}, application.ErrCustomerNotFound
+}
+
+// ListCustomers unescapes the LIKE pattern and matches like the SQL query.
+func (t *tx) ListCustomers(_ context.Context, businessID uuid.UUID, q string, limit int) ([]domain.BusinessCustomer, error) {
+	q = strings.NewReplacer(`\%`, `%`, `\_`, `_`, `\`, `\`).Replace(q)
+	var out []domain.BusinessCustomer
+	for _, c := range t.customers {
+		if c.BusinessID == businessID && (q == "" || strings.Contains(strings.ToLower(c.FullName), strings.ToLower(q)) || strings.Contains(c.Phone, q)) {
+			out = append(out, c)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return strings.ToLower(out[i].FullName) < strings.ToLower(out[j].FullName) })
+	if len(out) > limit {
+		out = out[:limit]
 	}
 	return out, nil
 }

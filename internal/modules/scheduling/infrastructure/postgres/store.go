@@ -69,7 +69,7 @@ func (t *txStore) InsertAppointment(ctx context.Context, a domain.Appointment) e
 	}
 	err := t.q.InsertAppointment(ctx, sqlcgen.InsertAppointmentParams{
 		ID: a.ID, BusinessID: a.BusinessID, ProfessionalID: a.ProfessionalID, ServiceID: a.Service.ServiceID,
-		CustomerUserID: customer, CustomerName: a.Customer.Name, CustomerPhone: a.Customer.Phone,
+		CustomerID: optional(a.Customer.CustomerID), CustomerUserID: customer, CustomerName: a.Customer.Name, CustomerPhone: a.Customer.Phone,
 		StartAt: a.Start, EndAt: a.End, BufferMinutes: int16(a.Buffer / time.Minute), OccupiedUntil: a.OccupiedUntil(), //nolint:gosec // 0–60, CHECK
 		Status: string(a.Status), ServiceName: a.Service.Name, DurationMinutes: int16(a.Service.DurationMinutes), //nolint:gosec // 5–480, CHECK
 		PriceMinor: a.Service.PriceMinor, Currency: a.Service.Currency, Version: int32(a.Version), //nolint:gosec // small counter
@@ -97,15 +97,18 @@ func (t *txStore) AppointmentByID(ctx context.Context, id uuid.UUID) (domain.App
 	if err != nil {
 		return domain.Appointment{}, err
 	}
-	customer := uuid.Nil
+	customer, record := uuid.Nil, uuid.Nil
 	if r.CustomerUserID != nil {
 		customer = *r.CustomerUserID
+	}
+	if r.CustomerID != nil {
+		record = *r.CustomerID
 	}
 	return domain.Appointment{
 		ID: r.ID, BusinessID: r.BusinessID, ProfessionalID: r.ProfessionalID,
 		Service: domain.ServiceSnapshot{ServiceID: r.ServiceID, Name: r.ServiceName, DurationMinutes: int(r.DurationMinutes),
 			PriceMinor: r.PriceMinor, Currency: r.Currency},
-		Customer: domain.Customer{UserID: customer, Name: r.CustomerName, Phone: r.CustomerPhone},
+		Customer: domain.Customer{CustomerID: record, UserID: customer, Name: r.CustomerName, Phone: r.CustomerPhone},
 		Start:    r.StartAt.UTC(), End: r.EndAt.UTC(), Buffer: time.Duration(r.BufferMinutes) * time.Minute,
 		Status: domain.Status(r.Status), Version: int(r.Version), CreatedBy: r.CreatedBy,
 		CreatedAt: r.CreatedAt.UTC(), UpdatedAt: r.UpdatedAt.UTC(),
@@ -124,4 +127,72 @@ func (t *txStore) ActiveAppointments(ctx context.Context, businessID, profession
 		out = append(out, domain.Booked{Start: r.StartAt, End: r.EndAt, Buffer: r.OccupiedUntil.Sub(r.EndAt)})
 	}
 	return out, nil
+}
+
+func optional(id uuid.UUID) *uuid.UUID {
+	if id == uuid.Nil {
+		return nil
+	}
+	return &id
+}
+
+// customerPhoneTaken maps the per-business unique phone to application.ErrCustomerPhoneTaken.
+func customerPhoneTaken(err error) error {
+	if db.IsUniqueViolation(err) && db.ConstraintName(err) == "customers_phone_unique" {
+		return errors.Join(application.ErrCustomerPhoneTaken, err)
+	}
+	return err
+}
+
+func (t *txStore) InsertCustomer(ctx context.Context, c domain.BusinessCustomer) error {
+	return customerPhoneTaken(t.q.InsertCustomer(ctx, sqlcgen.InsertCustomerParams{
+		ID: c.ID, BusinessID: c.BusinessID, FullName: c.FullName, Phone: c.Phone, UserID: optional(c.UserID),
+		CreatedBy: c.CreatedBy, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
+	}))
+}
+
+func (t *txStore) UpdateCustomer(ctx context.Context, c domain.BusinessCustomer) error {
+	return customerPhoneTaken(t.q.UpdateCustomer(ctx, sqlcgen.UpdateCustomerParams{
+		BusinessID: c.BusinessID, ID: c.ID, FullName: c.FullName, Phone: c.Phone, UserID: optional(c.UserID), UpdatedAt: c.UpdatedAt,
+	}))
+}
+
+func (t *txStore) CustomerByID(ctx context.Context, businessID, id uuid.UUID) (domain.BusinessCustomer, error) {
+	r, err := t.q.CustomerByID(ctx, sqlcgen.CustomerByIDParams{BusinessID: businessID, ID: id})
+	return toCustomer(r, err)
+}
+
+func (t *txStore) CustomerByPhone(ctx context.Context, businessID uuid.UUID, phone string) (domain.BusinessCustomer, error) {
+	r, err := t.q.CustomerByPhone(ctx, sqlcgen.CustomerByPhoneParams{BusinessID: businessID, Phone: phone})
+	return toCustomer(r, err)
+}
+
+func (t *txStore) ListCustomers(ctx context.Context, businessID uuid.UUID, q string, limit int) ([]domain.BusinessCustomer, error) {
+	rows, err := t.q.ListCustomers(ctx, sqlcgen.ListCustomersParams{BusinessID: businessID, Q: q, MaxRows: int32(limit)}) //nolint:gosec // bounded by the application
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.BusinessCustomer, 0, len(rows))
+	for _, r := range rows {
+		c, _ := toCustomer(r, nil)
+		out = append(out, c)
+	}
+	return out, nil
+}
+
+func toCustomer(r sqlcgen.Customer, err error) (domain.BusinessCustomer, error) {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.BusinessCustomer{}, application.ErrCustomerNotFound
+	}
+	if err != nil {
+		return domain.BusinessCustomer{}, err
+	}
+	user := uuid.Nil
+	if r.UserID != nil {
+		user = *r.UserID
+	}
+	return domain.BusinessCustomer{
+		ID: r.ID, BusinessID: r.BusinessID, FullName: r.FullName, Phone: r.Phone, UserID: user,
+		CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt.UTC(), UpdatedAt: r.UpdatedAt.UTC(),
+	}, nil
 }

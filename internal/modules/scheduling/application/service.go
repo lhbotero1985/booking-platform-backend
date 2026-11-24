@@ -35,11 +35,18 @@ type Tx interface {
 	// [from, to).
 	ActiveAppointments(ctx context.Context, businessID, professionalID uuid.UUID, from, to time.Time) ([]domain.Booked, error)
 	BookingTx
+	CustomerTx
+}
+
+// Authorizer is the part of identity's authorizer the staff use cases need.
+type Authorizer interface {
+	RequireBusinessRole(ctx context.Context, p identity.Principal, businessID uuid.UUID, allowed ...identity.Role) (identity.Role, error)
 }
 
 // Deps are the contracts of the other modules the scheduling use cases read.
 type Deps struct {
 	Store         Store
+	Authz         Authorizer
 	Businesses    businesses.PublicBooking
 	Catalog       catalog.Booking
 	Professionals professionals.Agenda

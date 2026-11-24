@@ -53,6 +53,9 @@ type Agenda interface {
 	// (ADR-0004): bookings, schedules and absences. Call it with the caller's transaction in ctx
 	// (db.ContextWithTx); the lock lasts until that transaction ends.
 	LockAgenda(ctx context.Context, businessID, professionalID uuid.UUID) error
+	// ProfessionalUserID returns the account of a professional profile (T6.4: a PROFESSIONAL
+	// books only in its own agenda); ErrProfessionalNotFound if absent in the business.
+	ProfessionalUserID(ctx context.Context, businessID, professionalID uuid.UUID) (uuid.UUID, error)
 	DayAgenda(ctx context.Context, businessID, professionalID uuid.UUID, weekday time.Weekday, from, to time.Time) (DayAgenda, error)
 }
 

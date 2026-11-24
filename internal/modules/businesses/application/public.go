@@ -262,6 +262,23 @@ func (s *Service) PublicBookingPolicyOf(ctx context.Context, businessID uuid.UUI
 	return bookingPolicyOf(b), nil
 }
 
+// BookingPolicyOf implements the businesses contract PublicBooking for the staff (T6.4): any
+// existing business, visible or not.
+func (s *Service) BookingPolicyOf(ctx context.Context, businessID uuid.UUID) (bizcontract.BookingPolicy, error) {
+	var b *domain.Business
+	err := s.store.WithinTx(ctx, func(ctx context.Context, tx Tx) (err error) {
+		b, err = tx.BusinessByID(ctx, businessID)
+		return err
+	})
+	if errors.Is(err, ErrNotFound) {
+		return bizcontract.BookingPolicy{}, bizcontract.ErrBusinessNotFound
+	}
+	if err != nil {
+		return bizcontract.BookingPolicy{}, err
+	}
+	return bookingPolicyOf(b), nil
+}
+
 func bookingPolicyOf(b *domain.Business) bizcontract.BookingPolicy {
 	p := b.Policy()
 	return bizcontract.BookingPolicy{

@@ -275,6 +275,26 @@ check "slot taken (new key) -> 409" 409 "$(book "$slot" "e2e-$(date +%s)-b" "$T1
 check "  code SLOT_UNAVAILABLE" SLOT_UNAVAILABLE "$(json .code)"
 check "booking needs a session" 401 "$(book "$slot" "e2e-$(date +%s)-c" "")"
 check "availability without 10:00-10:45" "29 ${tue}T10:45:00-05:00" "$(status GET "$av&date=$tue" >/dev/null; json '"\(.slots | length) \(.slots[0].startLocal)"')"
+slot2=$(json '.slots[0].startAt')
+slot3=$(json '.slots[3].startAt')
+
+# --- customers and manual appointments (T6.4): the staff books customers of the business -----
+cust="/api/v1/business/$mine/customers"
+check "barber adds a customer" 201 "$(status POST "$cust" '{"fullName":"Cliente Mostrador","phone":"301 555 0101"}' "$TS")"
+walkin=$(json .id)
+check "  mobile in E.164, no account" "\+573015550101 false" "$(json '"\(.phone) \(.hasAccount)"')"
+check "same mobile -> 409" 409 "$(status POST "$cust" '{"fullName":"Otro","phone":"+573015550101"}' "$T1")"
+check "  code CUSTOMER_PHONE_TAKEN" CUSTOMER_PHONE_TAKEN "$(json .code)"
+check "search customers by mobile" 1 "$(status GET "$cust?q=3015550101" "" "$T1" >/dev/null; json '.items | length')"
+check "the app customer is on the list" true "$(status GET "$cust?q=3001112233" "" "$T1" >/dev/null; json '.items[0].hasAccount')"
+manual() { # token professional start key [extra json]
+  status POST "/api/v1/business/$mine/appointments" "{\"professionalId\":\"$2\",\"serviceId\":\"$svc\",\"customerId\":\"$walkin\",\"startAt\":\"$3\"${5:-}}" "$1" "Idempotency-Key: $4"
+}
+check "barber books his own agenda (pending)" 201 "$(manual "$TS" "$pbarber" "$slot2" "e2e-$(date +%s)-m1" ',"confirmed":false')"
+check "  status, customer" "PENDING_CONFIRMATION Cliente Mostrador" "$(json '"\(.status) \(.customerName)"')"
+check "barber cannot book the owner's agenda" 403 "$(manual "$TS" "$powner" "$slot2" "e2e-$(date +%s)-m2")"
+check "owner on the same slot -> 409" 409 "$(manual "$T1" "$pbarber" "$slot2" "e2e-$(date +%s)-m3")"
+check "owner books (confirmed by default)" "201 CONFIRMED" "$(manual "$T1" "$pbarber" "$slot3" "e2e-$(date +%s)-m4") $(json .status)"
 status POST /api/v1/auth/logout "" "$TS" >/dev/null
 check "  one per account" 409 "$(status POST /api/v1/businesses "$own" "$T1")"
 check "  code ALREADY_OWNER" ALREADY_OWNER "$(json .code)"

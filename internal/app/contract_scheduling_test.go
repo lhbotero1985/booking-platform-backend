@@ -159,3 +159,59 @@ func TestContractBooking(t *testing.T) {
 		t.Errorf("availability after bookings = %s", got)
 	}
 }
+
+// TestContractStaffBooking (T6.4): customers of the business and manual appointments against
+// api/openapi.yaml. Tuesday 2026-11-24 in Cali.
+func TestContractStaffBooking(t *testing.T) {
+	c := loadContract(t)
+	e := newGeoServer(t)
+	owner := e.signIn(t, "dueno@example.com")
+	barber := e.signIn(t, "juan@example.com")
+	idOf := func(s string) string { return regexp.MustCompile(`"id":"([^"]+)"`).FindStringSubmatch(s)[1] }
+	biz := idOf(c.callAuth(t, e.srv, http.MethodPost, "/api/v1/businesses", `{"name":"Barbería Manual","contactPhone":"3001234567","cityId":"`+geotest.CaliID.String()+`","addressLine":"Calle 1"}`, owner, http.StatusCreated))
+	base := "/api/v1/business/" + biz
+	c.callAuth(t, e.srv, http.MethodPost, base+"/members", `{"email":"juan@example.com","role":"PROFESSIONAL"}`, owner, http.StatusCreated)
+	juan := idOf(c.callAuth(t, e.srv, http.MethodPost, base+"/professionals", `{"email":"juan@example.com","displayName":"Juan"}`, owner, http.StatusCreated))
+	boss := idOf(c.callAuth(t, e.srv, http.MethodPost, base+"/professionals", `{"email":"dueno@example.com","displayName":"El Dueño"}`, owner, http.StatusCreated))
+	svc := idOf(c.callAuth(t, e.srv, http.MethodPost, base+"/services", `{"name":"Corte","durationMinutes":30,"priceMinor":2500000}`, owner, http.StatusCreated))
+	for _, p := range []string{juan, boss} {
+		c.callAuth(t, e.srv, http.MethodPut, base+"/professionals/"+p+"/schedule", `{"days":[{"weekday":"TUESDAY","workingHours":[{"start":"09:00","end":"12:00"}]}]}`, owner, http.StatusOK)
+		c.callAuth(t, e.srv, http.MethodPut, base+"/professionals/"+p+"/services", `{"serviceIds":["`+svc+`"]}`, owner, http.StatusOK)
+	}
+
+	// Customers: the barber adds one; the mobile is unique per business.
+	created := c.callAuth(t, e.srv, http.MethodPost, base+"/customers", `{"fullName":"Carlos Pérez","phone":"300 555 0101"}`, barber, http.StatusCreated)
+	if !strings.Contains(created, `"phone":"+573005550101"`) || !strings.Contains(created, `"hasAccount":false`) {
+		t.Errorf("customer = %s", created)
+	}
+	carlos := idOf(created)
+	if p := c.callAuth(t, e.srv, http.MethodPost, base+"/customers", `{"fullName":"Otro","phone":"+573005550101"}`, owner, http.StatusConflict); !strings.Contains(p, "CUSTOMER_PHONE_TAKEN") {
+		t.Errorf("duplicate: %s", p)
+	}
+	c.callAuth(t, e.srv, http.MethodPost, base+"/customers", `{"fullName":"","phone":"x"}`, owner, http.StatusBadRequest)
+	if list := c.callAuth(t, e.srv, http.MethodGet, base+"/customers?q=carlos", "", barber, http.StatusOK); !strings.Contains(list, carlos) {
+		t.Errorf("search = %s", list)
+	}
+	if upd := c.callAuth(t, e.srv, http.MethodPatch, base+"/customers/"+carlos, `{"fullName":"Carlos P."}`, owner, http.StatusOK); !strings.Contains(upd, `"fullName":"Carlos P."`) {
+		t.Errorf("update = %s", upd)
+	}
+	c.callAuth(t, e.srv, http.MethodPatch, base+"/customers/01a20aae-0000-7000-8000-000000000000", `{"fullName":"X"}`, owner, http.StatusNotFound)
+
+	book := func(tok, prof, start, key, confirmed string, want int) string {
+		body := `{"professionalId":"` + prof + `","serviceId":"` + svc + `","customerId":"` + carlos + `","startAt":"` + start + `"` + confirmed + `}`
+		return c.callWith(t, e.srv, http.MethodPost, base+"/appointments", body, tok, map[string]string{"Idempotency-Key": key}, want)
+	}
+	if a := book(barber, juan, "2026-11-24T14:00:00Z", "juan-manual-1", `,"confirmed":false`, http.StatusCreated); !strings.Contains(a, `"status":"PENDING_CONFIRMATION"`) || !strings.Contains(a, `"customerName":"Carlos P."`) {
+		t.Errorf("barber, own agenda = %s", a)
+	}
+	book(barber, boss, "2026-11-24T14:00:00Z", "juan-manual-2", "", http.StatusForbidden) // another agenda
+	if a := book(owner, juan, "2026-11-24T15:00:00Z", "owner-manual-1", "", http.StatusCreated); !strings.Contains(a, `"status":"CONFIRMED"`) {
+		t.Errorf("owner, default confirmed = %s", a)
+	}
+	if p := book(owner, juan, "2026-11-24T14:10:00Z", "owner-manual-2", "", http.StatusConflict); !strings.Contains(p, "SLOT_UNAVAILABLE") {
+		t.Errorf("overlap: %s", p)
+	}
+	c.callWith(t, e.srv, http.MethodPost, base+"/appointments", `{"professionalId":"`+juan+`","serviceId":"`+svc+`","customerId":"01a20aae-0000-7000-8000-000000000000","startAt":"2026-11-24T16:00:00Z"}`, owner, map[string]string{"Idempotency-Key": "owner-manual-3"}, http.StatusBadRequest)
+	c.callWith(t, e.srv, http.MethodPost, base+"/appointments", `{"professionalId":"`+juan+`"}`, owner, map[string]string{"Idempotency-Key": "owner-manual-4"}, http.StatusBadRequest)
+	book(owner, juan, "2026-11-24T16:00:00Z", "", "", http.StatusBadRequest) // no key
+}

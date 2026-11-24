@@ -388,6 +388,20 @@ func (s *Service) LockAgenda(ctx context.Context, businessID, professionalID uui
 	return err
 }
 
+// ProfessionalUserID implements the professionals contract Agenda (T6.4).
+func (s *Service) ProfessionalUserID(ctx context.Context, businessID, professionalID uuid.UUID) (uuid.UUID, error) {
+	var user uuid.UUID
+	err := s.store.WithinTx(ctx, func(ctx context.Context, tx Tx) error {
+		p, err := tx.ProfessionalByID(ctx, businessID, professionalID)
+		user = p.UserID
+		return err
+	})
+	if errors.Is(err, ErrNotFound) {
+		return uuid.Nil, profcontract.ErrProfessionalNotFound
+	}
+	return user, err
+}
+
 // DayAgenda implements the professionals contract Agenda (T6.2): working ranges and breaks of
 // the weekday and the absences overlapping [from, to). No authorization.
 func (s *Service) DayAgenda(ctx context.Context, businessID, professionalID uuid.UUID, weekday time.Weekday, from, to time.Time) (profcontract.DayAgenda, error) {

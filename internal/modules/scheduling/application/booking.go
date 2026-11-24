@@ -130,9 +130,13 @@ func (s *Service) Book(ctx context.Context, p identity.Principal, in BookingInpu
 		if !offered(slots, in.Start) {
 			return ErrSlotUnavailable
 		}
+		record, err := customerForBooking(ctx, tx, pol.BusinessID, customer, now)
+		if err != nil {
+			return err
+		}
 		a, err := domain.NewAppointment(uuid.Must(uuid.NewV7()), pol.BusinessID, in.ProfessionalID,
 			domain.ServiceSnapshot{ServiceID: in.ServiceID, Name: svc.Name, DurationMinutes: svc.DurationMinutes, PriceMinor: svc.PriceMinor, Currency: svc.Currency},
-			domain.Customer{UserID: p.UserID, Name: customer.FullName, Phone: customer.Phone},
+			domain.Customer{CustomerID: record, UserID: p.UserID, Name: customer.FullName, Phone: customer.Phone},
 			in.Start, time.Duration(pol.BufferMinutes)*time.Minute, p.UserID, now)
 		if err != nil {
 			return err

@@ -17,13 +17,20 @@ type Querier interface {
 	AppointmentByID(ctx context.Context, id uuid.UUID) (Appointment, error)
 	// Waits for a concurrent transaction holding the same key; returns no row if it already exists.
 	ClaimIdempotencyKey(ctx context.Context, arg ClaimIdempotencyKeyParams) ([]uuid.UUID, error)
+	CustomerByID(ctx context.Context, arg CustomerByIDParams) (Customer, error)
+	CustomerByPhone(ctx context.Context, arg CustomerByPhoneParams) (Customer, error)
 	IdempotencyKeyOf(ctx context.Context, arg IdempotencyKeyOfParams) (IdempotencyKeyOfRow, error)
 	InsertAppointment(ctx context.Context, arg InsertAppointmentParams) error
 	InsertAppointmentEvent(ctx context.Context, arg InsertAppointmentEventParams) error
+	InsertCustomer(ctx context.Context, arg InsertCustomerParams) error
+	// Customers of a business, optionally filtered by name (case-insensitive, contains) or phone
+	// (contains), by name.
+	ListCustomers(ctx context.Context, arg ListCustomersParams) ([]Customer, error)
 	// ADR-0004: a booking waits at most 3 s for the professional's lock (503 retryable instead of
 	// hanging). is_local = true: the settings last until the end of the transaction.
 	SetBookingTimeouts(ctx context.Context) error
 	SetIdempotencyAppointment(ctx context.Context, arg SetIdempotencyAppointmentParams) error
+	UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) error
 }
 
 var _ Querier = (*Queries)(nil)

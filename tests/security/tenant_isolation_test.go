@@ -33,6 +33,8 @@ var tenantBodies = map[string]string{
 	"POST /api/v1/business/{businessId}/services":                                             `{"name":"Intruso","durationMinutes":30,"priceMinor":100}`,
 	"PUT /api/v1/business/{businessId}/professionals/{professionalId}/services":               `{"serviceIds":[]}`,
 	"PATCH /api/v1/business/{businessId}/services/{serviceId}":                                `{"priceMinor":100}`,
+	"POST /api/v1/business/{businessId}/customers":                                            `{"fullName":"Intruso","phone":"3009990000"}`,
+	"PATCH /api/v1/business/{businessId}/customers/{customerId}":                              `{"fullName":"Hackeado"}`,
 }
 
 func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
@@ -82,11 +84,13 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 		return v.ID
 	}
 	categoryID := created("/service-categories", `{"name":"Cortes"}`)
+	customerID := created("/customers", `{"fullName":"Cliente de Bob","phone":"3001112233"}`)
 	serviceID := created("/services", `{"name":"Corte + barba","durationMinutes":45,"priceMinor":3500000,"categoryId":"`+categoryID+`"}`)
 	if r := h.call(t, http.MethodPut, "/api/v1/business/"+bobBiz+"/professionals/"+prof.ID+"/services", `{"serviceIds":["`+serviceID+`"]}`, bearerH(bob)); r.status != http.StatusOK {
 		t.Fatalf("bob assigns a service: %d %s", r.status, r.body)
 	}
 	catalogURLs := []string{"/api/v1/business/" + bobBiz + "/services", "/api/v1/business/" + bobBiz + "/service-categories",
+		"/api/v1/business/" + bobBiz + "/customers",
 		"/api/v1/business/" + bobBiz + "/professionals/" + prof.ID + "/services"}
 	catalogBefore := map[string]string{}
 	for _, u := range catalogURLs {
@@ -118,7 +122,7 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 				body = "{}"
 			}
 			url := func(biz string) string {
-				return strings.NewReplacer("{businessId}", biz, "{userId}", staffID, "{professionalId}", prof.ID, "{absenceId}", absence.ID, "{categoryId}", categoryID, "{serviceId}", serviceID).Replace(path)
+				return strings.NewReplacer("{businessId}", biz, "{userId}", staffID, "{professionalId}", prof.ID, "{absenceId}", absence.ID, "{categoryId}", categoryID, "{serviceId}", serviceID, "{customerId}", customerID).Replace(path)
 			}
 			if strings.Contains(url(bobBiz), "{") {
 				t.Fatalf("%s: unresolved path placeholder in %s", op, url(bobBiz))
@@ -152,7 +156,7 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 			}
 			url := func(child func(string) string) string {
 				return strings.NewReplacer("{businessId}", anaBiz, "{userId}", child(staffID), "{professionalId}", child(prof.ID),
-					"{absenceId}", child(absence.ID), "{categoryId}", child(categoryID), "{serviceId}", child(serviceID)).Replace(path)
+					"{absenceId}", child(absence.ID), "{categoryId}", child(categoryID), "{serviceId}", child(serviceID), "{customerId}", child(customerID)).Replace(path)
 			}
 			foreign := h.call(t, method, url(func(id string) string { return id }), body, bearerH(ana))
 			none := h.call(t, method, url(func(string) string { return missing }), body, bearerH(ana))

@@ -72,7 +72,7 @@ func newGeoServer(t *testing.T) geoEnv {
 	profs := profapp.NewService(proftest.NewStore(), e.identity, clk)
 	cat := catapp.NewService(catalogtest.NewStore(), e.identity, biz, profs, clk)
 	LinkPublicCatalog(biz, cat, profs, biz)
-	sched := schedapp.NewService(schedapp.Deps{Store: schedtest.NewStore(), Businesses: biz, Catalog: cat, Professionals: profs, Customers: e.identity, Clock: clk})
+	sched := schedapp.NewService(schedapp.Deps{Store: schedtest.NewStore(), Authz: e.identity, Businesses: biz, Catalog: cat, Professionals: profs, Customers: e.identity, Clock: clk})
 	e.modules = []RouteRegistrar{
 		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),
 		subscriptionshttp.New(subs, logger, idh.RequireAuth),

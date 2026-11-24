@@ -118,7 +118,7 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	professionalsSvc := app.NewProfessionalsService(pool, identitySvc)
 	catalogSvc := app.NewCatalogService(pool, identitySvc, businessesSvc, professionalsSvc)
 	app.LinkPublicCatalog(businessesSvc, catalogSvc, professionalsSvc, businessesSvc)
-	schedulingSvc := app.NewSchedulingService(pool, businessesSvc, catalogSvc, professionalsSvc, identitySvc)
+	schedulingSvc := app.NewSchedulingService(pool, identitySvc, businessesSvc, catalogSvc, professionalsSvc, identitySvc)
 
 	handler := app.NewHTTPHandler(cfg, logger, app.Deps{
 		Readiness: []app.Check{
