@@ -58,9 +58,11 @@ Horario 09:00–12:00, I = 10, B = 0, cita existente 09:40–10:20, servicio D =
 
 - Almacenamiento siempre en UTC (`timestamptz`); la zona IANA del negocio se usa solo para
   interpretar horarios locales y presentar resultados.
-- **Hora local inexistente** (salto hacia adelante, p. ej. 02:30 que no existe): `time.Date`
-  normaliza hacia adelante; si un borde de ventana cae en el hueco, la ventana se acorta. El
-  paso de candidatos en tiempo absoluto evita slots duplicados o fantasma.
+- **Hora local inexistente** (salto hacia adelante, p. ej. 02:30 que no existe): se convierte en
+  **el instante del salto** (02:30 → 03:00); si un borde de ventana cae en el hueco, la ventana
+  conserva solo su parte existente y la conversión nunca retrocede. `time.Date` no especifica
+  este caso, por eso la conversión es propia (`scheduling/domain.ResolveLocal`, T6.1). El paso de
+  candidatos en tiempo absoluto evita slots duplicados o fantasma.
 - **Hora local ambigua** (retroceso, 01:30 ocurre dos veces): se usa la primera ocurrencia para
   bordes; los candidatos en tiempo absoluto cubren la hora repetida sin duplicar instantes.
 - Pruebas obligatorias con zonas con y sin DST (`America/Bogota`, `America/Mexico_City`,
@@ -68,10 +70,9 @@ Horario 09:00–12:00, I = 10, B = 0, cita existente 09:40–10:20, servicio D =
 - La imagen Docker incluye `tzdata` (o se usa `time/tzdata` embebido) para que el resultado no
   dependa del sistema operativo.
 
-## 5. Modo "cualquier profesional" (❓ pendiente)
+## 5. Modo "cualquier profesional"
 
-Si se aprueba: se calcula por profesional habilitado y se unen los slots; al reservar se asigna
-el primer profesional disponible según orden configurado. Fuera del MVP si no se aprueba.
+**Descartado (usuario, 2026-11-24):** el cliente elige barbero y es obligatorio.
 
 ## 6. Concurrencia y prevención de doble reserva (ADR-0004)
 

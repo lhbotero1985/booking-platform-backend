@@ -466,6 +466,19 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 6 · T6.1 — Motor de disponibilidad
+
+- **Previo:** PR #47 (T5.8) → `qa`: CI 6/6 ✅, squash `7a04094`, rama borrada; `release-qa` ✅;
+  E2E en QA **135/135**. **Fase 5 aprobada.** Desglose de la Fase 6 aprobado con decisiones del
+  usuario (P7, P8, P9, P11, P12 y retiro de barbero con citas por reasignar).
+- **Estado:** ✅ en `feature/t6.1-availability-engine` (commit y push; PR pendiente).
+- **Archivos:** `internal/modules/scheduling/domain/availability.go` (+ pruebas), `.golangci.yml`
+  (fronteras de `scheduling`), roadmap, decisiones, preguntas, `availability-engine.md`,
+  `booking-lifecycle.md`.
+- **Problemas:** la regla del diseño "hora inexistente +1 h" hacía retroceder la conversión en
+  Santiago (00:30 → 01:30, después de 01:00); se cambió a "instante del salto" (decisión
+  registrada).
+
 ## 2026-11-24 · Fase 5 · T5.8 — Suite de aislamiento, E2E y cierre de la Fase 5
 
 - **Previo:** PR #46 (T5.7) → `qa`: CI 6/6 ✅, squash `acceb44`, rama borrada; `release-qa` ✅.

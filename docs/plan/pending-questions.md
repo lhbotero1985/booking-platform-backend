@@ -20,12 +20,12 @@ la Fase 0, se adopta la propuesta.
 |---|---|---|
 | P5 | País(es) y moneda(s) del piloto | ✅ Decidido 2026-11-23: **Colombia** (COP, `America/Bogota`, Ley 1581). Datos iniciales: Valle del Cauca (Cali, Yumbo) y Antioquia (Medellín, Itagüí); el administrador agrega más. |
 | P6 | Reservas con < 24 h de antelación | Ver `booking-lifecycle.md` §6: mensaje de creación con botón de confirmar, sin recordatorio D-1; antelación mínima 60 min. |
-| P7 | Estado tras reprogramar | Cliente reprograma → mantiene `CONFIRMED` si lo estaba; negocio reprograma → `PENDING_CONFIRMATION`. |
-| P8 | ¿Auto-cancelación de pendientes no confirmadas? | No en MVP. |
-| P9 | ¿Opción "cualquier profesional" al reservar? | Fuera del MVP (cada reserva elige profesional, como dice el prompt). |
+| P7 | Estado tras reprogramar | ✅ Decidido 2026-11-24: cliente reprograma → mantiene `CONFIRMED` si lo estaba; negocio reprograma → `PENDING_CONFIRMATION`. |
+| P8 | ¿Auto-cancelación de pendientes no confirmadas? | ✅ Decidido 2026-11-24: no en MVP. |
+| P9 | ¿Opción "cualquier profesional" al reservar? | ✅ Decidido 2026-11-24: no; el cliente elige barbero y es obligatorio. |
 | P10 | ¿Negocio nuevo queda `ACTIVE` al registrarse o requiere revisión admin? | ✅ Actualizado 2026-11-24 (ADR-0018): **el dueño crea su negocio** (autoservicio) con demo de 7 días en la que ya recibe reservas; también el administrador puede crearlo (nace `PENDING_REVIEW`). Sin pago al vencer: no visible y datos eliminados a los 30 días. Pagos en la Fase 11B. Miembros por email de un usuario registrado. |
-| P11 | Crear una ausencia/bloqueo sobre citas existentes | Rechazar con lista de citas en conflicto; el negocio debe reprogramarlas/cancelarlas primero. |
-| P12 | ¿El cliente necesita cuenta para reservar? | Sí desde la app; el negocio puede crear clientes sin cuenta en reservas manuales. |
+| P11 | Crear una ausencia/bloqueo sobre citas existentes | ✅ Decidido 2026-11-24: rechazar con lista de citas en conflicto (también cambios de horario); no hay entidad de bloqueos, una ausencia lo es. Retirar o desactivar un barbero sí se permite: sus citas quedan por reasignar. |
+| P12 | ¿El cliente necesita cuenta para reservar? | ✅ Decidido 2026-11-24: sí, con email verificado y teléfono obligatorio; el negocio puede crear clientes sin cuenta en citas manuales. |
 | P13 | Proveedor de email para PROD | **QA usa Mailpit** (decisión 2026-11-19). Para PROD elegir proveedor con SMTP+TLS antes de la Fase 13 (p. ej. Amazon SES, Resend, Postmark, Brevo); requiere dominio con SPF/DKIM. |
 | P14 | ¿Los portales Next.js llaman a la API directamente (cookie + CORS) o mediante BFF? | Directamente con cookie `__Host-` en subdominio común; reevaluar en Fase 8. |
 | P15 | Dominio para QA/PROD | A definir antes de Fase 3. |
