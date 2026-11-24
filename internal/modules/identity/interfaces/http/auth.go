@@ -12,6 +12,7 @@ import (
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/domain"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/httpx"
 )
 
@@ -44,6 +45,7 @@ type meResponse struct {
 	ID              uuid.UUID  `json:"id"`
 	Email           string     `json:"email"`
 	FullName        string     `json:"fullName"`
+	Phone           *string    `json:"phone"`
 	Status          string     `json:"status"`
 	IsPlatformAdmin bool       `json:"isPlatformAdmin"`
 	EmailVerifiedAt *time.Time `json:"emailVerifiedAt"`
@@ -108,10 +110,37 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, meResponse{
+	httpx.WriteJSON(w, http.StatusOK, toMeResponse(u))
+}
+
+func toMeResponse(u *domain.User) meResponse {
+	out := meResponse{
 		ID: u.ID(), Email: u.Email().String(), FullName: u.FullName(), Status: string(u.Status()),
 		IsPlatformAdmin: u.IsPlatformAdmin(), EmailVerifiedAt: u.EmailVerifiedAt(), CreatedAt: u.CreatedAt(),
-	})
+	}
+	if phone := u.Phone(); phone != "" {
+		out.Phone = &phone
+	}
+	return out
+}
+
+type setPhoneRequest struct {
+	Phone string `json:"phone"`
+}
+
+// setPhone serves PUT /api/v1/me/phone (T6.3): the mobile number customers need to book.
+func (h *Handler) setPhone(w http.ResponseWriter, r *http.Request) {
+	var req setPhoneRequest
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	p, _ := contract.PrincipalFrom(r.Context())
+	u, err := h.svc.SetPhone(r.Context(), p, req.Phone)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, toMeResponse(u))
 }
 
 // RequireAuth authenticates the request (Bearer token for mobile apps, session cookie for web

@@ -41,6 +41,7 @@ status() {
   local args=(-s "${X[@]}" -X "$1" "$B$2" -D "$tmp/h" -o "$tmp/b" -w '%{http_code}')
   [[ -n ${3:-} ]] && args+=(-H "$J" -d "$3")
   [[ -n ${4:-} ]] && args+=(-H "Authorization: Bearer $4")
+  [[ -n ${5:-} ]] && args+=(-H "$5")
   local code wait
   for _ in 1 2 3 4 5 6; do
     code=$(curl "${args[@]}")
@@ -235,6 +236,7 @@ check "  no internal fields" 0 "$(json '[.professionals[0] | keys[] | select(. =
 check "unknown slug catalog -> 404" 404 "$(status GET /api/v1/businesses/no-existe-e2e/catalog)"
 
 # --- public availability (T6.2): the barber works Tuesdays 10:00-20:00, break 13:00-14:00 -----
+# (slot interval 15 min since "owner edits the business"; "Corte + barba" lasts 45 min)
 now=$(date +%s)
 for i in 2 3 4 5 6 7 8; do
   e=$((now + i * 86400))
@@ -244,13 +246,35 @@ tue=$(date -u -d "@$e" +%F)
 wed=$(date -u -d "@$((e + 86400))" +%F)
 av="/api/v1/businesses/$myslug/availability?serviceId=$svc&professionalId=$pbarber"
 check "availability next Tuesday (no auth)" 200 "$(status GET "$av&date=$tue")"
-check "  45 min every 10: 10:00-12:10 and 14:00-19:10" "46 ${tue}T10:00:00-05:00 ${tue}T19:10:00-05:00" "$(json '"\(.slots | length) \(.slots[0].startLocal) \(.slots[-1].startLocal)"')"
+check "  45 min every 15: 10:00-12:15 and 14:00-19:15" "32 ${tue}T10:00:00-05:00 ${tue}T19:15:00-05:00" "$(json '"\(.slots | length) \(.slots[0].startLocal) \(.slots[-1].startLocal)"')"
+slot=$(json '.slots[0].startAt')
 check "  no internal fields" 0 "$(json '[keys[] | select(. != "date" and . != "timeZone" and . != "serviceId" and . != "professionalId" and . != "durationMinutes" and . != "slots")] | length')"
 check "a day he does not work" 0 "$(status GET "$av&date=$wed" >/dev/null; json '.slots | length')"
 check "date in the past" 400 "$(status GET "$av&date=2020-01-01")"
 check "  code DATE_OUTSIDE_BOOKING_WINDOW" DATE_OUTSIDE_BOOKING_WINDOW "$(json .code)"
 check "owner does not perform the service -> 404" 404 "$(status GET "/api/v1/businesses/$myslug/availability?serviceId=$svc&professionalId=$powner&date=$tue")"
 check "invalid date -> 400" 400 "$(status GET "$av&date=manana")"
+
+# --- booking (T6.3): the owner books the barber's first Tuesday slot as a customer ------------
+book() { # start idempotency-key token
+  status POST /api/v1/appointments "{\"businessId\":\"$mine\",\"serviceId\":\"$svc\",\"professionalId\":\"$pbarber\",\"startAt\":\"$1\"}" "$3" "Idempotency-Key: $2"
+}
+k1="e2e-$(date +%s)-a"
+check "book without phone -> 422" 422 "$(book "$slot" "$k1" "$T1")"
+check "  code PHONE_REQUIRED" PHONE_REQUIRED "$(json .code)"
+check "invalid phone -> 400" 400 "$(status PUT /api/v1/me/phone '{"phone":"12345"}' "$T1")"
+check "set phone (Colombian mobile)" "\+573001234567" "$(status PUT /api/v1/me/phone '{"phone":"300 123 4567"}' "$T1" >/dev/null; json .phone)"
+check "book without Idempotency-Key -> 400" 400 "$(status POST /api/v1/appointments "{\"businessId\":\"$mine\",\"serviceId\":\"$svc\",\"professionalId\":\"$pbarber\",\"startAt\":\"$slot\"}" "$T1")"
+check "book Tuesday 10:00" 201 "$(book "$slot" "$k1" "$T1")"
+appt=$(json .id)
+check "  pending, snapshot of the service" "PENDING_CONFIRMATION Corte \+ barba 4000000 COP 45" "$(json '"\(.status) \(.serviceName) \(.priceMinor) \(.currency) \(.durationMinutes)"')"
+check "same Idempotency-Key -> same appointment" "201 $appt" "$(book "$slot" "$k1" "$T1") $(json .id)"
+check "same key, other slot -> 422" 422 "$(book "${tue}T20:00:00Z" "$k1" "$T1")"
+check "  code IDEMPOTENCY_KEY_REUSED" IDEMPOTENCY_KEY_REUSED "$(json .code)"
+check "slot taken (new key) -> 409" 409 "$(book "$slot" "e2e-$(date +%s)-b" "$T1")"
+check "  code SLOT_UNAVAILABLE" SLOT_UNAVAILABLE "$(json .code)"
+check "booking needs a session" 401 "$(book "$slot" "e2e-$(date +%s)-c" "")"
+check "availability without 10:00-10:45" "29 ${tue}T10:45:00-05:00" "$(status GET "$av&date=$tue" >/dev/null; json '"\(.slots | length) \(.slots[0].startLocal)"')"
 status POST /api/v1/auth/logout "" "$TS" >/dev/null
 check "  one per account" 409 "$(status POST /api/v1/businesses "$own" "$T1")"
 check "  code ALREADY_OWNER" ALREADY_OWNER "$(json .code)"

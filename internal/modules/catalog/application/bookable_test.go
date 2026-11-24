@@ -40,8 +40,8 @@ func TestBookableService(t *testing.T) {
 	if _, err := e.svc.UpdateService(ctx, e.owner, e.biz, tinte, application.ServicePatch{Status: ptr("INACTIVE")}); err != nil {
 		t.Fatal(err)
 	}
-	if m, err := e.svc.BookableService(ctx, e.biz, corte, juan); err != nil || m != 45 {
-		t.Errorf("bookable: %d %v", m, err)
+	if m, err := e.svc.BookableService(ctx, e.biz, corte, juan); err != nil || m != (catalog.BookableService{Name: "Corte + barba", DurationMinutes: 45, PriceMinor: 3_500_000, Currency: "COP"}) {
+		t.Errorf("bookable: %+v %v", m, err)
 	}
 	for name, c := range map[string][3]uuid.UUID{
 		"not performed by him":    {e.biz, barba, juan},

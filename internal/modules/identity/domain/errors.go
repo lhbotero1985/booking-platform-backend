@@ -14,4 +14,5 @@ var (
 	ErrEmptyPasswordHash = errors.New("identity: empty password hash")
 	ErrUserSuspended     = errors.New("identity: user suspended")
 	ErrUserNotVerified   = errors.New("identity: user not verified")
+	ErrInvalidPhone      = errors.New("identity: invalid phone")
 )

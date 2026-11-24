@@ -1,0 +1,43 @@
+-- ADR-0004: a booking waits at most 3 s for the professional's lock (503 retryable instead of
+-- hanging). is_local = true: the settings last until the end of the transaction.
+-- name: SetBookingTimeouts :exec
+SELECT set_config('lock_timeout', '3s', true), set_config('statement_timeout', '5s', true);
+
+-- Waits for a concurrent transaction holding the same key; returns no row if it already exists.
+-- name: ClaimIdempotencyKey :many
+INSERT INTO idempotency_keys (user_id, key, fingerprint, created_at)
+VALUES (@user_id, @key, @fingerprint, @created_at)
+ON CONFLICT (user_id, key) DO NOTHING
+RETURNING user_id;
+
+-- name: IdempotencyKeyOf :one
+SELECT fingerprint, appointment_id FROM idempotency_keys WHERE user_id = @user_id AND key = @key;
+
+-- name: SetIdempotencyAppointment :exec
+UPDATE idempotency_keys SET appointment_id = @appointment_id WHERE user_id = @user_id AND key = @key;
+
+-- name: InsertAppointment :exec
+INSERT INTO appointments (id, business_id, professional_id, service_id, customer_user_id, customer_name,
+    customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name,
+    duration_minutes, price_minor, currency, version, created_by, created_at, updated_at)
+VALUES (@id, @business_id, @professional_id, @service_id, @customer_user_id, @customer_name,
+    @customer_phone, @start_at, @end_at, @buffer_minutes, @occupied_until, @status, @service_name,
+    @duration_minutes, @price_minor, @currency, @version, @created_by, @created_at, @updated_at);
+
+-- name: InsertAppointmentEvent :exec
+INSERT INTO appointment_events (id, business_id, appointment_id, type, status, professional_id, start_at,
+    actor_user_id, occurred_at)
+VALUES (@id, @business_id, @appointment_id, @type, @status, @professional_id, @start_at, @actor_user_id,
+    @occurred_at);
+
+-- name: AppointmentByID :one
+SELECT * FROM appointments WHERE id = @id;
+
+-- Active appointments of a professional whose occupied range [start_at, occupied_until)
+-- overlaps [from_at, to_at).
+-- name: ActiveAppointmentsOverlapping :many
+SELECT start_at, end_at, occupied_until FROM appointments
+WHERE business_id = @business_id AND professional_id = @professional_id
+  AND status IN ('PENDING_CONFIRMATION', 'CONFIRMED', 'IN_PROGRESS')
+  AND start_at < @to_at AND occupied_until > @from_at
+ORDER BY start_at;

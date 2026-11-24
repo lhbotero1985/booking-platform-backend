@@ -55,6 +55,7 @@ type Querier interface {
 	TouchSession(ctx context.Context, arg TouchSessionParams) error
 	UpdateMembershipRole(ctx context.Context, arg UpdateMembershipRoleParams) error
 	UpdateUserPasswordHash(ctx context.Context, arg UpdateUserPasswordHashParams) error
+	UpdateUserPhone(ctx context.Context, arg UpdateUserPhoneParams) error
 	UpdateUserStatus(ctx context.Context, arg UpdateUserStatusParams) error
 	// Adds an ACTIVE membership, or reactivates a REVOKED one with the new role. 0 rows = the user
 	// is already an active member.

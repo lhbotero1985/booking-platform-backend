@@ -840,4 +840,26 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `TestPublicAvailabilityOnPostgres` | ✅ | Módulos y SQL reales: no asignado → 404; tras asignar 08:00–08:30 y 09:20–09:30 (descanso; huecos cortos por la ausencia descartados); ausencia del día siguiente no cuenta; barbero retirado → 404 |
 | Postman + Newman (entorno local temporal) | ✅ 3 corridas | 22 peticiones, 35 comprobaciones, 0 fallos (cuenta nueva y cuenta existente); horas 09:00–12:30, 14:00–14:30, 16:00–17:30 |
 | `task check` (lint 0, vuln) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
-| Despliegue y E2E en QA | ⏳ | Tras el merge (E2E ampliado con 8 comprobaciones de disponibilidad) |
+| PR #49 — ci + security | ✅ 6/6 | Squash `d90bd71` |
+| `release-qa` | ✅ | Smoke test ✅ |
+| `scripts/e2e-qa.sh` (admin) en QA | ⚠️ **142/143** | Falla del script, no de la API: esperaba 46 horas cada 10 min, pero el mismo E2E cambia el intervalo a 15; la API respondió 32 (10:00–12:15 y 14:00–19:15), correcto. Corregido en T6.3 |
+
+## 2026-11-24 · Fase 6 · T6.3 — Reserva del cliente
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestBook` / `TestBookRejections` (scheduling, en memoria) | ✅ | Snapshot, evento CREATED, bloqueo tomado; misma clave → misma cita; clave con otro cuerpo → 422; la clave es por cuenta; preparación de la cita existente respetada; fuera de rejilla / horario / ventana; sin teléfono; clave inválida; 404 negocio / servicio / barbero; un intento fallido no consume la clave |
+| `TestNewAppointment` (dominio) | ✅ | Fin y ocupación con preparación; validaciones; estados que ocupan agenda. Dominio 100 % |
+| `TestPhoneAndCustomerProfile` (identity) | ✅ | Normalización (+57 para móvil colombiano, E.164 extranjero), inválidos, misma cifra sin nueva auditoría, perfil del cliente, suspendido |
+| `TestContractBooking` (contra OpenAPI) | ✅ | 422 sin teléfono; teléfono 400/200; `/me.phone`; sin clave 400; 201; repetición; 422 clave reutilizada; 409 ocupado; 400 pasado; 404; 401; la disponibilidad ya no ofrece lo reservado. **63 rutas documentadas** |
+| `TestBookingOnPostgres` | ✅ | Módulos y SQL reales: snapshot sobrevive a un cambio de precio; evento; repetición; disponibilidad sin el tramo reservado; 409 solapada |
+| `TestNoDoubleBookingUnderConcurrency` | ✅ | **50 clientes, mismo horario → 1 éxito, 49 × 409**; 20 solapadas (10:00/10:20) → 1; misma clave ×10 en paralelo → 1 cita, todas las respuestas con su id |
+| `TestExclusionConstraintIsTheSafetyNet` | ✅ | Insertando sin bloqueo ni motor: dentro de la preparación → rechazo; justo después → OK; una cancelada no ocupa |
+| Mutación: sin bloqueo (solo constraint) | ✅ pasa | La restricción sola impide la doble reserva |
+| Mutación: sin constraint (solo bloqueo) | ✅ concurrencia pasa | El bloqueo solo impide la doble reserva; la prueba directa de la restricción falla, como debe |
+| Mutación: sin bloqueo ni constraint | ✅ detectada | 2 y 16 reservas dobles: la prueba falla |
+| `TestAuthenticatedRoutesRejectInvalidCredentials` | ✅ | Ahora desde OpenAPI: **48 operaciones autenticadas** × 11 credenciales inválidas → 401 (antes la lista manual omitía la Fase 5) |
+| `TestPublicSearchExposesOnlyBookableBusinesses` | ✅ | Reservar en negocio suspendido, o con servicio/barbero de otro negocio → 404 idéntico a inexistente; una reserva válida → 201 |
+| Postman + Newman (entorno local temporal) | ✅ 2 corridas | 28 peticiones, 49 comprobaciones, 0 fallos (cuenta nueva y repetida; la 2.ª reservó 09:30 porque 09:00 estaba tomada) |
+| `task check` (lint 0, vuln) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
+| Despliegue y E2E en QA | ⏳ | Tras el merge (E2E ampliado: teléfono, reserva, repetición, 409, 422, disponibilidad) |

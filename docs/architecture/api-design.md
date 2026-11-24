@@ -95,6 +95,14 @@ sin centavos) + `currency` del negocio. `categoryId: null` en PATCH quita la cat
 `{"serviceIds": [...]}` (OWNER) que reemplaza la lista completa; `SERVICE_NOT_FOUND` en
 `serviceIds[i]` si el servicio no es del negocio; profesional inexistente o ajeno → 404.
 
+### Reserva del cliente (T6.3)
+`PUT /api/v1/me/phone` (`{"phone":"300 123 4567"}` → `+573001234567`) y
+`POST /api/v1/appointments` con cabecera `Idempotency-Key` y cuerpo `businessId`, `serviceId`,
+`professionalId`, `startAt` (un `startAt` de la disponibilidad). 201 con la cita
+(`PENDING_CONFIRMATION`, snapshot del servicio); repetir con la misma clave devuelve la misma
+cita. 404 único; 400 `DATE_OUTSIDE_BOOKING_WINDOW`; 409 `SLOT_UNAVAILABLE`; 422 `PHONE_REQUIRED`
+/ `IDEMPOTENCY_KEY_REUSED`; 503 `AGENDA_BUSY` (reintentar tras `Retry-After`).
+
 ### Disponibilidad pública (T6.2)
 `GET /api/v1/businesses/{slug}/availability?serviceId=&professionalId=&date=YYYY-MM-DD` (sin
 autenticación, límite general): `date`, `timeZone`, `serviceId`, `professionalId`,

@@ -142,6 +142,20 @@ func (q *Queries) UpdateUserPasswordHash(ctx context.Context, arg UpdateUserPass
 	return err
 }
 
+const updateUserPhone = `-- name: UpdateUserPhone :exec
+UPDATE users SET phone = $2, updated_at = now() WHERE id = $1
+`
+
+type UpdateUserPhoneParams struct {
+	ID    uuid.UUID
+	Phone *string
+}
+
+func (q *Queries) UpdateUserPhone(ctx context.Context, arg UpdateUserPhoneParams) error {
+	_, err := q.db.Exec(ctx, updateUserPhone, arg.ID, arg.Phone)
+	return err
+}
+
 const updateUserStatus = `-- name: UpdateUserStatus :exec
 UPDATE users SET status = $2, updated_at = now() WHERE id = $1
 `

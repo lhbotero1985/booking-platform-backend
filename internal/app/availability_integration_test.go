@@ -22,6 +22,7 @@ import (
 	profdomain "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/domain"
 	schedapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/application"
 	scheddomain "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/domain"
+	schedpg "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/infrastructure/postgres"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/pgtest"
 )
@@ -40,7 +41,7 @@ func TestPublicAvailabilityOnPostgres(t *testing.T) {
 	catalog := NewCatalogService(pool, identity, biz, profs)
 	LinkPublicCatalog(biz, catalog, profs, biz)
 	// Fixed "now" for the engine: Friday 1 March 2030, noon in Bogota.
-	sched := schedapp.NewService(schedapp.Deps{Businesses: biz, Catalog: catalog, Professionals: profs, Clock: clock.NewFixed(time.Date(2030, 3, 1, 17, 0, 0, 0, time.UTC))})
+	sched := schedapp.NewService(schedapp.Deps{Store: schedpg.NewStore(pool), Businesses: biz, Catalog: catalog, Professionals: profs, Customers: identity, Clock: clock.NewFixed(time.Date(2030, 3, 1, 17, 0, 0, 0, time.UTC))})
 
 	ownerID, _ := activeUser(t, pool, "ACTIVE")
 	owner := identitycontract.Principal{UserID: ownerID}

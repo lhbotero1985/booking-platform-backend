@@ -131,3 +131,16 @@ sql:
         emit_empty_slices: true
         emit_pointers_for_null_types: true
         omit_unused_structs: true
+  - name: scheduling
+    engine: postgresql
+    schema: db/migrations
+    queries: db/queries/scheduling
+    gen:
+      go:
+        package: sqlcgen
+        out: internal/modules/scheduling/infrastructure/sqlcgen
+        sql_package: pgx/v5
+        emit_interface: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        omit_unused_structs: true

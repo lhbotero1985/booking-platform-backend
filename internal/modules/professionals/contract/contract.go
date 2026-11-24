@@ -49,6 +49,10 @@ type DayAgenda struct {
 // callers check that the professional is bookable. ErrProfessionalNotFound if it does not exist in
 // the business.
 type Agenda interface {
+	// LockAgenda takes the row lock that serializes every write to the professional's agenda
+	// (ADR-0004): bookings, schedules and absences. Call it with the caller's transaction in ctx
+	// (db.ContextWithTx); the lock lasts until that transaction ends.
+	LockAgenda(ctx context.Context, businessID, professionalID uuid.UUID) error
 	DayAgenda(ctx context.Context, businessID, professionalID uuid.UUID, weekday time.Weekday, from, to time.Time) (DayAgenda, error)
 }
 

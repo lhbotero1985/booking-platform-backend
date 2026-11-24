@@ -335,6 +335,15 @@ func (t *storeTx) UpdatePasswordHash(_ context.Context, id uuid.UUID, hash domai
 	return u.ChangePasswordHash(hash, u.UpdatedAt())
 }
 
+func (t *storeTx) UpdatePhone(_ context.Context, id uuid.UUID, phone string) error {
+	u, ok := t.s.users[id]
+	if !ok {
+		return application.ErrNotFound
+	}
+	u.ChangePhone(phone, u.UpdatedAt())
+	return nil
+}
+
 func (t *storeTx) InsertMembership(_ context.Context, _, userID, businessID uuid.UUID, role contract.Role, _ time.Time) error {
 	for _, m := range t.s.memberships[userID] {
 		if m.BusinessID == businessID {

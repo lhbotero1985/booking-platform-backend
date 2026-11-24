@@ -130,7 +130,7 @@ aunque tenga citas futuras, que quedan por reasignar y el responsable las pasa a
 |---|---|---|
 | T6.1 ✅ | Motor de disponibilidad (función pura del dominio, módulo `scheduling`) | Tabla de casos, DST en varias zonas, igual a una referencia minuto a minuto |
 | T6.2 ✅ | Disponibilidad pública por barbero, servicio y fecha | Solo barberos reservables que prestan el servicio; hora local y UTC; sin datos internos |
-| T6.3 | Reserva del cliente (cuenta con email verificado y teléfono), snapshot del servicio, `Idempotency-Key` | Cero doble reserva: lock por profesional + exclusion constraint; 50 en paralelo → 1 éxito |
+| T6.3 ✅ | Reserva del cliente (cuenta con email verificado y teléfono), snapshot del servicio, `Idempotency-Key` | Cero doble reserva: lock por profesional + exclusion constraint; 50 en paralelo → 1 éxito |
 | T6.4 | Clientes del negocio y citas manuales (responsable; barbero solo en su agenda), pueden nacer confirmadas | Mismas garantías; barbero en agenda ajena → 403 |
 | T6.5 | Agenda del negocio y del barbero (día/semana) y "mis citas" del cliente | Cada uno ve solo lo suyo; otro negocio → 404 |
 | T6.6 | Transiciones: confirmar, cancelar, reprogramar (límites del negocio), iniciar, completar, no asistió; historial | Transición inválida → 409; idempotentes; concurrencia coherente (`version`) |

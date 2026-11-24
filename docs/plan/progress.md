@@ -466,6 +466,25 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 6 · T6.3 — Reserva del cliente
+
+- **Previo:** PR #49 (T6.2) → `qa`: CI 6/6 ✅, squash `d90bd71`, rama borrada; `release-qa` ✅.
+  E2E en QA **142/143**: la única falla fue del script (esperaba intervalo de 10 min, pero el
+  mismo E2E lo cambia a 15; la API respondió 32 horas correctas). Corregido en esta rama.
+- **Estado:** ✅ en `feature/t6.3-customer-booking` (commit y push; PR pendiente).
+- **Archivos:** migración `00016_appointments.sql`; `db/queries/scheduling` + `sqlc.yaml`;
+  identity (teléfono: dominio, query, caso de uso, `PUT /me/phone`, contrato `Customers`);
+  contratos ampliados (`PublicBookingPolicyOf`, snapshot `catalog.BookableService`,
+  `professionals.Agenda.LockAgenda`); scheduling (dominio `Appointment`, `booking.go`,
+  disponibilidad con citas activas, store PostgreSQL, doble en memoria `schedtest`, HTTP
+  `POST /appointments`); OpenAPI (2 operaciones, esquema `Appointment`, respuestas 422/503; 63
+  rutas); pruebas; E2E; colección de Postman (paso 8: reservar); docs.
+- **Hallazgo:** la matriz de credenciales de seguridad era una lista manual sin las rutas de la
+  Fase 5; ahora se arma desde OpenAPI (48 operaciones autenticadas, todas 401).
+- **Problemas:** heredocs largos del shell (scripts a archivo); mutaciones sobre archivos nuevos
+  no se restauraban con `git checkout` (restaurados a mano y verificados); el E2E local no aplica
+  (DEV usa enlaces `http://`), la validación E2E es en QA.
+
 ## 2026-11-24 · Fase 6 · T6.2 — Disponibilidad pública
 
 - **Previo:** PR #48 (T6.1) → `qa`: CI 6/6 ✅, squash `3df9ed4`, rama borrada.

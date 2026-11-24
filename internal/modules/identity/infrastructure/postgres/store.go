@@ -121,8 +121,16 @@ func toDomain(r sqlcgen.User) (*domain.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	return domain.RehydrateUser(r.ID, domain.Email(r.Email), r.FullName, domain.PasswordHash(r.PasswordHash),
-		status, r.IsPlatformAdmin, r.EmailVerifiedAt, r.CreatedAt, r.UpdatedAt), nil
+	u := domain.RehydrateUser(r.ID, domain.Email(r.Email), r.FullName, domain.PasswordHash(r.PasswordHash),
+		status, r.IsPlatformAdmin, r.EmailVerifiedAt, r.CreatedAt, r.UpdatedAt)
+	if r.Phone != nil {
+		u.WithPhone(*r.Phone)
+	}
+	return u, nil
+}
+
+func (t *txStore) UpdatePhone(ctx context.Context, userID uuid.UUID, phone string) error {
+	return t.q.UpdateUserPhone(ctx, sqlcgen.UpdateUserPhoneParams{ID: userID, Phone: &phone})
 }
 
 func (t *txStore) UpdatePasswordHash(ctx context.Context, userID uuid.UUID, hash domain.PasswordHash) error {

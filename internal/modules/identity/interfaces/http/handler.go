@@ -27,6 +27,7 @@ type Service interface {
 	Logout(ctx context.Context, p contract.Principal) error
 	LogoutAll(ctx context.Context, p contract.Principal) (int64, error)
 	Me(ctx context.Context, p contract.Principal) (*domain.User, error)
+	SetPhone(ctx context.Context, p contract.Principal, phone string) (*domain.User, error)
 	ForgotPassword(ctx context.Context, email string) error
 	ResetPassword(ctx context.Context, in application.ResetPasswordInput) error
 	ChangePassword(ctx context.Context, p contract.Principal, in application.ChangePasswordInput) error
@@ -74,6 +75,7 @@ func (h *Handler) Routes(rt *httpx.Router) {
 	rt.Handle("POST /api/v1/auth/logout", h.RequireAuth(http.HandlerFunc(h.logout)))
 	rt.Handle("POST /api/v1/auth/logout-all", h.RequireAuth(http.HandlerFunc(h.logoutAll)))
 	rt.Handle("GET /api/v1/me", h.RequireAuth(http.HandlerFunc(h.me)))
+	rt.Handle("PUT /api/v1/me/phone", h.RequireAuth(http.HandlerFunc(h.setPhone)))
 	rt.Handle("POST /api/v1/me/password", strict(h.RequireAuth(http.HandlerFunc(h.changePassword))))
 	rt.Handle("GET /api/v1/me/memberships", h.RequireAuth(http.HandlerFunc(h.myMemberships)))
 	h.memberRoutes(rt)

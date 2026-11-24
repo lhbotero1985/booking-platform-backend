@@ -24,6 +24,8 @@ servers:
 tags:
   - name: Availability
     description: Bookable start times of a professional (T6.2).
+  - name: Appointments
+    description: Bookings of customers (T6.3).
   - name: Catalog
     description: Service categories and services of a business (T5.5).
   - name: Operations
@@ -373,6 +375,49 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "429":
           $ref: "#/components/responses/TooManyRequests"
+
+  /api/v1/me/phone:
+    put:
+      tags: [Auth]
+      operationId: setMyPhone
+      summary: Set the mobile number of the current account
+      description: |
+        Required to book (T6.3). Normalized to E.164: a 10-digit Colombian mobile (`3XX XXX XXXX`)
+        gets `+57`; any other number must be E.164. Spaces, dashes, dots and parentheses are
+        ignored. Field code `INVALID_PHONE`. Audited without the number.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [phone]
+              properties:
+                phone:
+                  type: string
+                  maxLength: 32
+      responses:
+        "200":
+          description: The account with its phone.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
 
   /api/v1/me/password:
     post:
@@ -1059,6 +1104,81 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  /api/v1/appointments:
+    post:
+      tags: [Appointments]
+      operationId: bookAppointment
+      summary: Book a slot (customer)
+      description: |
+        The authenticated customer (verified email and a phone set with `PUT /api/v1/me/phone`)
+        books a start time offered by the public availability. The slot is revalidated inside
+        the transaction under the professional's lock; the database rejects any overlap
+        (ADR-0004). The appointment starts `PENDING_CONFIRMATION` with a snapshot of the service
+        (name, duration, price). Repeating the request with the same `Idempotency-Key` returns
+        the same appointment; the same key with a different body is 422 `IDEMPOTENCY_KEY_REUSED`.
+        Errors: 404 (business, service or professional not bookable, indistinguishable), 400
+        `DATE_OUTSIDE_BOOKING_WINDOW`, 409 `SLOT_UNAVAILABLE`, 422 `PHONE_REQUIRED`, 503
+        `AGENDA_BUSY` (retry after `Retry-After`).
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Unique per booking attempt (8-100 characters, letters, digits, - and _).
+          schema:
+            type: string
+            pattern: "^[A-Za-z0-9_-]{8,100}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [businessId, serviceId, professionalId, startAt]
+              properties:
+                businessId:
+                  type: string
+                  format: uuid
+                serviceId:
+                  type: string
+                  format: uuid
+                professionalId:
+                  type: string
+                  format: uuid
+                startAt:
+                  type: string
+                  format: date-time
+                  description: A `startAt` returned by the availability.
+      responses:
+        "201":
+          description: The appointment (also on an idempotent replay).
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/v1/admin/businesses/{id}/subscription:
     get:
@@ -2317,7 +2437,7 @@ components:
     MeResponse:
       type: object
       additionalProperties: false
-      required: [id, email, fullName, status, isPlatformAdmin, emailVerifiedAt, createdAt]
+      required: [id, email, fullName, phone, status, isPlatformAdmin, emailVerifiedAt, createdAt]
       properties:
         id:
           type: string
@@ -2327,6 +2447,10 @@ components:
           format: email
         fullName:
           type: string
+        phone:
+          type: [string, "null"]
+          description: Mobile in E.164 (T6.3); required to book.
+          pattern: "^\\+[1-9][0-9]{6,14}$"
         status:
           type: string
           enum: [PENDING_VERIFICATION, ACTIVE, SUSPENDED]
@@ -3378,6 +3502,49 @@ components:
             type: string
             format: uuid
 
+    Appointment:
+      type: object
+      additionalProperties: false
+      required: [id, businessId, professionalId, serviceId, serviceName, durationMinutes, priceMinor,
+                 currency, startAt, endAt, status, customerName, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        businessId:
+          type: string
+          format: uuid
+        professionalId:
+          type: string
+          format: uuid
+        serviceId:
+          type: string
+          format: uuid
+        serviceName:
+          type: string
+          description: Snapshot when booked.
+        durationMinutes:
+          type: integer
+        priceMinor:
+          type: integer
+          format: int64
+        currency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [PENDING_CONFIRMATION, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW]
+        customerName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
     Availability:
       type: object
       additionalProperties: false
@@ -3568,6 +3735,27 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
+    UnprocessableEntity:
+      description: The request is understood but cannot be processed (`PHONE_REQUIRED`, `IDEMPOTENCY_KEY_REUSED`).
+      headers:
+        X-Request-ID:
+          $ref: "#/components/headers/XRequestID"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    ServiceUnavailable:
+      description: Temporarily unable to serve (`AGENDA_BUSY`); retry after `Retry-After` seconds.
+      headers:
+        X-Request-ID:
+          $ref: "#/components/headers/XRequestID"
+        Retry-After:
+          schema:
+            type: integer
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
     Conflict:
       description: |
         A record with the same code or name already exists (`ALREADY_EXISTS`), a country,
@@ -3576,7 +3764,8 @@ components:
         already owns a business (`ALREADY_OWNER`), the subscription is not a demo
         (`NOT_EXTENDABLE`), the account is already a member (`ALREADY_MEMBER`) or the change
         would leave the business without an OWNER (`LAST_OWNER`), or the account already has a
-        professional profile in the business (`ALREADY_PROFESSIONAL`).
+        professional profile in the business (`ALREADY_PROFESSIONAL`), or the start time is not
+        available (`SLOT_UNAVAILABLE`).
       headers:
         X-Request-ID:
           $ref: "#/components/headers/XRequestID"
