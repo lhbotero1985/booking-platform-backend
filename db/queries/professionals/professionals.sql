@@ -19,3 +19,43 @@ SELECT id, business_id, user_id, display_name, bio, status, sort_order, created_
 FROM professionals
 WHERE business_id = $1
 ORDER BY sort_order, display_name, id;
+
+-- name: LockProfessional :one
+SELECT id, business_id, user_id, display_name, bio, status, sort_order, created_at, updated_at
+FROM professionals
+WHERE business_id = $1 AND id = $2
+FOR UPDATE;
+
+-- Weekly schedule (T5.3). Minutes since midnight in and out, so Go never handles pgtype.Time.
+
+-- name: WorkingHoursOf :many
+SELECT weekday, (extract(epoch FROM start_time) / 60)::int AS start_minute,
+       (extract(epoch FROM end_time) / 60)::int AS end_minute
+FROM professional_working_hours
+WHERE business_id = $1 AND professional_id = $2
+ORDER BY weekday, start_time;
+
+-- name: BreaksOf :many
+SELECT weekday, (extract(epoch FROM start_time) / 60)::int AS start_minute,
+       (extract(epoch FROM end_time) / 60)::int AS end_minute
+FROM professional_breaks
+WHERE business_id = $1 AND professional_id = $2
+ORDER BY weekday, start_time;
+
+-- name: DeleteWorkingHours :exec
+DELETE FROM professional_working_hours WHERE business_id = $1 AND professional_id = $2;
+
+-- name: DeleteBreaks :exec
+DELETE FROM professional_breaks WHERE business_id = $1 AND professional_id = $2;
+
+-- name: InsertWorkingHours :exec
+INSERT INTO professional_working_hours (id, business_id, professional_id, weekday, start_time, end_time)
+VALUES (@id, @business_id, @professional_id, @weekday,
+        time '00:00' + make_interval(mins => @start_minute::int),
+        time '00:00' + make_interval(mins => @end_minute::int));
+
+-- name: InsertBreak :exec
+INSERT INTO professional_breaks (id, business_id, professional_id, weekday, start_time, end_time)
+VALUES (@id, @business_id, @professional_id, @weekday,
+        time '00:00' + make_interval(mins => @start_minute::int),
+        time '00:00' + make_interval(mins => @end_minute::int));

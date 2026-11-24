@@ -722,4 +722,20 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `TestEveryRouteIsDocumented` / `TestEveryBusinessRouteIsTenantIsolated` | ✅ | **43 rutas documentadas**; **10 operaciones `{businessId}`** aisladas (incluye las 4 nuevas, sin escribir otra prueba) |
 | `TestContractProfessionals` | ✅ | 4 operaciones contra OpenAPI: 200/201/400/401/403/404/409 |
 | `task check` / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
-| Despliegue y E2E en QA | ⏳ | Tras el merge |
+| PR #41 — ci + security | ✅ 6/6 | Squash `1c05c0c` |
+| `release-qa` (1.er intento) | ❌ | `docker pull` en el servidor: `no matching manifest for linux/amd64/v3 … not found` justo tras el push; imagen verificada como manifiesto simple; nada cambió en el servidor |
+| `release-qa` (job relanzado) | ✅ | Migración 11 aplicada, smoke test ✅ |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **101/101** | Barbero y responsable como profesionales; 409 duplicado |
+
+## 2026-11-24 · Fase 5 · T5.3 — Horario semanal y descansos
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `go test ./internal/modules/professionals/...` | ✅ | domain **99,1 %**: `HH:MM` (rechaza `9:30`, `24:00`, `12:60`), orden, rangos que se tocan permitidos, 11 violaciones con ruta (día inválido/duplicado, hora, rango invertido o vacío, >6 rangos, solapes de franjas y de descansos, descanso fuera de franja); application **92,4 %**: OWNER define, barbero edita el suyo y lee el de otros, 403 al editar el de un compañero, admin limpia la semana, no-op sin auditoría, auditoría con días y `self`, extraño/otro negocio 404, barbero retirado 404 |
+| `TestProfessionalScheduleOnPostgres` | ✅ | Ida y vuelta con 00:00 y 23:59; filas en BD; barbero propio vs. ajeno; auditoría; FK compuesta rechaza fila con otro negocio (2 tablas); CHECK `start < end` (2 tablas); **8 reemplazos concurrentes → el resultado es exactamente una de las semanas (2 filas)** |
+| Prueba de mutación del bloqueo | ✅ detecta | Sin `FOR UPDATE` la prueba falla 3/3 (14 filas mezcladas en vez de 2); restaurado |
+| `TestEveryRouteIsDocumented` / `TestEveryBusinessRouteIsTenantIsolated` | ✅ | **45 rutas documentadas**; **12 operaciones `{businessId}`** aisladas (incluye las 2 nuevas); el horario de Bob no cambia |
+| `TestContractProfessionals` | ✅ | `GET/PUT …/schedule` contra OpenAPI: 200/400/403/404 |
+| `task check` (build, vet, lint 0, test, vuln) / `sqlc:check` / `shellcheck` / `secrets` | ✅ | govulncheck tras reintento por DNS local |
+| Integración completa (`-tags integration -p 2 ./...`) | ✅ | |
+| Despliegue y E2E en QA | ⏳ | Tras el merge (E2E ampliado con 10 comprobaciones de horario) |

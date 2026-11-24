@@ -70,6 +70,9 @@ professionals(id uuid pk, business_id fk, user_id null, display_name, bio, statu
 professional_working_hours(id, business_id, professional_id, weekday smallint 0-6,
                            start_time time, end_time time, check (start_time < end_time))
 professional_breaks(id, business_id, professional_id, weekday, start_time, end_time)
+  -- T5.3 (00012): FK compuesta (business_id, professional_id) → professionals ON DELETE CASCADE;
+  -- weekday 0 = domingo … 6 = sábado; solapes y contención validados por el dominio con la
+  -- fila del profesional bloqueada (reemplazo de la semana completa en una transacción).
 professional_absences(id, business_id, professional_id, period tstzrange not null, reason,
                       exclude using gist (professional_id with =, period with &&))
 ```

@@ -67,6 +67,14 @@ PROFESSIONAL),
 `POST …/professionals` (OWNER: email + nombre visible; agrega la membresía si hace falta) y
 `PATCH …/{professionalId}` (OWNER). 409 `ALREADY_PROFESSIONAL`.
 
+### Horario semanal (T5.3)
+`GET …/professionals/{professionalId}/schedule` (OWNER, PROFESSIONAL) devuelve siempre los 7 días
+(lunes primero) con `workingHours` y `breaks` (`HH:MM`, hora local del negocio).
+`PUT …/schedule` reemplaza la semana completa (días omitidos = descanso): OWNER para cualquiera,
+PROFESSIONAL solo el suyo (403). Errores por campo con ruta (`days[0].breaks[1]`) y códigos
+`INVALID_WEEKDAY`, `DUPLICATE_WEEKDAY`, `INVALID_TIME`, `INVALID_RANGE`, `TOO_MANY_RANGES`,
+`OVERLAPPING_RANGES`, `BREAK_OUTSIDE_WORKING_HOURS`.
+
 ### Búsqueda pública (T4.6)
 `GET /businesses?cityId=&q=&cursor=&limit=` y `GET /businesses/{slug}` (sin autenticación):
 solo negocios `ACTIVE` con demo vigente o pagada; vista reducida sin datos internos.

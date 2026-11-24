@@ -228,7 +228,8 @@ func TestContractProfessionals(t *testing.T) {
 
 	created := c.callAuth(t, e.srv, http.MethodPost, biz, `{"email":"barbero@example.com","displayName":"Juan el Barbero","bio":"Fades","sortOrder":1}`, ownerTok, http.StatusCreated)
 	id := regexp.MustCompile(`"id":"([^"]+)"`).FindStringSubmatch(created)[1]
-	c.callAuth(t, e.srv, http.MethodPost, biz, `{"email":"dueno@example.com","displayName":"El Dueño"}`, ownerTok, http.StatusCreated) // the OWNER also serves
+	ownerProf := regexp.MustCompile(`"id":"([^"]+)"`).FindStringSubmatch(
+		c.callAuth(t, e.srv, http.MethodPost, biz, `{"email":"dueno@example.com","displayName":"El Dueño"}`, ownerTok, http.StatusCreated))[1] // the OWNER also serves
 	c.callAuth(t, e.srv, http.MethodPost, biz, `{"email":"barbero@example.com","displayName":"Otra vez"}`, ownerTok, http.StatusConflict)
 	c.callAuth(t, e.srv, http.MethodPost, biz, `{"email":"nadie@example.com","displayName":"Nadie"}`, ownerTok, http.StatusBadRequest)
 	list := c.callAuth(t, e.srv, http.MethodGet, biz, "", barberTok, http.StatusOK)
@@ -241,4 +242,17 @@ func TestContractProfessionals(t *testing.T) {
 	c.callAuth(t, e.srv, http.MethodPatch, biz+"/"+id, `{"status":"PAUSED"}`, ownerTok, http.StatusBadRequest)
 	c.callAuth(t, e.srv, http.MethodPatch, biz+"/"+id, `{"displayName":"Yo mismo"}`, barberTok, http.StatusForbidden)
 	c.callAuth(t, e.srv, http.MethodGet, biz, "", "", http.StatusUnauthorized)
+
+	// Weekly schedule (T5.3): the OWNER sets it, the barber adjusts his own only.
+	week := `{"days":[{"weekday":"MONDAY","workingHours":[{"start":"09:00","end":"13:00"},{"start":"14:00","end":"19:00"}],"breaks":[{"start":"11:00","end":"11:15"}]}]}`
+	if got := c.callAuth(t, e.srv, http.MethodGet, biz+"/"+id+"/schedule", "", barberTok, http.StatusOK); !strings.Contains(got, `{"weekday":"MONDAY","workingHours":[],"breaks":[]}`) {
+		t.Errorf("empty schedule = %s", got)
+	}
+	if got := c.callAuth(t, e.srv, http.MethodPut, biz+"/"+id+"/schedule", week, ownerTok, http.StatusOK); !strings.Contains(got, `{"start":"14:00","end":"19:00"}`) {
+		t.Errorf("schedule = %s", got)
+	}
+	c.callAuth(t, e.srv, http.MethodPut, biz+"/"+id+"/schedule", `{"days":[{"weekday":"MONDAY","workingHours":[{"start":"09:00","end":"13:00"}],"breaks":[{"start":"12:30","end":"13:30"}]}]}`, ownerTok, http.StatusBadRequest)
+	c.callAuth(t, e.srv, http.MethodPut, biz+"/"+id+"/schedule", `{"days":[{"weekday":"TUESDAY","workingHours":[{"start":"10:00","end":"18:00"}]}]}`, barberTok, http.StatusOK)
+	c.callAuth(t, e.srv, http.MethodPut, biz+"/"+ownerProf+"/schedule", week, barberTok, http.StatusForbidden)
+	c.callAuth(t, e.srv, http.MethodGet, biz+"/00000000-0000-0000-0000-000000000001/schedule", "", ownerTok, http.StatusNotFound)
 }
