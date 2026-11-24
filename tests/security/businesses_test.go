@@ -247,10 +247,11 @@ func TestMembersAreTenantScoped(t *testing.T) {
 // text filter cannot be used as a pattern.
 func TestPublicSearchExposesOnlyBookableBusinesses(t *testing.T) {
 	h := startAuth(t)
-	for _, email := range []string{suiteEmail, "bob@example.com", "admin@example.com"} {
+	for _, email := range []string{suiteEmail, "bob@example.com", "admin@example.com", "carla@example.com"} {
 		h.account(t, email)
 	}
 	ana, bob, admin := h.bearerToken(t, suiteEmail), h.bearerToken(t, "bob@example.com"), h.bearerToken(t, "admin@example.com")
+	carla := h.bearerToken(t, "carla@example.com")
 	if err := h.svc.SetPlatformAdmin(context.Background(), "admin@example.com", true); err != nil {
 		t.Fatal(err)
 	}
@@ -263,8 +264,30 @@ func TestPublicSearchExposesOnlyBookableBusinesses(t *testing.T) {
 		}
 		return b.ID
 	}
-	mk(ana, "Barbería Visible")
+	post := func(tok, path, body string, want int) string {
+		r := h.call(t, http.MethodPost, path, body, bearerH(tok))
+		var v struct{ ID string }
+		if r.status != want || json.Unmarshal([]byte(r.body), &v) != nil {
+			t.Fatalf("POST %s: %d %s", path, r.status, r.body)
+		}
+		return v.ID
+	}
+	// offer creates a service and, if performed, a professional (the owner) who performs it.
+	offer := func(tok, biz, email string, performed bool) {
+		base := "/api/v1/business/" + biz
+		svc := post(tok, base+"/services", `{"name":"Corte","durationMinutes":30,"priceMinor":2500000}`, http.StatusCreated)
+		if !performed {
+			return
+		}
+		prof := post(tok, base+"/professionals", `{"email":"`+email+`","displayName":"Barbero"}`, http.StatusCreated)
+		if r := h.call(t, http.MethodPut, base+"/professionals/"+prof+"/services", `{"serviceIds":["`+svc+`"]}`, bearerH(tok)); r.status != http.StatusOK {
+			t.Fatalf("assign: %d %s", r.status, r.body)
+		}
+	}
+	offer(ana, mk(ana, "Barbería Visible"), suiteEmail, true)
+	offer(carla, mk(carla, "Barbería Sin Barberos"), "carla@example.com", false) // nothing bookable: hidden
 	hidden := mk(bob, "Barbería Suspendida")
+	offer(bob, hidden, "bob@example.com", true)
 	if r := h.call(t, http.MethodPost, "/api/v1/admin/businesses/"+hidden+"/suspend", "", bearerH(admin)); r.status != http.StatusOK {
 		t.Fatalf("suspend: %d", r.status)
 	}
@@ -280,6 +303,29 @@ func TestPublicSearchExposesOnlyBookableBusinesses(t *testing.T) {
 		default:
 			t.Errorf("internal field %q exposed publicly", k)
 		}
+	}
+	// Public catalog: only public fields, and the same 404 for suspended and missing businesses.
+	cat := h.call(t, http.MethodGet, "/api/v1/businesses/barberia-visible/catalog", "", nil)
+	var pc struct {
+		Services      []map[string]any
+		Professionals []map[string]any
+	}
+	if cat.status != http.StatusOK || json.Unmarshal([]byte(cat.body), &pc) != nil || len(pc.Services) != 1 || len(pc.Professionals) != 1 {
+		t.Fatalf("public catalog: %d %s", cat.status, cat.body)
+	}
+	for _, item := range append(pc.Services, pc.Professionals...) {
+		for k := range item {
+			switch k {
+			case "id", "categoryId", "name", "description", "durationMinutes", "priceMinor", "currency", "professionalIds", "displayName", "bio", "serviceIds":
+			default:
+				t.Errorf("internal field %q exposed in the public catalog", k)
+			}
+		}
+	}
+	catMissing := h.call(t, http.MethodGet, "/api/v1/businesses/no-existe/catalog", "", nil)
+	catSuspended := h.call(t, http.MethodGet, "/api/v1/businesses/barberia-suspendida/catalog", "", nil)
+	if catSuspended.status != http.StatusNotFound || normalizeReply(t, catSuspended) != normalizeReply(t, catMissing) {
+		t.Errorf("suspended business catalog: %d %s", catSuspended.status, catSuspended.body)
 	}
 	notFound := h.call(t, http.MethodGet, "/api/v1/businesses/no-existe", "", nil)
 	suspended := h.call(t, http.MethodGet, "/api/v1/businesses/barberia-suspendida", "", nil)

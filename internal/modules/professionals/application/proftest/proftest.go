@@ -177,6 +177,26 @@ func (t *tx) ListProfessionals(_ context.Context, businessID uuid.UUID) ([]domai
 	return out, nil
 }
 
+func (t *tx) ActiveProfessionalsIn(_ context.Context, businessIDs []uuid.UUID) ([]domain.Professional, error) {
+	want := map[uuid.UUID]bool{}
+	for _, id := range businessIDs {
+		want[id] = true
+	}
+	var out []domain.Professional
+	for _, p := range t.profs {
+		if want[p.BusinessID] && p.Status == domain.StatusActive {
+			out = append(out, p)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].SortOrder != out[j].SortOrder {
+			return out[i].SortOrder < out[j].SortOrder
+		}
+		return out[i].DisplayName < out[j].DisplayName
+	})
+	return out, nil
+}
+
 func (t *tx) AppendAudit(_ context.Context, e *audit.Entry) error {
 	t.audit = append(t.audit, *e)
 	return nil

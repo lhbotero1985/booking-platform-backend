@@ -781,4 +781,19 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `TestEveryRouteIsDocumented` / `TestEveryBusinessRouteIsTenantIsolated` | ✅ | **59 rutas documentadas**; **26 operaciones `{businessId}`** aisladas; las asignaciones de Bob no cambian |
 | `TestContractCatalog` | ✅ | `GET/PUT …/professionals/{id}/services`: 200/400/403/404 |
 | `task check` (lint 0, vuln) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | govulncheck tras reintento por DNS local |
-| Despliegue y E2E en QA | ⏳ | Tras el merge (E2E ampliado con 4 comprobaciones) |
+| PR #45 — ci + security | ✅ 6/6 | Squash `1f9c95b` |
+| `release-qa` | ✅ | Migración 15 aplicada, smoke test ✅ |
+| `scripts/e2e-qa.sh` (admin) en QA | ⚠️ **129/130** | Falla del script, no de la API: `check` compara con expresión regular y el `+` de "Corte + barba" es comodín (got "Corte + barba", want "Corte + barba"). Corregido en T5.7 (`Corte \+ barba`) |
+
+## 2026-11-24 · Fase 5 · T5.7 — Vista pública de profesionales y servicios
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestPublicCatalog` (catalog) | ✅ | Solo servicios activos prestados por profesionales reservables (excluye el que solo presta un no reservable, el que nadie presta y el inactivo); orden de profesionales; categoría inactiva → sin categoría; categorías en uso; slug desconocido 404; `BookableAmong` (con oferta / prestado solo por no reservable / vacío); falla explícita sin dependencias públicas |
+| `TestBookableProfessionals` (professionals) | ✅ | Excluye perfil INACTIVE y barbero retirado; solo datos públicos |
+| `TestSearchPublicRequiresSomethingToBook` / `TestPublicBusinessID` (businesses) | ✅ | Demo vigente **y** oferta; error del catálogo no se oculta; slug público / vencido / inexistente / inválido |
+| `TestPublicCatalogOnPostgres` | ✅ | Módulos reales: sin oferta no aparece; servicio sin barbero no aparece; tras asignar aparece; catálogo público con precio y barbero; al retirarse el barbero desaparece de la búsqueda y del catálogo |
+| `TestPublicSearchExposesOnlyBookableBusinesses` (seguridad) | ✅ | Negocio sin barberos oculto; catálogo público sin campos internos; suspendido → 404 idéntico a inexistente |
+| `TestContractPublicBusinesses` / `TestEveryRouteIsDocumented` | ✅ | **60 rutas documentadas**; catálogo público contra OpenAPI 200/404 |
+| `task check` (lint 0, vuln) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
+| Despliegue y E2E en QA | ⏳ | Tras el merge (búsqueda: no aparece recién creado, aparece con oferta; catálogo público) |

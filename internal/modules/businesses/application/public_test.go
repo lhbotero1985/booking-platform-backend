@@ -11,6 +11,7 @@ import (
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/application/biztest"
+	bizcontract "github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/domain"
 	identity "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
@@ -158,5 +159,46 @@ func TestGetPublic(t *testing.T) {
 	}
 	if items, _, _ := e.svc.SearchPublic(ctx, application.SearchQuery{CityID: cali}); len(items) != 0 {
 		t.Errorf("suspended listed: %q", names(items))
+	}
+}
+
+// offerings is a catalog Offerings double: the businesses with something to book.
+type offerings struct {
+	ids map[uuid.UUID]bool
+	err error
+}
+
+func (o offerings) BookableAmong(_ context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
+	out := map[uuid.UUID]bool{}
+	for _, id := range ids {
+		out[id] = o.ids[id]
+	}
+	return out, o.err
+}
+
+func TestSearchPublicRequiresSomethingToBook(t *testing.T) {
+	ctx := context.Background()
+	e := newPublicEnv(t, []string{"Con Oferta", "Sin Oferta", "Vencida"}, "Con Oferta", "Sin Oferta")
+	e.svc.SetOfferings(offerings{ids: map[uuid.UUID]bool{e.ids["Con Oferta"]: true, e.ids["Vencida"]: true}})
+	items, _, err := e.svc.SearchPublic(ctx, application.SearchQuery{CityID: cali})
+	if err != nil || names(items) != "Con Oferta" {
+		t.Errorf("search = %q %v (entitled AND with offer)", names(items), err)
+	}
+	e.svc.SetOfferings(offerings{err: errors.New("catalog down")})
+	if _, _, err := e.svc.SearchPublic(ctx, application.SearchQuery{CityID: cali}); err == nil {
+		t.Error("catalog error swallowed")
+	}
+}
+
+func TestPublicBusinessID(t *testing.T) {
+	ctx := context.Background()
+	e := newPublicEnv(t, []string{"Barbería Pública", "Barbería Vencida"}, "Barbería Pública")
+	if id, err := e.svc.PublicBusinessID(ctx, "barberia-publica"); err != nil || id != e.ids["Barbería Pública"] {
+		t.Errorf("public: %v %v", id, err)
+	}
+	for _, slug := range []string{"barberia-vencida", "no-existe", "NO VÁLIDO"} {
+		if _, err := e.svc.PublicBusinessID(ctx, slug); !errors.Is(err, bizcontract.ErrBusinessNotFound) {
+			t.Errorf("%s: %v", slug, err)
+		}
 	}
 }

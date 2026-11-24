@@ -144,9 +144,9 @@ mine=$(json .id)
 myslug=$(json .slug)
 myname=$(json .name)
 
-# --- public search (T4.6): visible to customers while the demo runs -----------------------
-check "public search finds it (no auth)" 1 "$(status GET "/api/v1/businesses?cityId=$cali&q=$(jq -rn --arg v "$myname" '$v|@uri')" >/dev/null; json "[.items[] | select(.id==\"$mine\")] | length")"
-check "  no internal fields" 0 "$(json '[.items[0] | keys[] | select(. == "status" or . == "reminders" or . == "createdAt")] | length')"
+# --- public search (T4.6, T5.7): listed only once it has something to book ------------------
+search_mine() { status GET "/api/v1/businesses?cityId=$cali&q=$(jq -rn --arg v "$myname" '$v|@uri')" >/dev/null; json "[.items[] | select(.id==\"$mine\")] | length"; }
+check "new business not listed yet (nothing to book)" 0 "$(search_mine)"
 check "public detail by slug" 200 "$(status GET "/api/v1/businesses/$myslug")"
 check "unknown slug -> 404" 404 "$(status GET /api/v1/businesses/no-existe-e2e)"
 check "search without city -> 400" 400 "$(status GET /api/v1/businesses)"
@@ -222,9 +222,17 @@ check "owner changes the price" 4000000 "$(status PATCH "/api/v1/business/$mine/
 # --- services per professional (T5.6): the OWNER assigns, the barber reads -------------------
 ps="/api/v1/business/$mine/professionals/$pbarber/services"
 check "owner assigns 'Corte + barba' to the barber" 1 "$(status PUT "$ps" "{\"serviceIds\":[\"$svc\"]}" "$T1" >/dev/null; json '.items | length')"
-check "barber sees his services" "Corte + barba" "$(status GET "$ps" "" "$TS" >/dev/null; json '.items[0].name')"
+check "barber sees his services" "Corte \+ barba" "$(status GET "$ps" "" "$TS" >/dev/null; json '.items[0].name')"
 check "barber cannot assign services" 403 "$(status PUT "$ps" '{"serviceIds":[]}' "$TS")"
 check "unknown service rejected" 400 "$(status PUT "$ps" '{"serviceIds":["01a20aae-0000-7000-8000-000000000000"]}' "$T1")"
+
+# --- public view (T5.7): now bookable, listed and with its public catalog --------------------
+check "public search finds it (no auth)" 1 "$(search_mine)"
+check "  no internal fields" 0 "$(json '[.items[0] | keys[] | select(. == "status" or . == "reminders" or . == "createdAt")] | length')"
+check "public catalog (no auth)" 200 "$(status GET "/api/v1/businesses/$myslug/catalog")"
+check "  service, price and barber" "Corte \\+ barba 4000000 Barbero E2E" "$(json '"\(.services[0].name) \(.services[0].priceMinor) \(.professionals[0].displayName)"')"
+check "  no internal fields" 0 "$(json '[.professionals[0] | keys[] | select(. == "userId" or . == "status" or . == "email")] | length')"
+check "unknown slug catalog -> 404" 404 "$(status GET /api/v1/businesses/no-existe-e2e/catalog)"
 status POST /api/v1/auth/logout "" "$TS" >/dev/null
 check "  one per account" 409 "$(status POST /api/v1/businesses "$own" "$T1")"
 check "  code ALREADY_OWNER" ALREADY_OWNER "$(json .code)"

@@ -95,6 +95,7 @@ type Tx interface {
 	ListServices(ctx context.Context, businessID uuid.UUID) ([]domain.Service, error)
 	AppendAudit(ctx context.Context, e *audit.Entry) error
 	ProfessionalServicesTx
+	PublicTx
 }
 
 // Identity is what this module needs from the identity contract.
@@ -108,6 +109,7 @@ type Service struct {
 	identity      Identity
 	currencies    businesses.Currencies
 	professionals professionals.Directory
+	public        PublicDeps
 	clock         clock.Clock
 }
 

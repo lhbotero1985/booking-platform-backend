@@ -9,6 +9,7 @@ import (
 
 	bizcontract "github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/domain"
+	catalog "github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/contract"
 	geography "github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/contract"
 	identity "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 	subscriptions "github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/contract"
@@ -91,6 +92,7 @@ type Service struct {
 	trials       subscriptions.Trials
 	summaries    subscriptions.Summaries
 	entitlements subscriptions.Entitlements
+	offerings    catalog.Offerings // optional (T5.7), see SetOfferings
 	places       geography.Places
 	clock        clock.Clock
 }

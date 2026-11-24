@@ -81,11 +81,13 @@ func startAuth(t *testing.T) authHarness {
 	subs := subapp.NewService(h.subs, h.svc, h.clock)
 	biz := bizapp.NewService(bizapp.Deps{Store: h.biz, Authz: h.svc, Members: h.svc, Owners: h.svc, Trials: subs, Summaries: subs, Entitlements: subs, Places: geo, Clock: h.clock})
 	profs := profapp.NewService(proftest.NewStore(), h.svc, h.clock)
+	cat := catapp.NewService(catalogtest.NewStore(), h.svc, biz, profs, h.clock)
+	app.LinkPublicCatalog(biz, cat, profs, biz)
 	h.srv = httptest.NewServer(app.NewHTTPHandler(cfg, logger, app.Deps{Modules: []app.RouteRegistrar{
 		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),
 		subscriptionshttp.New(subs, logger, idh.RequireAuth),
 		professionalshttp.New(profs, logger, idh.RequireAuth),
-		cataloghttp.New(catapp.NewService(catalogtest.NewStore(), h.svc, biz, profs, h.clock), logger, idh.RequireAuth),
+		cataloghttp.New(cat, logger, idh.RequireAuth),
 	}}))
 	t.Cleanup(h.srv.Close)
 	return h

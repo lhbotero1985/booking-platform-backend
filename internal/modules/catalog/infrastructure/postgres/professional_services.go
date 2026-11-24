@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/domain"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/infrastructure/sqlcgen"
 )
@@ -57,4 +58,16 @@ func (t *txStore) ReplaceProfessionalServices(ctx context.Context, businessID, p
 		}
 	}
 	return nil
+}
+
+func (t *txStore) ActiveAssignmentsIn(ctx context.Context, businessIDs []uuid.UUID) ([]application.Assignment, error) {
+	rows, err := t.q.ActiveAssignmentsIn(ctx, businessIDs)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]application.Assignment, len(rows))
+	for i, r := range rows {
+		out[i] = application.Assignment{BusinessID: r.BusinessID, ServiceID: r.ServiceID, ProfessionalID: r.ProfessionalID}
+	}
+	return out, nil
 }

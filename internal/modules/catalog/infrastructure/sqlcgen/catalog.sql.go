@@ -12,6 +12,41 @@ import (
 	"github.com/google/uuid"
 )
 
+const activeAssignmentsIn = `-- name: ActiveAssignmentsIn :many
+
+SELECT sp.business_id, sp.service_id, sp.professional_id
+FROM service_professionals sp
+JOIN services s ON s.business_id = sp.business_id AND s.id = sp.service_id
+WHERE sp.business_id = ANY($1::uuid[]) AND s.status = 'ACTIVE'
+`
+
+type ActiveAssignmentsInRow struct {
+	BusinessID     uuid.UUID
+	ServiceID      uuid.UUID
+	ProfessionalID uuid.UUID
+}
+
+// Public view (T5.7): assignments of ACTIVE services in several businesses.
+func (q *Queries) ActiveAssignmentsIn(ctx context.Context, businessIds []uuid.UUID) ([]ActiveAssignmentsInRow, error) {
+	rows, err := q.db.Query(ctx, activeAssignmentsIn, businessIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ActiveAssignmentsInRow{}
+	for rows.Next() {
+		var i ActiveAssignmentsInRow
+		if err := rows.Scan(&i.BusinessID, &i.ServiceID, &i.ProfessionalID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const categoryByID = `-- name: CategoryByID :one
 SELECT id, business_id, name, status, sort_order, created_at, updated_at
 FROM service_categories

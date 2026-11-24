@@ -67,11 +67,13 @@ func newGeoServer(t *testing.T) geoEnv {
 	subs := subapp.NewService(e.subs, e.identity, clk)
 	biz := bizapp.NewService(bizapp.Deps{Store: e.biz, Authz: e.identity, Members: e.identity, Owners: e.identity, Trials: subs, Summaries: subs, Entitlements: subs, Places: geo, Clock: clk})
 	profs := profapp.NewService(proftest.NewStore(), e.identity, clk)
+	cat := catapp.NewService(catalogtest.NewStore(), e.identity, biz, profs, clk)
+	LinkPublicCatalog(biz, cat, profs, biz)
 	e.modules = []RouteRegistrar{
 		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),
 		subscriptionshttp.New(subs, logger, idh.RequireAuth),
 		professionalshttp.New(profs, logger, idh.RequireAuth),
-		cataloghttp.New(catapp.NewService(catalogtest.NewStore(), e.identity, biz, profs, clk), logger, idh.RequireAuth),
+		cataloghttp.New(cat, logger, idh.RequireAuth),
 	}
 	e.srv = httptest.NewServer(NewHTTPHandler(cfg, logger, Deps{Modules: e.modules}))
 	t.Cleanup(e.srv.Close)

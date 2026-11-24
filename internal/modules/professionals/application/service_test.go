@@ -195,3 +195,24 @@ func TestIsProfessionalOf(t *testing.T) {
 		t.Errorf("another business: %v %v", ok, err)
 	}
 }
+
+func TestBookableProfessionals(t *testing.T) {
+	ctx := context.Background()
+	e := newEnv(t)
+	juan, _ := e.svc.Create(ctx, e.owner, e.biz, application.CreateInput{Email: "barbero@example.com", DisplayName: "Juan", SortOrder: ptr(2)})
+	ana, _ := e.svc.Create(ctx, e.owner, e.biz, application.CreateInput{Email: "ana@example.com", DisplayName: "Ana", Bio: "Color"})
+	otro, _ := e.svc.Create(ctx, e.owner, e.biz, application.CreateInput{Email: "otro@example.com", DisplayName: "Otro"})
+	_, _ = e.svc.Update(ctx, e.owner, e.biz, otro.ID, application.UpdateInput{Status: ptr("INACTIVE")})
+	e.identity.Remove(e.biz, juan.UserID) // left the business
+
+	got, err := e.svc.BookableProfessionals(ctx, []uuid.UUID{e.biz, uuid.Must(uuid.NewV7())})
+	if err != nil || len(got) != 1 || len(got[e.biz]) != 1 {
+		t.Fatalf("bookable = %+v %v", got, err)
+	}
+	if p := got[e.biz][0]; p.ID != ana.ID || p.DisplayName != "Ana" || p.Bio != "Color" || p.BusinessID != e.biz {
+		t.Errorf("public professional = %+v", p)
+	}
+	if got, err := e.svc.BookableProfessionals(ctx, nil); err != nil || len(got) != 0 {
+		t.Errorf("no ids: %v %v", got, err)
+	}
+}
