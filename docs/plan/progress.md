@@ -466,6 +466,18 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 4 · T4.4 — Gestión del negocio
+
+- **Previo:** PR #35 (T4.3b) → `qa`: 6/6 ✅, `d69023f`, desplegado (migración 7; job de
+  vencimiento ejecutado al arrancar el worker); E2E en QA **74/74**.
+- **Estado:** ✅ en `feature/t4.4-business-management` (commit y push; PR pendiente).
+- **Archivos:** identity `RequireBusinessRole` (PLATFORM_ADMIN en cualquier negocio, ADR-0018),
+  businesses `domain.Apply` (actualización parcial validada con campos cambiados),
+  `application/manage.go` (`GetManaged`, `UpdateBusiness`), `interfaces/http/manage.go`,
+  subscriptions contract `Summaries`, wiring, OpenAPI (2 operaciones), pruebas, E2E.
+- **Problemas:** un nombre de prueba basado en el prefijo temporal de UUIDv7 repetía valores
+  (falso fallo) → nombres fijos.
+
 ## 2026-11-24 · Fase 4 · T4.3b — Alta autoservicio con demo de 7 días (ADR-0018)
 
 - **Previo:** PR #34 (T4.3) → `qa`: 6/6 ✅, `c2c3d77`, desplegado; E2E en QA **70/70** con la

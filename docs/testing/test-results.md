@@ -604,3 +604,24 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `tests/security` | ✅ | Autoservicio y 3 rutas admin de suscripción en la matriz de credenciales inválidas; no admin → 403; 6 campos controlados por el servidor (`ownerEmail`, status, slug, subscription, trialEndsAt, currency) → 400; quien llama queda OWNER de ese negocio; segunda → 409 |
 | `task check` / `sqlc:check` / `shellcheck` / `secrets` / unitarias + integración completas | ✅ | govulncheck reintentado por DNS local |
 | Despliegue y E2E en QA | ⏳ | Tras el merge |
+
+## 2026-11-24 · Fase 4 · T4.3b — CI, despliegue y E2E
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| PR #35 — ci + security | ✅ 6/6 | Squash `d69023f`; `release-qa` ✅; migración 7 (1 suscripción `TRIALING` creada para el negocio existente) |
+| Job `subscriptions.expire_trials` en QA | ✅ | `completed` al arrancar el worker (`RunOnStart`) |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **74/74** | Autoservicio 201 `ACTIVE`; segunda 409 `ALREADY_OWNER` |
+
+## 2026-11-24 · Fase 4 · T4.4 — Gestión del negocio
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestPlatformAdminActsOnAnyBusiness` (identity) | ✅ | Admin pasa los 3 conjuntos de roles en cualquier negocio sin auditoría de denegación; sin la marca → 404 |
+| `TestApplyUpdate` (domain) | ✅ | Cambios parciales con lista de campos; mismo valor = sin cambio ni nueva fecha; inválido no modifica; cambio de país rechazado; coordenadas iguales con otro puntero = sin cambio. Domain **95,1 %** |
+| `manage_test.go` (application) | ✅ | Ver: OWNER/MANAGER/PROFESSIONAL/admin sí; otro negocio y sin membresía → 404. Editar: MANAGER/PROFESSIONAL → 403, ajenos → 404, OWNER y admin sí (auditoría con el admin como actor); teléfono, descripción, traslado Cali→Medellín (división y zona), quitar coordenadas, política y recordatorios parciales; no-op sin auditoría; 7 errores de campo a la vez; ciudad de otro país/inactiva/desconocida. Application **89 %** |
+| `TestContractBusinessManagement` | ✅ | GET/PATCH contra OpenAPI: 200/400/401/403/404, `coordinates: null` |
+| `tests/security` `TestBusinessManagementIsTenantScoped` | ✅ | Negocio ajeno (GET y PATCH) → 404 **idéntico** al de un negocio inexistente y sin cambios; MANAGER lee pero no edita; slug/status/currency/timeZone/countryCode/id → 400; admin edita cualquier negocio; 2 rutas nuevas en la matriz de credenciales inválidas |
+| `TestSelfServiceOnboardingOnPostgres` (ampliada) | ✅ | Dueño traslada a Medellín → `division_id` de Antioquia en BD; vista con demo; extraño → 404; auditoría `business.updated` con `fields=location` |
+| `task check` / `sqlc:check` / `shellcheck` / `secrets` / unitarias + integración completas | ✅ | govulncheck reintentado por DNS local |
+| Despliegue y E2E en QA | ⏳ | Tras el merge |

@@ -13,6 +13,7 @@ import (
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/domain"
 	geography "github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/contract"
 	identity "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
+	subscriptions "github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/audit"
 )
 
@@ -156,12 +157,34 @@ func (m *Members) AddMember(_ context.Context, _ identity.Principal, businessID 
 	return uuid.Must(uuid.NewV7()), nil
 }
 
-// Authorizer allows principals flagged IsPlatformAdmin.
-type Authorizer struct{}
+// Authorizer allows principals flagged IsPlatformAdmin, and business roles from Memberships
+// (user → memberships), mirroring the identity authorizer.
+type Authorizer struct {
+	Memberships map[uuid.UUID][]identity.Membership
+}
 
 // RequirePlatformAdmin implements application.Authorizer.
 func (Authorizer) RequirePlatformAdmin(_ context.Context, p identity.Principal) error {
 	return identity.CheckPlatformAdmin(p)
+}
+
+// RequireBusinessRole implements application.Authorizer.
+func (a Authorizer) RequireBusinessRole(_ context.Context, p identity.Principal, businessID uuid.UUID, allowed ...identity.Role) (identity.Role, error) {
+	if identity.CheckPlatformAdmin(p) == nil && businessID != uuid.Nil {
+		return identity.RoleOwner, nil
+	}
+	return identity.CheckBusinessRole(a.Memberships[p.UserID], businessID, allowed...)
+}
+
+// Summaries returns a fixed subscription summary for every business.
+type Summaries struct {
+	Summary subscriptions.Summary
+	Err     error
+}
+
+// SummaryOf implements subscriptions contract Summaries.
+func (s Summaries) SummaryOf(context.Context, uuid.UUID) (subscriptions.Summary, error) {
+	return s.Summary, s.Err
 }
 
 // Owners records self-service ownership claims; a second claim by the same user fails like the

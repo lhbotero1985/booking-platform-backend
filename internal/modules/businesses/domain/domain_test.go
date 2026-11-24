@@ -232,3 +232,60 @@ func TestNewBusinessInvariants(t *testing.T) {
 		t.Error("rehydrating an invalid row must fail")
 	}
 }
+
+func TestApplyUpdate(t *testing.T) {
+	b, err := NewBusiness(validParams())
+	if err != nil {
+		t.Fatal(err)
+	}
+	later := b.CreatedAt().Add(time.Hour)
+	name, phone := "Barbería Nueva", "+576024861234"
+	loc := b.Location()
+	loc.CityID, loc.DivisionID, loc.AddressLine, loc.Coordinates = uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7()), "Cra 70 # 1-1", nil
+	tz := "America/Bogota"
+	pol := b.Policy()
+	pol.SlotIntervalMinutes = 15
+	rem := Reminders{Enabled: false, HoursBefore: 2}
+
+	changed, err := b.Apply(Update{Name: &name, ContactPhone: &phone, Location: &loc, TimeZone: &tz, Policy: &pol, Reminders: &rem}, later)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"name", "contactPhone", "location", "bookingPolicy", "reminders"} // timeZone unchanged
+	if strings.Join(changed, ",") != strings.Join(want, ",") {
+		t.Errorf("changed = %v, want %v", changed, want)
+	}
+	if b.Name() != name || b.Location().Coordinates != nil || b.Policy().SlotIntervalMinutes != 15 || !b.UpdatedAt().Equal(later) {
+		t.Errorf("after apply: %+v", b)
+	}
+
+	// Same values: no change, no new timestamp.
+	if changed, err := b.Apply(Update{Name: &name, Location: &loc}, later.Add(time.Hour)); err != nil || len(changed) != 0 || !b.UpdatedAt().Equal(later) {
+		t.Errorf("no-op: %v %v %v", changed, err, b.UpdatedAt())
+	}
+	// Invalid results leave the business untouched.
+	bad := "x"
+	if _, err := b.Apply(Update{Name: &bad}, later); !errors.Is(err, ErrInvalidName) || b.Name() != name {
+		t.Errorf("invalid name: %v, name %q", err, b.Name())
+	}
+	other := loc
+	other.CountryCode = "MX"
+	if _, err := b.Apply(Update{Location: &other}, later); !errors.Is(err, ErrInvalidLocation) {
+		t.Errorf("moving country: %v", err)
+	}
+	badPol := pol
+	badPol.BufferMinutes = 90
+	if _, err := b.Apply(Update{Policy: &badPol, Name: &name}, later); !errors.Is(err, ErrInvalidPolicy) || b.Policy().BufferMinutes == 90 {
+		t.Errorf("invalid policy: %v", err)
+	}
+	withCoords := loc
+	withCoords.Coordinates = &Coordinates{Lat: 6.2, Lng: -75.5}
+	if changed, _ := b.Apply(Update{Location: &withCoords}, later); len(changed) != 1 || b.Location().Coordinates == nil {
+		t.Errorf("adding coordinates: %v", changed)
+	}
+	sameCoords := withCoords
+	sameCoords.Coordinates = &Coordinates{Lat: 6.2, Lng: -75.5}
+	if changed, _ := b.Apply(Update{Location: &sameCoords}, later); len(changed) != 0 {
+		t.Errorf("equal coordinates (other pointer) reported as a change: %v", changed)
+	}
+}

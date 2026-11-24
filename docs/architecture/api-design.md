@@ -51,6 +51,11 @@ por cuenta, 409 `ALREADY_OWNER`; límite estricto por cliente).
 `GET /admin/businesses/{id}/subscription`, `POST /admin/businesses/{id}/subscription/extend-trial`
 (`days` 1–90), `POST /admin/businesses/{id}/subscription/activate` (cortesía hasta la Fase 11B).
 
+### Gestión del negocio (T4.4)
+`GET /business/{businessId}` (OWNER, MANAGER, PROFESSIONAL, PLATFORM_ADMIN): negocio + resumen
+de su suscripción. `PATCH /business/{businessId}` (OWNER, PLATFORM_ADMIN; MANAGER 403): datos,
+ubicación, política de reservas y recordatorios. Otro negocio → 404 idéntico a inexistente.
+
 ### Descubrimiento (cliente)
 | Método | Ruta |
 |---|---|

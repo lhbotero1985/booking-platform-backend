@@ -992,6 +992,78 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/business/{businessId}:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Businesses]
+      operationId: getManagedBusiness
+      summary: Your business (staff)
+      description: |
+        For its OWNER, MANAGER and PROFESSIONAL (and PLATFORM_ADMIN): the business and its
+        subscription (demo end, whether it is visible). Another business answers 404, identical
+        to a business that does not exist.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The business and its subscription.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedBusiness"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Businesses]
+      operationId: updateManagedBusiness
+      summary: Update your business (OWNER)
+      description: |
+        OWNER and PLATFORM_ADMIN (MANAGER: 403). Only the fields present change; `coordinates:
+        null` removes them. Moving to another city of the same country also takes that city's
+        time zone (another country: `CITY_OTHER_COUNTRY`, the currency belongs to the country).
+        Slug, status and currency are not editable here. Audited with the changed fields.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBusinessRequest"
+      responses:
+        "200":
+          description: The updated business.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Business"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
 components:
   parameters:
     CountryCode:
@@ -1683,6 +1755,80 @@ components:
           type: integer
           minimum: 1
           maximum: 90
+
+    SubscriptionSummary:
+      type: object
+      additionalProperties: false
+      required: [status, trialEndsAt, entitled]
+      properties:
+        status:
+          type: string
+          enum: [TRIALING, ACTIVE, PAST_DUE, EXPIRED, CANCELED, ""]
+        trialEndsAt:
+          type: [string, "null"]
+          format: date-time
+        entitled:
+          type: boolean
+
+    ManagedBusiness:
+      type: object
+      additionalProperties: false
+      required: [business, subscription]
+      properties:
+        business:
+          $ref: "#/components/schemas/Business"
+        subscription:
+          $ref: "#/components/schemas/SubscriptionSummary"
+
+    UpdateBusinessRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        contactPhone:
+          type: string
+        description:
+          type: string
+          maxLength: 1000
+        cityId:
+          type: string
+          format: uuid
+        addressLine:
+          type: string
+          maxLength: 200
+        coordinates:
+          oneOf:
+            - $ref: "#/components/schemas/Coordinates"
+            - type: "null"
+        bookingPolicy:
+          type: object
+          additionalProperties: false
+          properties:
+            slotIntervalMinutes:
+              type: integer
+              enum: [5, 10, 15, 20]
+            bufferMinutes:
+              type: integer
+            minLeadMinutes:
+              type: integer
+            maxAdvanceDays:
+              type: integer
+            cancellationCutoffHours:
+              type: integer
+            rescheduleCutoffHours:
+              type: integer
+            requireCustomerConfirmation:
+              type: boolean
+        reminders:
+          type: object
+          additionalProperties: false
+          properties:
+            enabled:
+              type: boolean
+            hoursBefore:
+              type: integer
 
   responses:
     Unauthorized:

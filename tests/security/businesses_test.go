@@ -10,8 +10,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/application/geotest"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application"
+	identitycontract "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 )
 
 func TestBusinessOnboardingRequiresPlatformAdmin(t *testing.T) {
@@ -112,3 +115,71 @@ func TestSelfServiceOnboardingRules(t *testing.T) {
 		t.Errorf("second business: %d %s (businesses %d)", r.status, r.body, h.biz.Count())
 	}
 }
+
+// TestBusinessManagementIsTenantScoped (T4.4, ADR-0007): another business is a 404 byte-for-byte
+// identical to a business that does not exist; MANAGER reads but cannot edit; non-editable
+// fields are rejected; PLATFORM_ADMIN can act on any business.
+func TestBusinessManagementIsTenantScoped(t *testing.T) {
+	h := startAuth(t)
+	for _, email := range []string{suiteEmail, "bob@example.com", "gerente@example.com", "admin@example.com"} {
+		h.account(t, email)
+	}
+	ana, bob, gerente, admin := h.bearerToken(t, suiteEmail), h.bearerToken(t, "bob@example.com"), h.bearerToken(t, "gerente@example.com"), h.bearerToken(t, "admin@example.com")
+	if err := h.svc.SetPlatformAdmin(context.Background(), "admin@example.com", true); err != nil {
+		t.Fatal(err)
+	}
+	create := func(tok, name string) string {
+		r := h.call(t, http.MethodPost, "/api/v1/businesses", `{"name":"`+name+`","contactPhone":"3001234567","cityId":"`+geotest.CaliID.String()+`","addressLine":"Calle 1"}`, bearerH(tok))
+		var b struct{ ID string }
+		if r.status != http.StatusCreated || json.Unmarshal([]byte(r.body), &b) != nil {
+			t.Fatalf("create %s: %d %s", name, r.status, r.body)
+		}
+		return b.ID
+	}
+	anaBiz, bobBiz := create(ana, "Barbería Ana"), create(bob, "Barbería Bob")
+	adminP := h.store.User("admin@example.com").ID()
+	if _, err := h.svc.AddMember(context.Background(), identityAdmin(adminP), uuidMust(anaBiz), "gerente@example.com", "MANAGER"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Cross-tenant: Ana on Bob's business == Ana on a business that does not exist.
+	missing := "/api/v1/business/01a20aae-0000-7000-8000-000000000000"
+	for _, method := range []string{http.MethodGet, http.MethodPatch} {
+		body := ""
+		if method == http.MethodPatch {
+			body = `{"name":"Hackeada"}`
+		}
+		cross := h.call(t, method, "/api/v1/business/"+bobBiz, body, bearerH(ana))
+		none := h.call(t, method, missing, body, bearerH(ana))
+		if cross.status != http.StatusNotFound || normalizeReply(t, cross) != normalizeReply(t, none) {
+			t.Errorf("%s other business: %d %s vs nonexistent %d %s", method, cross.status, cross.body, none.status, none.body)
+		}
+	}
+	if b := h.call(t, http.MethodGet, "/api/v1/business/"+bobBiz, "", bearerH(bob)); strings.Contains(b.body, "Hackeada") {
+		t.Error("Bob's business was modified by Ana")
+	}
+
+	// MANAGER reads, cannot edit.
+	if r := h.call(t, http.MethodGet, "/api/v1/business/"+anaBiz, "", bearerH(gerente)); r.status != http.StatusOK {
+		t.Errorf("manager read: %d", r.status)
+	}
+	if r := h.call(t, http.MethodPatch, "/api/v1/business/"+anaBiz, `{"name":"Del Gerente"}`, bearerH(gerente)); r.status != http.StatusForbidden {
+		t.Errorf("manager edit: %d %s", r.status, r.body)
+	}
+	// Non-editable fields.
+	for _, f := range []string{`"slug":"otra"`, `"status":"SUSPENDED"`, `"currency":"USD"`, `"timeZone":"UTC"`, `"countryCode":"PE"`, `"id":"` + bobBiz + `"`} {
+		if r := h.call(t, http.MethodPatch, "/api/v1/business/"+anaBiz, "{"+f+"}", bearerH(ana)); r.status != http.StatusBadRequest {
+			t.Errorf("non-editable %s: %d %s", f, r.status, r.body)
+		}
+	}
+	// PLATFORM_ADMIN acts on any business.
+	if r := h.call(t, http.MethodPatch, "/api/v1/business/"+bobBiz, `{"description":"Revisado por soporte"}`, bearerH(admin)); r.status != http.StatusOK {
+		t.Errorf("admin edit: %d %s", r.status, r.body)
+	}
+}
+
+func identityAdmin(id uuid.UUID) identitycontract.Principal {
+	return identitycontract.Principal{UserID: id, IsPlatformAdmin: true}
+}
+
+func uuidMust(s string) uuid.UUID { return uuid.MustParse(s) }

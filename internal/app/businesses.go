@@ -21,9 +21,15 @@ type IdentityForBusinesses interface {
 // NewBusinessesService wires the businesses use cases with identity (authorization, OWNER
 // membership in the same transaction), geography (city → division, country, time zone,
 // currency) and subscriptions (7-day demo in the same transaction).
-func NewBusinessesService(pool *pgxpool.Pool, identity IdentityForBusinesses, places geocontract.Places, trials subscriptionscontract.Trials) *application.Service {
+func NewBusinessesService(pool *pgxpool.Pool, identity IdentityForBusinesses, places geocontract.Places, subs SubscriptionsForBusinesses) *application.Service {
 	return application.NewService(application.Deps{
-		Store: postgres.NewStore(pool), Authz: identity, Members: identity, Owners: identity, Trials: trials,
-		Places: places, Clock: clock.System{},
+		Store: postgres.NewStore(pool), Authz: identity, Members: identity, Owners: identity, Trials: subs,
+		Summaries: subs, Places: places, Clock: clock.System{},
 	})
+}
+
+// SubscriptionsForBusinesses is what the businesses module needs from subscriptions.
+type SubscriptionsForBusinesses interface {
+	subscriptionscontract.Trials
+	subscriptionscontract.Summaries
 }

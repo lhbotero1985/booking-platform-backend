@@ -257,3 +257,60 @@ func (b *Business) CreatedAt() time.Time { return b.createdAt }
 
 // UpdatedAt is the last change.
 func (b *Business) UpdatedAt() time.Time { return b.updatedAt }
+
+// Update is a partial change of a business (nil = unchanged). Location and TimeZone change
+// together (moving to another city takes its time zone). Coordinates within Location may be
+// nil to remove them. Slug, status, currency and country are not part of it.
+type Update struct {
+	Name         *string
+	ContactPhone *string // E.164, already parsed
+	Description  *string
+	Location     *Location
+	TimeZone     *string
+	Policy       *BookingPolicy
+	Reminders    *Reminders
+}
+
+// Apply validates and applies u at now. It returns the names of the fields that actually
+// changed (in a fixed order, for auditing); nothing changes if the result would be invalid.
+func (b *Business) Apply(u Update, now time.Time) ([]string, error) {
+	next := *b
+	var changed []string
+	set := func(cond bool, field string, apply func()) {
+		if cond {
+			apply()
+			changed = append(changed, field)
+		}
+	}
+	set(u.Name != nil && *u.Name != b.name, "name", func() { next.name = *u.Name })
+	set(u.ContactPhone != nil && *u.ContactPhone != b.contactPhone, "contactPhone", func() { next.contactPhone = *u.ContactPhone })
+	set(u.Description != nil && *u.Description != b.description, "description", func() { next.description = *u.Description })
+	if u.Location != nil {
+		if u.Location.CountryCode != b.location.CountryCode {
+			return nil, ErrInvalidLocation // moving country would change the currency
+		}
+		set(!sameLocation(*u.Location, b.location), "location", func() { next.location = *u.Location })
+	}
+	set(u.TimeZone != nil && *u.TimeZone != b.timeZone, "timeZone", func() { next.timeZone = *u.TimeZone })
+	set(u.Policy != nil && *u.Policy != b.policy, "bookingPolicy", func() { next.policy = *u.Policy })
+	set(u.Reminders != nil && *u.Reminders != b.reminders, "reminders", func() { next.reminders = *u.Reminders })
+	if len(changed) == 0 {
+		return nil, nil
+	}
+	if err := next.validate(); err != nil {
+		return nil, err
+	}
+	next.updatedAt = now
+	*b = next
+	return changed, nil
+}
+
+func sameLocation(a, b Location) bool {
+	if a.CountryCode != b.CountryCode || a.DivisionID != b.DivisionID || a.CityID != b.CityID || a.AddressLine != b.AddressLine {
+		return false
+	}
+	if a.Coordinates == nil || b.Coordinates == nil {
+		return a.Coordinates == nil && b.Coordinates == nil
+	}
+	return *a.Coordinates == *b.Coordinates
+}
