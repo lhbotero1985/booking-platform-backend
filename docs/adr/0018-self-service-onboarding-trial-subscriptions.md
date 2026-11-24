@@ -30,9 +30,10 @@ que un vencimiento de pago y una suspensión por abuso se pisen.
   membresía OWNER + suscripción `TRIALING` con `trial_ends_at = ahora + 7 días`, todo en una
   transacción (`db.ContextWithTx`). Límite: **una demo por cuenta** (si ya es OWNER de un negocio,
   debe pedir otro al soporte). Límite de peticiones estricto y auditoría.
-- **Administrador (T4.3):** sigue disponible; nace `PENDING_REVIEW` y también con suscripción
-  `TRIALING`. El administrador puede extender la demo o marcarla `ACTIVE` (cortesía) hasta que
-  existan pagos.
+- **Administrador (T4.3, opción de soporte):** puede crear un negocio a nombre de un dueño; nace
+  igual que el autoservicio, `ACTIVE` con demo `TRIALING` (decisión del usuario 2026-11-24: el
+  administrador no tiene que activar nada). El administrador puede suspender/reactivar, extender
+  la demo o marcarla `ACTIVE` (cortesía) hasta que existan pagos.
 - Para no mostrar barberías vacías, la búsqueda pública (T4.6/Fase 5) exige al menos un servicio
   activo.
 

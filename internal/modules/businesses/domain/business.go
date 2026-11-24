@@ -9,8 +9,9 @@ import (
 // Status is the lifecycle state of a business (matches businesses_status_valid).
 type Status string
 
-// Statuses. Businesses are created by PLATFORM_ADMIN (P10); PENDING_REVIEW is kept for a
-// future self-registration flow.
+// Statuses. Every new business starts ACTIVE with a 7-day demo (ADR-0018), whether its owner or
+// an administrator creates it; SUSPENDED is the administrator's moderation. PENDING_REVIEW is
+// kept in the schema but no flow uses it today.
 const (
 	StatusPendingReview Status = "PENDING_REVIEW"
 	StatusActive        Status = "ACTIVE"

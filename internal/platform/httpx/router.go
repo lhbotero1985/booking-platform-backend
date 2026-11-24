@@ -5,7 +5,8 @@ import "net/http"
 // Router is a thin wrapper over http.ServeMux whose 404 and 405 responses are RFC 9457
 // problems instead of plain text.
 type Router struct {
-	mux *http.ServeMux
+	mux      *http.ServeMux
+	patterns []string
 }
 
 // NewRouter returns an empty router.
@@ -16,11 +17,19 @@ func NewRouter() *Router {
 // Handle registers h for a ServeMux pattern such as "GET /healthz".
 func (rt *Router) Handle(pattern string, h http.Handler) {
 	rt.mux.Handle(pattern, h)
+	rt.patterns = append(rt.patterns, pattern)
 }
 
 // HandleFunc registers f for a ServeMux pattern.
 func (rt *Router) HandleFunc(pattern string, f http.HandlerFunc) {
 	rt.mux.HandleFunc(pattern, f)
+	rt.patterns = append(rt.patterns, pattern)
+}
+
+// Patterns returns the registered patterns ("GET /healthz", …) in registration order, so tests
+// can check that every route is documented in the OpenAPI contract.
+func (rt *Router) Patterns() []string {
+	return append([]string(nil), rt.patterns...)
 }
 
 func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {

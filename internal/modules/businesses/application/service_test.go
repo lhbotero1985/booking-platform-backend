@@ -80,8 +80,8 @@ func TestCreateBusiness(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if b.Status() != domain.StatusPendingReview || b.IsBookable() {
-		t.Errorf("new business must start PENDING_REVIEW, got %s", b.Status())
+	if b.Status() != domain.StatusActive || !b.IsBookable() {
+		t.Errorf("a business created by the administrator must start ACTIVE (no activation step), got %s", b.Status())
 	}
 	if b.Slug() != "barberia-el-paisa" || b.ContactPhone() != "+573001234567" || b.TimeZone() != "America/Bogota" ||
 		b.Currency() != "COP" || b.Location().DivisionID != valle || b.Location().Coordinates == nil || b.ID().Version() != 7 {
@@ -201,25 +201,31 @@ func TestActivateSuspendAndList(t *testing.T) {
 	e := newEnv()
 	b, _ := e.svc.CreateBusiness(ctx, admin, validInput())
 
-	got, err := e.svc.ActivateBusiness(ctx, admin, b.ID())
-	if err != nil || got.Status() != domain.StatusActive {
-		t.Fatalf("activate: %v %v", got, err)
+	got, err := e.svc.SuspendBusiness(ctx, admin, b.ID())
+	if err != nil || got.Status() != domain.StatusSuspended {
+		t.Fatalf("suspend: %v %v", got, err)
+	}
+	if _, err := e.svc.SuspendBusiness(ctx, admin, b.ID()); err != nil { // idempotent
+		t.Fatal(err)
+	}
+	if got, err = e.svc.ActivateBusiness(ctx, admin, b.ID()); err != nil || got.Status() != domain.StatusActive {
+		t.Fatalf("reactivate: %v %v", got, err)
 	}
 	if _, err := e.svc.ActivateBusiness(ctx, admin, b.ID()); err != nil { // idempotent
 		t.Fatal(err)
 	}
-	if got, err = e.svc.SuspendBusiness(ctx, admin, b.ID()); err != nil || got.Status() != domain.StatusSuspended {
-		t.Fatalf("suspend: %v %v", got, err)
-	}
-	want := []string{application.AuditBusinessCreated, application.AuditBusinessActivated, application.AuditBusinessSuspended}
+	want := []string{application.AuditBusinessCreated, application.AuditBusinessSuspended, application.AuditBusinessActivated}
 	if got := e.store.AuditActions(); !reflect.DeepEqual(got, want) {
-		t.Errorf("audit = %v, want %v (idempotent activation not audited)", got, want)
+		t.Errorf("audit = %v, want %v (idempotent calls not audited)", got, want)
 	}
 	if _, err := e.svc.ActivateBusiness(ctx, admin, uuid.Must(uuid.NewV7())); !errors.Is(err, application.ErrNotFound) {
 		t.Errorf("unknown business: %v", err)
 	}
 
-	// The location became inactive: activation refused.
+	// Suspended while its location became inactive: reactivation refused.
+	if _, err := e.svc.SuspendBusiness(ctx, admin, b.ID()); err != nil {
+		t.Fatal(err)
+	}
 	e.places[cali] = geography.Place{CityID: cali, DivisionID: valle, CountryCode: "CO", TimeZone: "America/Bogota", Currency: "COP", Active: false}
 	if _, err := e.svc.ActivateBusiness(ctx, admin, b.ID()); !errors.Is(err, application.ErrLocationInactive) {
 		t.Errorf("activation with inactive location: %v", err)
@@ -247,10 +253,10 @@ func TestActivateSuspendAndList(t *testing.T) {
 	if seen != 5 {
 		t.Errorf("paged through %d businesses, want 5", seen)
 	}
-	pending, _, _ := e.svc.ListBusinesses(ctx, admin, "PENDING_REVIEW", uuid.Nil, uuid.Nil, 0)
+	active, _, _ := e.svc.ListBusinesses(ctx, admin, "ACTIVE", uuid.Nil, uuid.Nil, 0)
 	suspended, _, _ := e.svc.ListBusinesses(ctx, admin, "SUSPENDED", cali, uuid.Nil, 0)
-	if len(pending) != 4 || len(suspended) != 1 {
-		t.Errorf("filters: pending %d (want 4), suspended %d (want 1)", len(pending), len(suspended))
+	if len(active) != 4 || len(suspended) != 1 {
+		t.Errorf("filters: active %d (want 4), suspended %d (want 1)", len(active), len(suspended))
 	}
 	if _, _, err := e.svc.ListBusinesses(ctx, admin, "DELETED", uuid.Nil, uuid.Nil, 0); fieldCodes(t, err)["status"] != application.CodeInvalidStatus {
 		t.Errorf("invalid status filter: %v", err)

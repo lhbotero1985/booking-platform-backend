@@ -66,7 +66,7 @@ func TestBusinessOnboardingOnPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if b.Status() != domain.StatusPendingReview || b.Location().DivisionID != valle || b.Currency() != "COP" {
+	if b.Status() != domain.StatusActive || b.Location().DivisionID != valle || b.Currency() != "COP" {
 		t.Errorf("business = %+v", b)
 	}
 	if n := count(t, pool, `SELECT count(*) FROM memberships WHERE business_id = $1 AND user_id = $2 AND role = 'OWNER' AND status = 'ACTIVE'`, b.ID(), ownerID); n != 1 {

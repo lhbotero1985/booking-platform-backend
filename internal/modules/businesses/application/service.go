@@ -135,9 +135,10 @@ type CreateInput struct {
 // maxInsertAttempts retries when a concurrent creation takes the allocated slug.
 const maxInsertAttempts = 3
 
-// CreateBusiness creates a business in PENDING_REVIEW (invisible until activated, decision of
-// 2026-11-24) with a 7-day demo, and makes the account with OwnerEmail its OWNER
-// (PLATFORM_ADMIN). Business, membership, subscription and audit entries commit atomically.
+// CreateBusiness is the support path (PLATFORM_ADMIN) to create a business on behalf of an
+// owner: like self-service it is ACTIVE at once with a 7-day demo, so the administrator never
+// has to activate anything (decision of 2026-11-24); the account with OwnerEmail becomes its
+// OWNER. Business, membership, subscription and audit entries commit atomically.
 func (s *Service) CreateBusiness(ctx context.Context, p identity.Principal, in CreateInput) (*domain.Business, error) {
 	if err := s.authz.RequirePlatformAdmin(ctx, p); err != nil {
 		return nil, err
@@ -150,7 +151,7 @@ func (s *Service) CreateBusiness(ctx context.Context, p identity.Principal, in C
 	if err != nil {
 		return nil, err
 	}
-	return s.create(ctx, p, v, domain.StatusPendingReview, "admin", func(ctx context.Context, businessID uuid.UUID) error {
+	return s.create(ctx, p, v, domain.StatusActive, "admin", func(ctx context.Context, businessID uuid.UUID) error {
 		if _, err := s.members.AddMember(ctx, p, businessID, in.OwnerEmail, identity.RoleOwner); err != nil {
 			if errors.Is(err, identity.ErrAccountNotEligible) {
 				return invalid("ownerEmail", CodeAccountNotEligible)

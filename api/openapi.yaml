@@ -37,13 +37,11 @@ tags:
       deactivated (409 `IN_USE`).
   - name: Businesses
     description: |
-      Businesses (tenants). Onboarding is done by `PLATFORM_ADMIN` (403 `FORBIDDEN` otherwise):
-      a new business starts `PENDING_REVIEW` (not visible to customers) with its OWNER, an
-      existing verified account; the administrator activates it when it is ready. Time zone and
-      currency come from the city and its country.
-
-      Self-service (ADR-0018): a verified account creates its own business, which is `ACTIVE` at
-      once with a 7-day demo; one per account.
+      Businesses (tenants). The normal flow is self-service (ADR-0018): a verified account
+      creates its own business, which is `ACTIVE` at once with a 7-day demo (one per account);
+      the administrator does nothing. As a support option `PLATFORM_ADMIN` may create a business
+      on behalf of an existing verified owner, also `ACTIVE` with a demo. Time zone and currency
+      come from the city and its country. `SUSPENDED` is the administrator's moderation.
   - name: Subscriptions
     description: |
       The right to use the service, separate from the business status (ADR-0018). A business is
@@ -691,8 +689,8 @@ paths:
       operationId: createBusiness
       summary: Create a business with its OWNER (PLATFORM_ADMIN)
       description: |
-        The business starts `PENDING_REVIEW`. The slug is derived from the name (`-2`, `-3`… on
-        collision). Business, OWNER membership and audit entries are created atomically.
+        Support option: the business starts `ACTIVE` with a 7-day demo, like self-service (no
+        activation step). The slug is derived from the name (`-2`, `-3`… on collision). Business, OWNER membership and audit entries are created atomically.
         `ownerEmail` must belong to an active (verified) account (`ACCOUNT_NOT_ELIGIBLE`).
       security:
         - bearerAuth: []
