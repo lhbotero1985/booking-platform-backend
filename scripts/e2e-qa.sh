@@ -175,10 +175,26 @@ check "  code LAST_OWNER" LAST_OWNER "$(json .code)"
 # --- professionals (T5.2): the OWNER adds the barber by email and itself (it also cuts hair) ---
 check "add barber as professional" 201 "$(status POST "/api/v1/business/$mine/professionals" "{\"email\":\"$STAFF\",\"displayName\":\"Barbero E2E\"}" "$T1")"
 check "  bookable" true "$(json .bookable)"
+pbarber=$(json .id)
 check "owner is also a professional" 201 "$(status POST "/api/v1/business/$mine/professionals" "{\"email\":\"$EMAIL\",\"displayName\":\"Dueño E2E\",\"sortOrder\":1}" "$T1")"
+powner=$(json .id)
 check "one profile per account" 409 "$(status POST "/api/v1/business/$mine/professionals" "{\"email\":\"$STAFF\",\"displayName\":\"Otra vez\"}" "$T1")"
 check "list professionals" 2 "$(status GET "/api/v1/business/$mine/professionals" "" "$T1" >/dev/null; json '.items | length')"
 check "barber is a PROFESSIONAL member" PROFESSIONAL "$(status GET "/api/v1/business/$mine/members" "" "$T1" >/dev/null; json "[.items[] | select(.userId==\"$staff\") | .role][0]")"
+
+# --- weekly schedule (T5.3): the OWNER sets it; the barber adjusts his own, not the owner's ---
+week='{"days":[{"weekday":"MONDAY","workingHours":[{"start":"09:00","end":"13:00"},{"start":"14:00","end":"19:00"}],"breaks":[{"start":"11:00","end":"11:15"}]},{"weekday":"SATURDAY","workingHours":[{"start":"08:00","end":"14:00"}]}]}'
+check "owner sets the barber's week" 200 "$(status PUT "/api/v1/business/$mine/professionals/$pbarber/schedule" "$week" "$T1")"
+check "  seven days, Monday first" "7 MONDAY 14:00" "$(json '"\(.days | length) \(.days[0].weekday) \(.days[0].workingHours[1].start)"')"
+check "break outside working hours" 400 "$(status PUT "/api/v1/business/$mine/professionals/$pbarber/schedule" '{"days":[{"weekday":"MONDAY","workingHours":[{"start":"09:00","end":"13:00"}],"breaks":[{"start":"12:30","end":"13:30"}]}]}' "$T1")"
+check "  code BREAK_OUTSIDE_WORKING_HOURS" BREAK_OUTSIDE_WORKING_HOURS "$(json '.errors[0].message')"
+check "barber login" 200 "$(login "$STAFF" "$PW1")"
+TS=$(token)
+check "barber adjusts his own week" 200 "$(status PUT "/api/v1/business/$mine/professionals/$pbarber/schedule" '{"days":[{"weekday":"TUESDAY","workingHours":[{"start":"10:00","end":"20:00"}],"breaks":[{"start":"13:00","end":"14:00"}]}]}' "$TS")"
+check "  monday is now off" "0 1" "$(json '"\(.days[0].workingHours | length) \(.days[1].breaks | length)"')"
+check "barber cannot edit the owner's week" 403 "$(status PUT "/api/v1/business/$mine/professionals/$powner/schedule" "$week" "$TS")"
+check "barber reads the owner's week" 200 "$(status GET "/api/v1/business/$mine/professionals/$powner/schedule" "" "$TS")"
+status POST /api/v1/auth/logout "" "$TS" >/dev/null
 check "  one per account" 409 "$(status POST /api/v1/businesses "$own" "$T1")"
 check "  code ALREADY_OWNER" ALREADY_OWNER "$(json .code)"
 if [[ -n ${ADMIN_EMAIL:-} && -n ${ADMIN_PASSWORD:-} ]]; then

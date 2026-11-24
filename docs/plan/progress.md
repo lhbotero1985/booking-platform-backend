@@ -466,6 +466,21 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 5 · T5.3 — Horario semanal y descansos
+
+- **Previo:** PR #41 (T5.2) → `qa`: CI 6/6 ✅, squash `1c05c0c`, rama borrada. `release-qa`: el
+  primer intento de despliegue falló en el `docker pull` del servidor (`no matching manifest …
+  not found`, justo tras publicar en GHCR; la imagen era un manifiesto simple válido y nada se
+  tocó en el servidor); al relanzar el job ✅ (migración 11). E2E en QA **101/101**.
+- **Decisión del usuario:** el OWNER define franjas y descansos de cada barbero; el barbero
+  puede modificar sus propias franjas, descansos, incapacidades y agendar citas manualmente.
+- **Estado:** ✅ en `feature/t5.3-weekly-schedule` (commit y push; PR pendiente).
+- **Archivos:** migración `00012_professional_schedules.sql`, `domain/schedule.go`,
+  `application/schedule.go`, `postgres/schedule.go`, `http/schedule.go`, queries, proftest,
+  OpenAPI (2 operaciones + 4 esquemas), pruebas de contrato/aislamiento/integración, E2E, docs.
+- **Problemas:** sqlc no admite repetir un parámetro con nombre en la misma consulta →
+  `time '00:00' + make_interval(mins => @x)`.
+
 ## 2026-11-24 · Fase 5 · T5.2 — Profesionales
 
 - **Previo:** PR #40 (T5.1) → `qa`: 6/6 ✅, `a92de2c`, desplegado (migración 10: en QA quedan

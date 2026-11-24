@@ -11,11 +11,19 @@ import (
 )
 
 type Querier interface {
+	BreaksOf(ctx context.Context, arg BreaksOfParams) ([]BreaksOfRow, error)
+	DeleteBreaks(ctx context.Context, arg DeleteBreaksParams) error
+	DeleteWorkingHours(ctx context.Context, arg DeleteWorkingHoursParams) error
+	InsertBreak(ctx context.Context, arg InsertBreakParams) error
 	// Professionals module (T5.2). Every query is scoped by business_id (ADR-0007).
 	InsertProfessional(ctx context.Context, arg InsertProfessionalParams) error
+	InsertWorkingHours(ctx context.Context, arg InsertWorkingHoursParams) error
 	ListProfessionals(ctx context.Context, businessID uuid.UUID) ([]Professional, error)
+	LockProfessional(ctx context.Context, arg LockProfessionalParams) (Professional, error)
 	ProfessionalByID(ctx context.Context, arg ProfessionalByIDParams) (Professional, error)
 	UpdateProfessional(ctx context.Context, arg UpdateProfessionalParams) error
+	// Weekly schedule (T5.3). Minutes since midnight in and out, so Go never handles pgtype.Time.
+	WorkingHoursOf(ctx context.Context, arg WorkingHoursOfParams) ([]WorkingHoursOfRow, error)
 }
 
 var _ Querier = (*Queries)(nil)

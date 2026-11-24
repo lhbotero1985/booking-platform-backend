@@ -1,4 +1,4 @@
-// Package application holds the professionals use cases (T5.2).
+// Package application holds the professionals use cases (T5.2, schedules T5.3).
 //
 // Rules (enforced by depguard): may import domain, the identity contract and platform packages;
 // no HTTP, database drivers or River.
@@ -80,6 +80,7 @@ type Tx interface {
 	ProfessionalByID(ctx context.Context, businessID, id uuid.UUID) (domain.Professional, error)
 	ListProfessionals(ctx context.Context, businessID uuid.UUID) ([]domain.Professional, error)
 	AppendAudit(ctx context.Context, e *audit.Entry) error
+	ScheduleTx
 }
 
 // Identity is what this module needs from the identity contract.

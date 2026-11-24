@@ -1,5 +1,5 @@
 // Package httpapi exposes the professionals endpoints under /api/v1/business/{businessId}
-// (T5.2). The businessId is checked against the caller's memberships on every request; another
+// (T5.2; weekly schedule T5.3). The businessId is checked against the caller's memberships on every request; another
 // business is a 404 identical to a missing one.
 package httpapi
 
@@ -26,6 +26,7 @@ type Service interface {
 	List(ctx context.Context, p contract.Principal, businessID uuid.UUID) ([]application.View, error)
 	Get(ctx context.Context, p contract.Principal, businessID, id uuid.UUID) (application.View, error)
 	Update(ctx context.Context, p contract.Principal, businessID, id uuid.UUID, in application.UpdateInput) (application.View, error)
+	ScheduleService
 }
 
 // Handler serves the professionals endpoints.
@@ -47,6 +48,8 @@ func (h *Handler) Routes(rt *httpx.Router) {
 	rt.Handle("POST /api/v1/business/{businessId}/professionals", auth(h.create))
 	rt.Handle("GET /api/v1/business/{businessId}/professionals/{professionalId}", auth(h.get))
 	rt.Handle("PATCH /api/v1/business/{businessId}/professionals/{professionalId}", auth(h.update))
+	rt.Handle("GET /api/v1/business/{businessId}/professionals/{professionalId}/schedule", auth(h.getSchedule))
+	rt.Handle("PUT /api/v1/business/{businessId}/professionals/{professionalId}/schedule", auth(h.replaceSchedule))
 }
 
 type professionalDTO struct {

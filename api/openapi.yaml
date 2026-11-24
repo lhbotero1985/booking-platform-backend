@@ -1419,6 +1419,86 @@ paths:
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
 
+  /api/v1/business/{businessId}/professionals/{professionalId}/schedule:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: professionalId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Professionals]
+      operationId: getProfessionalSchedule
+      summary: Weekly schedule of a professional (OWNER, PROFESSIONAL)
+      description: |
+        Working ranges and recurring breaks per weekday, in the business's local time (its IANA
+        time zone). Always the seven days, Monday first; a day without working ranges is a day off.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The weekly schedule.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklySchedule"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Professionals]
+      operationId: replaceProfessionalSchedule
+      summary: Replace the weekly schedule (OWNER, or the professional itself)
+      description: |
+        Replaces the whole week in one transaction; omitted days become days off. Rules: times
+        `HH:MM` without crossing midnight, `start < end`, at most 6 working ranges and 6 breaks
+        per day, working ranges of a day do not overlap (touching is allowed), breaks do not
+        overlap and each lies inside a working range. Field errors use paths such as
+        `days[0].breaks[1]` with codes `INVALID_WEEKDAY`, `DUPLICATE_WEEKDAY`, `INVALID_TIME`,
+        `INVALID_RANGE`, `TOO_MANY_RANGES`, `OVERLAPPING_RANGES`, `BREAK_OUTSIDE_WORKING_HOURS`.
+        A PROFESSIONAL may only replace its own schedule (403). Audited.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WeeklyScheduleRequest"
+      responses:
+        "200":
+          description: The schedule now in force.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklySchedule"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
 components:
   parameters:
     CountryCode:
@@ -2375,6 +2455,64 @@ components:
           type: integer
           minimum: 0
           maximum: 1000
+
+    LocalTimeRange:
+      type: object
+      additionalProperties: false
+      required: [start, end]
+      properties:
+        start:
+          type: string
+          pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+          example: "09:00"
+        end:
+          type: string
+          pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+          example: "13:00"
+
+    ScheduleDay:
+      type: object
+      additionalProperties: false
+      required: [weekday]
+      properties:
+        weekday:
+          type: string
+          enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY]
+        workingHours:
+          type: array
+          maxItems: 6
+          items:
+            $ref: "#/components/schemas/LocalTimeRange"
+        breaks:
+          type: array
+          maxItems: 6
+          items:
+            $ref: "#/components/schemas/LocalTimeRange"
+
+    WeeklyScheduleRequest:
+      type: object
+      additionalProperties: false
+      required: [days]
+      properties:
+        days:
+          type: array
+          maxItems: 7
+          items:
+            $ref: "#/components/schemas/ScheduleDay"
+
+    WeeklySchedule:
+      type: object
+      additionalProperties: false
+      required: [days]
+      properties:
+        days:
+          type: array
+          minItems: 7
+          maxItems: 7
+          items:
+            allOf:
+              - $ref: "#/components/schemas/ScheduleDay"
+              - required: [weekday, workingHours, breaks]
 
   responses:
     Unauthorized:

@@ -12,6 +12,101 @@ import (
 	"github.com/google/uuid"
 )
 
+const breaksOf = `-- name: BreaksOf :many
+SELECT weekday, (extract(epoch FROM start_time) / 60)::int AS start_minute,
+       (extract(epoch FROM end_time) / 60)::int AS end_minute
+FROM professional_breaks
+WHERE business_id = $1 AND professional_id = $2
+ORDER BY weekday, start_time
+`
+
+type BreaksOfParams struct {
+	BusinessID     uuid.UUID
+	ProfessionalID uuid.UUID
+}
+
+type BreaksOfRow struct {
+	Weekday     int16
+	StartMinute int32
+	EndMinute   int32
+}
+
+func (q *Queries) BreaksOf(ctx context.Context, arg BreaksOfParams) ([]BreaksOfRow, error) {
+	rows, err := q.db.Query(ctx, breaksOf, arg.BusinessID, arg.ProfessionalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []BreaksOfRow{}
+	for rows.Next() {
+		var i BreaksOfRow
+		if err := rows.Scan(&i.Weekday, &i.StartMinute, &i.EndMinute); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const deleteBreaks = `-- name: DeleteBreaks :exec
+DELETE FROM professional_breaks WHERE business_id = $1 AND professional_id = $2
+`
+
+type DeleteBreaksParams struct {
+	BusinessID     uuid.UUID
+	ProfessionalID uuid.UUID
+}
+
+func (q *Queries) DeleteBreaks(ctx context.Context, arg DeleteBreaksParams) error {
+	_, err := q.db.Exec(ctx, deleteBreaks, arg.BusinessID, arg.ProfessionalID)
+	return err
+}
+
+const deleteWorkingHours = `-- name: DeleteWorkingHours :exec
+DELETE FROM professional_working_hours WHERE business_id = $1 AND professional_id = $2
+`
+
+type DeleteWorkingHoursParams struct {
+	BusinessID     uuid.UUID
+	ProfessionalID uuid.UUID
+}
+
+func (q *Queries) DeleteWorkingHours(ctx context.Context, arg DeleteWorkingHoursParams) error {
+	_, err := q.db.Exec(ctx, deleteWorkingHours, arg.BusinessID, arg.ProfessionalID)
+	return err
+}
+
+const insertBreak = `-- name: InsertBreak :exec
+INSERT INTO professional_breaks (id, business_id, professional_id, weekday, start_time, end_time)
+VALUES ($1, $2, $3, $4,
+        time '00:00' + make_interval(mins => $5::int),
+        time '00:00' + make_interval(mins => $6::int))
+`
+
+type InsertBreakParams struct {
+	ID             uuid.UUID
+	BusinessID     uuid.UUID
+	ProfessionalID uuid.UUID
+	Weekday        int16
+	StartMinute    int32
+	EndMinute      int32
+}
+
+func (q *Queries) InsertBreak(ctx context.Context, arg InsertBreakParams) error {
+	_, err := q.db.Exec(ctx, insertBreak,
+		arg.ID,
+		arg.BusinessID,
+		arg.ProfessionalID,
+		arg.Weekday,
+		arg.StartMinute,
+		arg.EndMinute,
+	)
+	return err
+}
+
 const insertProfessional = `-- name: InsertProfessional :exec
 
 INSERT INTO professionals (id, business_id, user_id, display_name, bio, status, sort_order, created_at, updated_at)
@@ -40,6 +135,34 @@ func (q *Queries) InsertProfessional(ctx context.Context, arg InsertProfessional
 		arg.Status,
 		arg.SortOrder,
 		arg.CreatedAt,
+	)
+	return err
+}
+
+const insertWorkingHours = `-- name: InsertWorkingHours :exec
+INSERT INTO professional_working_hours (id, business_id, professional_id, weekday, start_time, end_time)
+VALUES ($1, $2, $3, $4,
+        time '00:00' + make_interval(mins => $5::int),
+        time '00:00' + make_interval(mins => $6::int))
+`
+
+type InsertWorkingHoursParams struct {
+	ID             uuid.UUID
+	BusinessID     uuid.UUID
+	ProfessionalID uuid.UUID
+	Weekday        int16
+	StartMinute    int32
+	EndMinute      int32
+}
+
+func (q *Queries) InsertWorkingHours(ctx context.Context, arg InsertWorkingHoursParams) error {
+	_, err := q.db.Exec(ctx, insertWorkingHours,
+		arg.ID,
+		arg.BusinessID,
+		arg.ProfessionalID,
+		arg.Weekday,
+		arg.StartMinute,
+		arg.EndMinute,
 	)
 	return err
 }
@@ -79,6 +202,35 @@ func (q *Queries) ListProfessionals(ctx context.Context, businessID uuid.UUID) (
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockProfessional = `-- name: LockProfessional :one
+SELECT id, business_id, user_id, display_name, bio, status, sort_order, created_at, updated_at
+FROM professionals
+WHERE business_id = $1 AND id = $2
+FOR UPDATE
+`
+
+type LockProfessionalParams struct {
+	BusinessID uuid.UUID
+	ID         uuid.UUID
+}
+
+func (q *Queries) LockProfessional(ctx context.Context, arg LockProfessionalParams) (Professional, error) {
+	row := q.db.QueryRow(ctx, lockProfessional, arg.BusinessID, arg.ID)
+	var i Professional
+	err := row.Scan(
+		&i.ID,
+		&i.BusinessID,
+		&i.UserID,
+		&i.DisplayName,
+		&i.Bio,
+		&i.Status,
+		&i.SortOrder,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const professionalByID = `-- name: ProfessionalByID :one
@@ -136,4 +288,45 @@ func (q *Queries) UpdateProfessional(ctx context.Context, arg UpdateProfessional
 		arg.UpdatedAt,
 	)
 	return err
+}
+
+const workingHoursOf = `-- name: WorkingHoursOf :many
+
+SELECT weekday, (extract(epoch FROM start_time) / 60)::int AS start_minute,
+       (extract(epoch FROM end_time) / 60)::int AS end_minute
+FROM professional_working_hours
+WHERE business_id = $1 AND professional_id = $2
+ORDER BY weekday, start_time
+`
+
+type WorkingHoursOfParams struct {
+	BusinessID     uuid.UUID
+	ProfessionalID uuid.UUID
+}
+
+type WorkingHoursOfRow struct {
+	Weekday     int16
+	StartMinute int32
+	EndMinute   int32
+}
+
+// Weekly schedule (T5.3). Minutes since midnight in and out, so Go never handles pgtype.Time.
+func (q *Queries) WorkingHoursOf(ctx context.Context, arg WorkingHoursOfParams) ([]WorkingHoursOfRow, error) {
+	rows, err := q.db.Query(ctx, workingHoursOf, arg.BusinessID, arg.ProfessionalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []WorkingHoursOfRow{}
+	for rows.Next() {
+		var i WorkingHoursOfRow
+		if err := rows.Scan(&i.Weekday, &i.StartMinute, &i.EndMinute); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

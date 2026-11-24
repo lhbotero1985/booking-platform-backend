@@ -16,13 +16,16 @@ import (
 
 // Store is an in-memory application.Store: changes commit only when fn succeeds.
 type Store struct {
-	mu    sync.Mutex
-	profs map[uuid.UUID]domain.Professional
-	Audit []audit.Entry
+	mu        sync.Mutex
+	profs     map[uuid.UUID]domain.Professional
+	schedules map[uuid.UUID]domain.WeeklySchedule
+	Audit     []audit.Entry
 }
 
 // NewStore returns an empty store.
-func NewStore() *Store { return &Store{profs: map[uuid.UUID]domain.Professional{}} }
+func NewStore() *Store {
+	return &Store{profs: map[uuid.UUID]domain.Professional{}, schedules: map[uuid.UUID]domain.WeeklySchedule{}}
+}
 
 // AuditActions lists the audited actions in order.
 func (s *Store) AuditActions() []string {
@@ -46,21 +49,47 @@ func (s *Store) Count() int {
 func (s *Store) WithinTx(ctx context.Context, fn func(context.Context, application.Tx) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	t := &tx{profs: make(map[uuid.UUID]domain.Professional, len(s.profs))}
+	t := &tx{profs: make(map[uuid.UUID]domain.Professional, len(s.profs)), schedules: make(map[uuid.UUID]domain.WeeklySchedule, len(s.schedules))}
 	for k, v := range s.profs {
 		t.profs[k] = v
+	}
+	for k, v := range s.schedules {
+		t.schedules[k] = v
 	}
 	if err := fn(ctx, t); err != nil {
 		return err
 	}
-	s.profs = t.profs
+	s.profs, s.schedules = t.profs, t.schedules
 	s.Audit = append(s.Audit, t.audit...)
 	return nil
 }
 
 type tx struct {
-	profs map[uuid.UUID]domain.Professional
-	audit []audit.Entry
+	profs     map[uuid.UUID]domain.Professional
+	schedules map[uuid.UUID]domain.WeeklySchedule
+	audit     []audit.Entry
+}
+
+func (t *tx) LockProfessional(ctx context.Context, businessID, id uuid.UUID) (domain.Professional, error) {
+	return t.ProfessionalByID(ctx, businessID, id) // the store mutex already serializes transactions
+}
+
+func (t *tx) WeeklySchedule(_ context.Context, businessID, id uuid.UUID) (domain.WeeklySchedule, error) {
+	if p, ok := t.profs[id]; !ok || p.BusinessID != businessID {
+		return domain.EmptyWeek(), nil
+	}
+	if w, ok := t.schedules[id]; ok {
+		return w, nil
+	}
+	return domain.EmptyWeek(), nil
+}
+
+func (t *tx) ReplaceWeeklySchedule(_ context.Context, businessID, id uuid.UUID, w domain.WeeklySchedule) error {
+	if p, ok := t.profs[id]; !ok || p.BusinessID != businessID {
+		return application.ErrNotFound
+	}
+	t.schedules[id] = w
+	return nil
 }
 
 func (t *tx) InsertProfessional(_ context.Context, p domain.Professional) error {

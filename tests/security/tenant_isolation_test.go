@@ -20,11 +20,12 @@ import (
 // tenantBodies are valid request bodies for the business-scoped write operations, so a 404
 // cannot come from body validation. Unknown operations default to "{}" and still must be 404.
 var tenantBodies = map[string]string{
-	"PATCH /api/v1/business/{businessId}":                                `{"name":"Hackeada","description":"x"}`,
-	"POST /api/v1/business/{businessId}/members":                         `{"email":"intruso@example.com","role":"OWNER"}`,
-	"PATCH /api/v1/business/{businessId}/members/{userId}":               `{"role":"OWNER"}`,
-	"POST /api/v1/business/{businessId}/professionals":                   `{"email":"intruso@example.com","displayName":"Intruso"}`,
-	"PATCH /api/v1/business/{businessId}/professionals/{professionalId}": `{"displayName":"Hackeado"}`,
+	"PATCH /api/v1/business/{businessId}":                                       `{"name":"Hackeada","description":"x"}`,
+	"POST /api/v1/business/{businessId}/members":                                `{"email":"intruso@example.com","role":"OWNER"}`,
+	"PATCH /api/v1/business/{businessId}/members/{userId}":                      `{"role":"OWNER"}`,
+	"POST /api/v1/business/{businessId}/professionals":                          `{"email":"intruso@example.com","displayName":"Intruso"}`,
+	"PATCH /api/v1/business/{businessId}/professionals/{professionalId}":        `{"displayName":"Hackeado"}`,
+	"PUT /api/v1/business/{businessId}/professionals/{professionalId}/schedule": `{"days":[{"weekday":"SUNDAY","workingHours":[{"start":"00:00","end":"23:00"}]}]}`,
 }
 
 func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
@@ -53,6 +54,11 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 		t.Fatalf("bob adds a professional: %d %s", pr.status, pr.body)
 	}
 	profsBefore := h.call(t, http.MethodGet, "/api/v1/business/"+bobBiz+"/professionals", "", bearerH(bob)).body
+	scheduleURL := "/api/v1/business/" + bobBiz + "/professionals/" + prof.ID + "/schedule"
+	if r := h.call(t, http.MethodPut, scheduleURL, `{"days":[{"weekday":"MONDAY","workingHours":[{"start":"09:00","end":"18:00"}]}]}`, bearerH(bob)); r.status != http.StatusOK {
+		t.Fatalf("bob sets a schedule: %d %s", r.status, r.body)
+	}
+	scheduleBefore := h.call(t, http.MethodGet, scheduleURL, "", bearerH(bob)).body
 	before := h.call(t, http.MethodGet, "/api/v1/business/"+bobBiz, "", bearerH(bob)).body
 	membersBefore := h.call(t, http.MethodGet, "/api/v1/business/"+bobBiz+"/members", "", bearerH(bob)).body
 	deniedBefore := countAction(h.store.AuditActions(), application.AuditAuthzDenied+":DENIED")
@@ -89,7 +95,7 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 			tested++
 		}
 	}
-	if tested < 10 {
+	if tested < 12 {
 		t.Fatalf("only %d business-scoped operations found in the contract", tested)
 	}
 	// Nothing changed in Bob's business, and every attempt was audited as a denial.
@@ -101,6 +107,9 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 	}
 	if after := h.call(t, http.MethodGet, "/api/v1/business/"+bobBiz+"/professionals", "", bearerH(bob)).body; after != profsBefore {
 		t.Errorf("Bob's professionals changed:\n%s\n%s", profsBefore, after)
+	}
+	if after := h.call(t, http.MethodGet, scheduleURL, "", bearerH(bob)).body; after != scheduleBefore {
+		t.Errorf("Bob's schedule changed:\n%s\n%s", scheduleBefore, after)
 	}
 	if denied := countAction(h.store.AuditActions(), application.AuditAuthzDenied+":DENIED") - deniedBefore; denied < tested {
 		t.Errorf("authz.denied entries = %d, want at least %d (one per cross-tenant attempt)", denied, tested)
