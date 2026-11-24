@@ -130,6 +130,44 @@ linters:
               desc: la aplicación depende de puertos, no de su implementación
             - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/interfaces
               desc: la aplicación no conoce el transporte
+
+        # Fronteras del módulo businesses (T4.2): se importa a sí mismo y los contract de
+        # identity y geography.
+        businesses-module-boundary:
+          list-mode: lax
+          files:
+            - "**/internal/modules/businesses/**"
+          allow:
+            - github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses
+            - github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract
+            - github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/contract
+          deny:
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules
+              desc: los módulos se comunican solo vía su paquete contract
+        businesses-domain-inward:
+          list-mode: lax
+          files:
+            - "**/internal/modules/businesses/domain/**"
+          deny:
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/application
+              desc: el dominio no conoce los casos de uso
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/infrastructure
+              desc: el dominio no conoce la infraestructura
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/interfaces
+              desc: el dominio no conoce el transporte
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/identity
+              desc: el dominio de businesses no depende de otros módulos
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/geography
+              desc: el dominio de businesses no depende de otros módulos
+        businesses-application-inward:
+          list-mode: lax
+          files:
+            - "**/internal/modules/businesses/application/**"
+          deny:
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/infrastructure
+              desc: la aplicación depende de puertos, no de su implementación
+            - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/interfaces
+              desc: la aplicación no conoce el transporte
     forbidigo:
       forbid:
         - pattern: ^(fmt\.Print.*|print|println)$

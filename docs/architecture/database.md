@@ -46,6 +46,10 @@ cities(id uuid pk, division_id fk, name, time_zone text not null, active)
 ```
 
 ### Businesses
+Implementado en `00006_businesses.sql` (T4.2): estados `PENDING_REVIEW`/`ACTIVE`/`SUSPENDED`,
+`latitude`/`longitude` + `location` generada, FK compuestas de ubicación, CHECK de todos los
+rangos de la política, recordatorios (`reminders_enabled`, `reminder_hours_before` 1–72), FK
+`memberships.business_id → businesses` (RESTRICT). Diseño original:
 ```sql
 businesses(id uuid pk, name, slug citext unique, status text, contact_phone, description,
            country_code fk, division_id fk, city_id fk, address_line text,

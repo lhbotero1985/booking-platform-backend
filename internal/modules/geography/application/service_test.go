@@ -11,6 +11,7 @@ import (
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/application/geotest"
+	geocontract "github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/authz"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
@@ -23,7 +24,7 @@ var (
 
 func newService() (*application.Service, *geotest.Store) {
 	st := geotest.NewSeededStore()
-	return application.NewService(st, geotest.Authorizer{}, clock.NewFixed(time.Date(2026, 11, 23, 12, 0, 0, 0, time.UTC))), st
+	return application.NewService(st, geotest.Authorizer{}, st, clock.NewFixed(time.Date(2026, 11, 23, 12, 0, 0, 0, time.UTC))), st
 }
 
 func ptr[T any](v T) *T { return &v }
@@ -251,5 +252,51 @@ func TestValidationAndConflicts(t *testing.T) {
 	}
 	if len(st.Audit) != 0 {
 		t.Errorf("failed writes audited: %v", st.AuditActions())
+	}
+}
+
+func TestDeactivationBlockedByActiveBusinesses(t *testing.T) {
+	ctx := context.Background()
+	svc, st := newService()
+	st.ActiveBusinesses[geotest.CaliID.String()] = 1
+	st.ActiveBusinesses[geotest.ValleID.String()] = 1
+	st.ActiveBusinesses["CO"] = 1
+
+	if _, err := svc.UpdateCity(ctx, admin, geotest.CaliID, application.CityPatch{Active: ptr(false)}); !errors.Is(err, application.ErrInUse) {
+		t.Errorf("city: err = %v, want ErrInUse", err)
+	}
+	if _, err := svc.UpdateDivision(ctx, admin, geotest.ValleID, application.DivisionPatch{Active: ptr(false)}); !errors.Is(err, application.ErrInUse) {
+		t.Errorf("division: err = %v, want ErrInUse", err)
+	}
+	if _, err := svc.UpdateCountry(ctx, admin, "CO", application.CountryPatch{Active: ptr(false)}); !errors.Is(err, application.ErrInUse) {
+		t.Errorf("country: err = %v, want ErrInUse", err)
+	}
+	// Other changes to an area in use are fine; so is deactivating an area without businesses.
+	if _, err := svc.UpdateCity(ctx, admin, geotest.CaliID, application.CityPatch{Name: ptr("Santiago de Cali")}); err != nil {
+		t.Errorf("rename city in use: %v", err)
+	}
+	if _, err := svc.UpdateDivision(ctx, admin, geotest.AntioquiaID, application.DivisionPatch{Active: ptr(false)}); err != nil {
+		t.Errorf("deactivate unused division: %v", err)
+	}
+	if got := st.AuditActions(); len(got) != 2 {
+		t.Errorf("audit = %v, want only the 2 successful updates", got)
+	}
+}
+
+func TestPlaceOfCity(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newService()
+	p, err := svc.PlaceOfCity(ctx, geotest.CaliID)
+	if err != nil || p.DivisionID != geotest.ValleID || p.CountryCode != "CO" || p.TimeZone != "America/Bogota" || p.Currency != "COP" || !p.Active {
+		t.Fatalf("PlaceOfCity = %+v, %v", p, err)
+	}
+	if _, err := svc.UpdateDivision(ctx, admin, geotest.ValleID, application.DivisionPatch{Active: ptr(false)}); err != nil {
+		t.Fatal(err)
+	}
+	if p, _ := svc.PlaceOfCity(ctx, geotest.CaliID); p.Active {
+		t.Error("a city of an inactive division must not be Active")
+	}
+	if _, err := svc.PlaceOfCity(ctx, uuid.Must(uuid.NewV7())); !errors.Is(err, geocontract.ErrCityNotFound) {
+		t.Errorf("unknown city: err = %v", err)
 	}
 }

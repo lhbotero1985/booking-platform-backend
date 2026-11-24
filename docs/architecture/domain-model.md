@@ -67,6 +67,8 @@ Gestionado solo por `PLATFORM_ADMIN`; se siembra con un seed de los países del 
     - `rescheduleCutoffHours` (def. 2)
     - `requireCustomerConfirmation` (def. `true`)
   - `NotificationSettings` (VO): canales habilitados, envío de recordatorio (def. 24 h antes).
+    Implementado en T4.2 como `Reminders{Enabled, HoursBefore 1–72}`; los canales llegan en la
+    Fase 7.
   - Invariantes: la ciudad pertenece a la división y la división al país; `timeZone` válido;
     negocio `SUSPENDED` no acepta reservas nuevas ni aparece en búsquedas.
 - Eventos: `BusinessRegistered`, `BusinessActivated`, `BusinessSuspended`, `BookingPolicyChanged`.

@@ -61,7 +61,7 @@ func TestMain(m *testing.M) {
 var admin = contract.Principal{UserID: uuid.Must(uuid.NewV7()), IsPlatformAdmin: true}
 
 func newService() *application.Service {
-	return application.NewService(postgres.NewStore(pool), geotest.Authorizer{}, clock.System{})
+	return application.NewService(postgres.NewStore(pool), geotest.Authorizer{}, nil, clock.System{})
 }
 
 func ptr[T any](v T) *T { return &v }
@@ -174,7 +174,7 @@ func (failingAuditTx) AppendAudit(context.Context, *audit.Entry) error {
 
 func TestWriteRollsBackWhenAuditFails(t *testing.T) {
 	ctx := t.Context()
-	svc := application.NewService(failingAuditStore{postgres.NewStore(pool)}, geotest.Authorizer{}, clock.NewFixed(time.Now()))
+	svc := application.NewService(failingAuditStore{postgres.NewStore(pool)}, geotest.Authorizer{}, nil, clock.NewFixed(time.Now()))
 	name := "Rollback " + uuid.NewString()[:8]
 	if _, err := svc.CreateDivision(ctx, admin, application.DivisionInput{CountryCode: "CO", Name: name, Type: "REGION"}); err == nil {
 		t.Fatal("expected the audit failure to fail the write")

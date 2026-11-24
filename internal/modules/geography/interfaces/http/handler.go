@@ -16,8 +16,13 @@ import (
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/httpx"
 )
 
-// CodeAlreadyExists is returned when a code or name is already taken.
-const CodeAlreadyExists = "ALREADY_EXISTS"
+// Problem codes of this module.
+const (
+	// CodeAlreadyExists is returned when a code or name is already taken.
+	CodeAlreadyExists = "ALREADY_EXISTS"
+	// CodeInUse is returned when deactivating an area that still has active businesses.
+	CodeInUse = "IN_USE"
+)
 
 // Service is the subset of the application used by these handlers.
 type Service interface {
@@ -323,6 +328,8 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, application.ErrNotFound):
 		// Same problem as an unknown route.
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusNotFound, httpx.CodeNotFound, ""))
+	case errors.Is(err, application.ErrInUse):
+		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeInUse, "it has active businesses; move or suspend them first"))
 	case errors.Is(err, application.ErrConflict):
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeAlreadyExists, "a record with that code or name already exists"))
 	default:

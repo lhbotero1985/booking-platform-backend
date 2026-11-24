@@ -189,6 +189,9 @@ func TestDeletingUserCascadesSessions(t *testing.T) {
 func TestOneActiveOwnerPerBusiness(t *testing.T) {
 	ctx := t.Context()
 	business := uuid.Must(uuid.NewV7())
+	if err := pgtest.InsertBusiness(ctx, pool, business); err != nil {
+		t.Fatal(err)
+	}
 	owner, other, manager := newUser(t, uniqueEmail("own")), newUser(t, uniqueEmail("own2")), newUser(t, uniqueEmail("mgr"))
 
 	if _, err := q.CreateMembership(ctx, sqlcgen.CreateMembershipParams{ID: uuid.Must(uuid.NewV7()), UserID: owner.ID, BusinessID: business, Role: "OWNER"}); err != nil {

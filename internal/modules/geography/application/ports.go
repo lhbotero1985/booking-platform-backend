@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/domain"
-	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
+	identity "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/audit"
 )
 
@@ -22,11 +22,22 @@ import (
 var (
 	ErrNotFound = errors.New("geography: not found")
 	ErrConflict = errors.New("geography: already exists")
+	// ErrInUse: a country, division or city with active businesses cannot be deactivated
+	// (domain-model.md §3); the businesses must be moved or suspended first.
+	ErrInUse = errors.New("geography: in use by active businesses")
 )
+
+// BusinessUsage counts active businesses located in an area. Implemented by the businesses
+// module and wired in the composition root; nil disables the check (tests).
+type BusinessUsage interface {
+	ActiveBusinessesInCountry(ctx context.Context, countryCode string) (int, error)
+	ActiveBusinessesInDivision(ctx context.Context, divisionID uuid.UUID) (int, error)
+	ActiveBusinessesInCity(ctx context.Context, cityID uuid.UUID) (int, error)
+}
 
 // Authorizer is the part of the identity contract these use cases need.
 type Authorizer interface {
-	RequirePlatformAdmin(ctx context.Context, p contract.Principal) error
+	RequirePlatformAdmin(ctx context.Context, p identity.Principal) error
 }
 
 // Store runs a unit of work in a database transaction.

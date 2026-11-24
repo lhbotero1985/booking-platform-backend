@@ -64,7 +64,7 @@ func startAuth(t *testing.T) authHarness {
 	// Same composition as cmd/api: geography uses identity's authentication and authorizer.
 	idh := identityhttp.New(h.svc, logger, identityhttp.Options{AllowedOrigins: cfg.HTTP.CORSAllowedOrigins})
 	h.srv = httptest.NewServer(app.NewHTTPHandler(cfg, logger, app.Deps{Modules: []app.RouteRegistrar{
-		idh, geographyhttp.New(geoapp.NewService(h.geo, h.svc, h.clock), logger, idh.RequireAuth),
+		idh, geographyhttp.New(geoapp.NewService(h.geo, h.svc, h.geo, h.clock), logger, idh.RequireAuth),
 	}}))
 	t.Cleanup(h.srv.Close)
 	return h
