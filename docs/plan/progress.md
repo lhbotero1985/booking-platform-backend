@@ -466,6 +466,21 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 5 · T5.7 — Vista pública de profesionales y servicios
+
+- **Previo:** PR #45 (T5.6) → `qa`: CI 6/6 ✅, squash `1f9c95b`, rama borrada; `release-qa` ✅
+  (migración 15). E2E en QA **129/130**: la única falla fue del script ("Corte + barba" como
+  expresión regular, el `+` es comodín); la API respondió bien. Corregido en esta rama.
+- **Estado:** ✅ en `feature/t5.7-public-catalog` (commit y push; PR pendiente).
+- **Archivos:** contratos `businesses.PublicDirectory`, `professionals.Bookable`,
+  `catalog.Offerings`; `businesses/application/public.go` (filtro y `PublicBusinessID`),
+  `professionals` (`BookableProfessionals` + query), `catalog/application/public.go`,
+  `catalog/interfaces/http/public.go`, query `ActiveAssignmentsIn`, `internal/app/catalog.go`
+  (`LinkPublicCatalog`), `cmd/api`, `.golangci.yml`, `pgtest.SeedYumboID`, OpenAPI (1
+  operación + esquema), pruebas (contrato, seguridad, integración), E2E, docs.
+- **Problemas:** las pruebas de búsqueda existentes creaban negocios sin oferta → actualizadas
+  para ofrecer servicios (y comprobar que un negocio sin barbero no aparece).
+
 ## 2026-11-24 · Fase 5 · T5.6 — Servicios que presta cada profesional
 
 - **Previo:** PR #44 (T5.5) → `qa`: CI 6/6 ✅, squash `59447a3`, rama borrada; `release-qa` ✅

@@ -16,3 +16,9 @@ var ErrBusinessNotFound = errors.New("businesses: business not found")
 type Currencies interface {
 	CurrencyOf(ctx context.Context, businessID uuid.UUID) (string, error)
 }
+
+// PublicDirectory resolves the slug of a business customers can see (ACTIVE and entitled, the
+// same rules as the public detail) to its id; ErrBusinessNotFound otherwise.
+type PublicDirectory interface {
+	PublicBusinessID(ctx context.Context, slug string) (uuid.UUID, error)
+}

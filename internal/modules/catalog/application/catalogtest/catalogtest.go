@@ -14,6 +14,7 @@ import (
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/domain"
 	identity "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
+	professionals "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/audit"
 )
 
@@ -83,6 +84,22 @@ func (t *tx) ExistingServices(_ context.Context, businessID uuid.UUID, ids []uui
 	for _, id := range ids {
 		if s, ok := t.services[id]; ok && s.BusinessID == businessID {
 			out[id] = true
+		}
+	}
+	return out, nil
+}
+
+func (t *tx) ActiveAssignmentsIn(_ context.Context, businessIDs []uuid.UUID) ([]application.Assignment, error) {
+	want := map[uuid.UUID]bool{}
+	for _, id := range businessIDs {
+		want[id] = true
+	}
+	var out []application.Assignment
+	for pro, ids := range t.assigned {
+		for _, id := range ids {
+			if s, ok := t.services[id]; ok && want[s.BusinessID] && s.Status == domain.StatusActive {
+				out = append(out, application.Assignment{BusinessID: s.BusinessID, ServiceID: id, ProfessionalID: pro})
+			}
 		}
 	}
 	return out, nil
@@ -247,4 +264,30 @@ func (d Professionals) Add(businessID, professionalID uuid.UUID) {
 // IsProfessionalOf implements professionals.Directory.
 func (d Professionals) IsProfessionalOf(_ context.Context, businessID, professionalID uuid.UUID) (bool, error) {
 	return d[businessID][professionalID], nil
+}
+
+// Public is an in-memory businesses.PublicDirectory and professionals.Bookable: public slugs
+// and bookable professionals per business.
+type Public struct {
+	Slugs    map[string]uuid.UUID
+	Bookable map[uuid.UUID][]professionals.PublicProfessional
+}
+
+// PublicBusinessID implements businesses.PublicDirectory.
+func (p *Public) PublicBusinessID(_ context.Context, slug string) (uuid.UUID, error) {
+	if id, ok := p.Slugs[slug]; ok {
+		return id, nil
+	}
+	return uuid.Nil, businesses.ErrBusinessNotFound
+}
+
+// BookableProfessionals implements professionals.Bookable.
+func (p *Public) BookableProfessionals(_ context.Context, businessIDs []uuid.UUID) (map[uuid.UUID][]professionals.PublicProfessional, error) {
+	out := map[uuid.UUID][]professionals.PublicProfessional{}
+	for _, id := range businessIDs {
+		if list := p.Bookable[id]; len(list) > 0 {
+			out[id] = list
+		}
+	}
+	return out, nil
 }

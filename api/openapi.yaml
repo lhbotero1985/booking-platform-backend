@@ -868,7 +868,8 @@ paths:
       summary: Search businesses customers can book (public)
       description: |
         `ACTIVE` businesses of a city whose demo is running or whose subscription is paid
-        (ADR-0018), ordered by name; optional text filter on the name. Keyset pagination with
+        (ADR-0018) and that have something to book (T5.7: an `ACTIVE` service performed by a
+        bookable professional), ordered by name; optional text filter on the name. Keyset pagination with
         `cursor` (opaque). A page may hold fewer than `limit` items and still have `nextCursor`.
       security: []
       parameters:
@@ -970,6 +971,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PublicBusiness"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/businesses/{slug}/catalog:
+    get:
+      tags: [Catalog]
+      operationId: getPublicCatalog
+      summary: What customers can book in a business (public)
+      description: |
+        ACTIVE services performed by at least one bookable professional (profile ACTIVE and still
+        a member), those professionals with the services each performs, and the ACTIVE categories
+        in use. Ordered by sort order and name. No accounts, emails, statuses or timestamps. 404
+        under the same rules as the public business (indistinguishable).
+      security: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The bookable offer.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicCatalog"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -3290,6 +3321,72 @@ components:
           items:
             type: string
             format: uuid
+
+    PublicCatalog:
+      type: object
+      additionalProperties: false
+      required: [categories, services, professionals]
+      properties:
+        categories:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, name]
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+        services:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, categoryId, name, description, durationMinutes, priceMinor, currency, professionalIds]
+            properties:
+              id:
+                type: string
+                format: uuid
+              categoryId:
+                type: [string, "null"]
+                format: uuid
+              name:
+                type: string
+              description:
+                type: string
+              durationMinutes:
+                type: integer
+              priceMinor:
+                type: integer
+                format: int64
+              currency:
+                type: string
+              professionalIds:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+        professionals:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, displayName, bio, serviceIds]
+            properties:
+              id:
+                type: string
+                format: uuid
+              displayName:
+                type: string
+              bio:
+                type: string
+              serviceIds:
+                type: array
+                items:
+                  type: string
+                  format: uuid
 
   responses:
     Unauthorized:

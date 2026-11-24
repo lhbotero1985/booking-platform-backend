@@ -87,3 +87,11 @@ WHERE business_id = @business_id AND professional_id = @professional_id
   AND starts_at < @to_time
 ORDER BY starts_at
 LIMIT @max_rows;
+
+-- Public view (T5.7): ACTIVE profiles of several businesses.
+
+-- name: ActiveProfessionalsIn :many
+SELECT id, business_id, user_id, display_name, bio, status, sort_order, created_at, updated_at
+FROM professionals
+WHERE business_id = ANY(sqlc.arg(business_ids)::uuid[]) AND status = 'ACTIVE'
+ORDER BY business_id, sort_order, display_name, id;

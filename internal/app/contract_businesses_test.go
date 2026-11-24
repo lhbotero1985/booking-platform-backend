@@ -199,9 +199,16 @@ func TestContractPublicBusinesses(t *testing.T) {
 	c := loadContract(t)
 	e := newGeoServer(t)
 	cali := geotest.CaliID.String()
-	for i, email := range []string{"a@example.com", "b@example.com", "c@example.com"} {
+	idOf := func(s string) string { return regexp.MustCompile(`"id":"([^"]+)"`).FindStringSubmatch(s)[1] }
+	for i, email := range []string{"a@example.com", "b@example.com", "c@example.com", "d@example.com"} {
 		tok := e.signIn(t, email)
-		c.callAuth(t, e.srv, http.MethodPost, "/api/v1/businesses", `{"name":"Barbería `+string(rune('A'+i))+`","contactPhone":"3001234567","cityId":"`+cali+`","addressLine":"Calle 1","coordinates":{"latitude":3.45,"longitude":-76.53}}`, tok, http.StatusCreated)
+		base := "/api/v1/business/" + idOf(c.callAuth(t, e.srv, http.MethodPost, "/api/v1/businesses", `{"name":"Barbería `+string(rune('A'+i))+`","contactPhone":"3001234567","cityId":"`+cali+`","addressLine":"Calle 1","coordinates":{"latitude":3.45,"longitude":-76.53}}`, tok, http.StatusCreated))
+		svc := idOf(c.callAuth(t, e.srv, http.MethodPost, base+"/services", `{"name":"Corte","durationMinutes":30,"priceMinor":2500000}`, tok, http.StatusCreated))
+		if i == 3 {
+			continue // Barbería D has a service but nobody performs it: not listed (T5.7)
+		}
+		prof := idOf(c.callAuth(t, e.srv, http.MethodPost, base+"/professionals", `{"email":"`+email+`","displayName":"Barbero `+string(rune('A'+i))+`"}`, tok, http.StatusCreated))
+		c.callAuth(t, e.srv, http.MethodPut, base+"/professionals/"+prof+"/services", `{"serviceIds":["`+svc+`"]}`, tok, http.StatusOK)
 	}
 	page := c.callAuth(t, e.srv, http.MethodGet, "/api/v1/businesses?cityId="+cali+"&limit=2", "", "", http.StatusOK)
 	if !strings.Contains(page, `"nextCursor"`) || strings.Contains(page, `"status"`) || strings.Contains(page, `"reminders"`) {
@@ -215,6 +222,19 @@ func TestContractPublicBusinesses(t *testing.T) {
 	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/businesses?cityId="+cali+"&q=x", "", "", http.StatusBadRequest)
 	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/businesses/barberia-a", "", "", http.StatusOK)
 	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/businesses/no-existe", "", "", http.StatusNotFound)
+	if all := c.callAuth(t, e.srv, http.MethodGet, "/api/v1/businesses?cityId="+cali+"&limit=50", "", "", http.StatusOK); strings.Contains(all, "Barbería D") || !strings.Contains(all, "Barbería C") {
+		t.Errorf("search without offer filter: %s", all)
+	}
+
+	// Public catalog (T5.7).
+	cat := c.callAuth(t, e.srv, http.MethodGet, "/api/v1/businesses/barberia-a/catalog", "", "", http.StatusOK)
+	if !strings.Contains(cat, `"name":"Corte"`) || !strings.Contains(cat, `"displayName":"Barbero A"`) || strings.Contains(cat, "userId") || strings.Contains(cat, "status") {
+		t.Errorf("public catalog = %s", cat)
+	}
+	if empty := c.callAuth(t, e.srv, http.MethodGet, "/api/v1/businesses/barberia-d/catalog", "", "", http.StatusOK); !strings.Contains(empty, `"services":[]`) {
+		t.Errorf("catalog without professionals = %s", empty)
+	}
+	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/businesses/no-existe/catalog", "", "", http.StatusNotFound)
 }
 
 func TestContractProfessionals(t *testing.T) {

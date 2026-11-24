@@ -11,6 +11,8 @@ import (
 )
 
 type Querier interface {
+	// Public view (T5.7): assignments of ACTIVE services in several businesses.
+	ActiveAssignmentsIn(ctx context.Context, businessIds []uuid.UUID) ([]ActiveAssignmentsInRow, error)
 	CategoryByID(ctx context.Context, arg CategoryByIDParams) (ServiceCategory, error)
 	DeleteCategory(ctx context.Context, arg DeleteCategoryParams) error
 	DeleteProfessionalServices(ctx context.Context, arg DeleteProfessionalServicesParams) error

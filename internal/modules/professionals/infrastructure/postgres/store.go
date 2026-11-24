@@ -98,3 +98,19 @@ func toDomain(r sqlcgen.Professional) (domain.Professional, error) {
 		Status: st, SortOrder: int(r.SortOrder), CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
 	}, nil
 }
+
+func (t *txStore) ActiveProfessionalsIn(ctx context.Context, businessIDs []uuid.UUID) ([]domain.Professional, error) {
+	rows, err := t.q.ActiveProfessionalsIn(ctx, businessIDs)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.Professional, 0, len(rows))
+	for _, r := range rows {
+		p, err := toDomain(r)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, nil
+}

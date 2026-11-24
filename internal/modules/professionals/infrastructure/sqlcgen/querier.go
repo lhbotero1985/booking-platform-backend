@@ -12,6 +12,8 @@ import (
 
 type Querier interface {
 	AbsenceByID(ctx context.Context, arg AbsenceByIDParams) (ProfessionalAbsence, error)
+	// Public view (T5.7): ACTIVE profiles of several businesses.
+	ActiveProfessionalsIn(ctx context.Context, businessIds []uuid.UUID) ([]Professional, error)
 	BreaksOf(ctx context.Context, arg BreaksOfParams) ([]BreaksOfRow, error)
 	DeleteAbsence(ctx context.Context, arg DeleteAbsenceParams) error
 	DeleteBreaks(ctx context.Context, arg DeleteBreaksParams) error

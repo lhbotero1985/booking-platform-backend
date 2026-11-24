@@ -95,6 +95,13 @@ sin centavos) + `currency` del negocio. `categoryId: null` en PATCH quita la cat
 `{"serviceIds": [...]}` (OWNER) que reemplaza la lista completa; `SERVICE_NOT_FOUND` en
 `serviceIds[i]` si el servicio no es del negocio; profesional inexistente o ajeno → 404.
 
+### Catálogo público (T5.7)
+`GET /api/v1/businesses/{slug}/catalog` (sin autenticación, límite general): `categories`
+(id, nombre), `services` (id, categoryId, nombre, descripción, duración, `priceMinor`,
+`currency`, `professionalIds`) y `professionals` (id, `displayName`, `bio`, `serviceIds`).
+Solo servicios activos prestados por profesionales reservables; sin cuentas, emails, estados
+ni fechas. 404 con las mismas reglas que la ficha pública (indistinguible).
+
 ### Búsqueda pública (T4.6)
 `GET /businesses?cityId=&q=&cursor=&limit=` y `GET /businesses/{slug}` (sin autenticación):
 solo negocios `ACTIVE` con demo vigente o pagada; vista reducida sin datos internos.

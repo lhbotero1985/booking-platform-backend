@@ -41,6 +41,45 @@ func (q *Queries) AbsenceByID(ctx context.Context, arg AbsenceByIDParams) (Profe
 	return i, err
 }
 
+const activeProfessionalsIn = `-- name: ActiveProfessionalsIn :many
+
+SELECT id, business_id, user_id, display_name, bio, status, sort_order, created_at, updated_at
+FROM professionals
+WHERE business_id = ANY($1::uuid[]) AND status = 'ACTIVE'
+ORDER BY business_id, sort_order, display_name, id
+`
+
+// Public view (T5.7): ACTIVE profiles of several businesses.
+func (q *Queries) ActiveProfessionalsIn(ctx context.Context, businessIds []uuid.UUID) ([]Professional, error) {
+	rows, err := q.db.Query(ctx, activeProfessionalsIn, businessIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Professional{}
+	for rows.Next() {
+		var i Professional
+		if err := rows.Scan(
+			&i.ID,
+			&i.BusinessID,
+			&i.UserID,
+			&i.DisplayName,
+			&i.Bio,
+			&i.Status,
+			&i.SortOrder,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const breaksOf = `-- name: BreaksOf :many
 SELECT weekday, (extract(epoch FROM start_time) / 60)::int AS start_minute,
        (extract(epoch FROM end_time) / 60)::int AS end_minute

@@ -71,3 +71,11 @@ ORDER BY s.sort_order, s.name, s.id;
 
 -- name: ServicesByIDs :many
 SELECT id FROM services WHERE business_id = $1 AND id = ANY(sqlc.arg(ids)::uuid[]);
+
+-- Public view (T5.7): assignments of ACTIVE services in several businesses.
+
+-- name: ActiveAssignmentsIn :many
+SELECT sp.business_id, sp.service_id, sp.professional_id
+FROM service_professionals sp
+JOIN services s ON s.business_id = sp.business_id AND s.id = sp.service_id
+WHERE sp.business_id = ANY(sqlc.arg(business_ids)::uuid[]) AND s.status = 'ACTIVE';

@@ -15,10 +15,11 @@ type Execer interface {
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }
 
-// Seed geography of migration 00005 (Cali, Valle del Cauca, Colombia).
+// Seed geography of migration 00005 (Cali and Yumbo, Valle del Cauca, Colombia).
 var (
 	SeedValleID = uuid.MustParse("01a20aae-7e56-796c-9de9-5409ce51e7d4")
 	SeedCaliID  = uuid.MustParse("01a20aae-7e5d-73d7-b7d3-a11c5afb9655")
+	SeedYumboID = uuid.MustParse("01a20aae-7e5f-7d08-843b-f2502126e8d7")
 )
 
 // InsertBusiness creates a minimal valid ACTIVE business in Cali with the given ID, for tests

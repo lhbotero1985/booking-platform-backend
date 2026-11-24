@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	identity "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
+	profcontract "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/domain"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/audit"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
@@ -79,6 +80,8 @@ type Tx interface {
 	// ProfessionalByID returns ErrNotFound when absent in that business.
 	ProfessionalByID(ctx context.Context, businessID, id uuid.UUID) (domain.Professional, error)
 	ListProfessionals(ctx context.Context, businessID uuid.UUID) ([]domain.Professional, error)
+	// ActiveProfessionalsIn returns the ACTIVE profiles of several businesses (public view).
+	ActiveProfessionalsIn(ctx context.Context, businessIDs []uuid.UUID) ([]domain.Professional, error)
 	AppendAudit(ctx context.Context, e *audit.Entry) error
 	ScheduleTx
 	AbsenceTx
@@ -326,4 +329,47 @@ func (s *Service) IsProfessionalOf(ctx context.Context, businessID, professional
 		return err
 	})
 	return found, err
+}
+
+// BookableProfessionals implements contract.Bookable: ACTIVE profiles whose account is still a
+// member, per business, ordered by sort order and name. One query here plus one identity query
+// per business with active profiles.
+func (s *Service) BookableProfessionals(ctx context.Context, businessIDs []uuid.UUID) (map[uuid.UUID][]profcontract.PublicProfessional, error) {
+	out := map[uuid.UUID][]profcontract.PublicProfessional{}
+	if len(businessIDs) == 0 {
+		return out, nil
+	}
+	var profs []domain.Professional
+	err := s.store.WithinTx(ctx, func(ctx context.Context, tx Tx) (err error) {
+		profs, err = tx.ActiveProfessionalsIn(ctx, businessIDs)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	byBusiness := map[uuid.UUID][]domain.Professional{}
+	var order []uuid.UUID
+	for _, p := range profs {
+		if _, seen := byBusiness[p.BusinessID]; !seen {
+			order = append(order, p.BusinessID)
+		}
+		byBusiness[p.BusinessID] = append(byBusiness[p.BusinessID], p)
+	}
+	for _, biz := range order {
+		list := byBusiness[biz]
+		users := make([]uuid.UUID, len(list))
+		for i, p := range list {
+			users[i] = p.UserID
+		}
+		active, err := s.identity.ActiveMembersAmong(ctx, biz, users)
+		if err != nil {
+			return nil, err
+		}
+		for _, p := range list {
+			if p.Bookable(active[p.UserID]) {
+				out[biz] = append(out[biz], profcontract.PublicProfessional{ID: p.ID, BusinessID: biz, DisplayName: p.DisplayName, Bio: p.Bio, SortOrder: p.SortOrder})
+			}
+		}
+	}
+	return out, nil
 }
