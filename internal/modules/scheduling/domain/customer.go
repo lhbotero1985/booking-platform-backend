@@ -18,12 +18,14 @@ import (
 var (
 	ErrInvalidCustomerName = errors.New("scheduling: invalid customer name")
 	ErrInvalidPhone        = errors.New("scheduling: invalid phone")
+	ErrInvalidEmail        = errors.New("scheduling: invalid email")
 )
 
 // MaxCustomerName matches the customers_full_name_length CHECK.
 const MaxCustomerName = 120
 
 var (
+	emailShape     = regexp.MustCompile(`^[^\s@]+@[^\s@]+\.[^\s@]+$`)
 	e164           = regexp.MustCompile(`^\+[1-9][0-9]{6,14}$`)
 	colombianLocal = regexp.MustCompile(`^3[0-9]{9}$`)
 )
@@ -47,6 +49,19 @@ func ParsePhone(raw string) (string, error) {
 	return s, nil
 }
 
+// ParseEmail normalizes an optional customer email (trimmed, lower case; "" stays ""). It only
+// checks the shape: the business is not asked to verify it.
+func ParseEmail(raw string) (string, error) {
+	s := strings.ToLower(strings.TrimSpace(raw))
+	if s == "" {
+		return "", nil
+	}
+	if len(s) > 254 || !emailShape.MatchString(s) {
+		return "", ErrInvalidEmail
+	}
+	return s, nil
+}
+
 // ParseCustomerName trims the name and checks its length (1–120) and that it has no control
 // characters.
 func ParseCustomerName(raw string) (string, error) {
@@ -64,6 +79,7 @@ type BusinessCustomer struct {
 	BusinessID uuid.UUID
 	FullName   string
 	Phone      string // E.164
+	Email      string // optional, "" if unknown
 	UserID     uuid.UUID
 	CreatedBy  uuid.UUID
 	CreatedAt  time.Time

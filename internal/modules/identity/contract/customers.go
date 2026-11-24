@@ -16,6 +16,7 @@ type Customer struct {
 	UserID   uuid.UUID
 	FullName string
 	Phone    string // E.164
+	Email    string // verified
 }
 
 // Customers returns the profile of an ACTIVE (verified) account for a booking: ErrPhoneRequired

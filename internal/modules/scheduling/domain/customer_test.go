@@ -22,6 +22,16 @@ func TestParsePhoneAndName(t *testing.T) {
 			t.Errorf("%q: %v", raw, err)
 		}
 	}
+	for raw, want := range map[string]string{"": "", "  ": "", " Ana@Example.com ": "ana@example.com"} {
+		if got, err := domain.ParseEmail(raw); err != nil || got != want {
+			t.Errorf("email %q → %q %v", raw, got, err)
+		}
+	}
+	for _, raw := range []string{"ana", "ana@", "@x.co", "a b@x.co", "ana@x", strings.Repeat("a", 250) + "@x.co"} {
+		if _, err := domain.ParseEmail(raw); !errors.Is(err, domain.ErrInvalidEmail) {
+			t.Errorf("email %q: %v", raw, err)
+		}
+	}
 	if got, err := domain.ParseCustomerName("  Ana   María  "); err != nil || got != "Ana María" {
 		t.Errorf("name = %q %v", got, err)
 	}

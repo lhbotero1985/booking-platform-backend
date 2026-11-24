@@ -478,8 +478,12 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
   app, `interfaces/http/staff.go`, doble en memoria); contratos `businesses.BookingPolicyOf` y
   `professionals.Agenda.ProfessionalUserID`; OpenAPI (4 operaciones, esquemas `Customer` y
   `CustomerList`; 67 rutas); pruebas; E2E; Postman (paso 9); docs.
+- **Ajuste del usuario (cita rápida):** el barbero escribe nombre, celular y correo (opcional)
+  del cliente en la misma cita; se reutiliza por celular o se crea. Migración 00017 con `email`
+  (aún no aplicada en QA, se ajustó antes del merge).
 - **Problemas:** la cita manual validaba campos y clave antes de autorizar (otro negocio habría
-  respondido 400): detectado por la suite de aislamiento, ahora la autorización va primero.
+  respondido 400): detectado por la suite de aislamiento, ahora la autorización va primero. Un
+  fallo de DNS al construir la imagen local dejó la imagen anterior; se reconstruyó.
 
 ## 2026-11-24 · Fase 6 · T6.3 — Reserva del cliente
 

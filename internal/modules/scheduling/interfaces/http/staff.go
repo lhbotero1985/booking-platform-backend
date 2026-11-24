@@ -32,13 +32,19 @@ type customerDTO struct {
 	ID         uuid.UUID `json:"id"`
 	FullName   string    `json:"fullName"`
 	Phone      string    `json:"phone"`
+	Email      *string   `json:"email"`
 	HasAccount bool      `json:"hasAccount"`
 	CreatedAt  time.Time `json:"createdAt"`
 	UpdatedAt  time.Time `json:"updatedAt"`
 }
 
 func toCustomerDTO(c domain.BusinessCustomer) customerDTO {
-	return customerDTO{ID: c.ID, FullName: c.FullName, Phone: c.Phone, HasAccount: c.UserID != uuid.Nil, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt}
+	out := customerDTO{ID: c.ID, FullName: c.FullName, Phone: c.Phone, HasAccount: c.UserID != uuid.Nil, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt}
+	if c.Email != "" {
+		email := c.Email
+		out.Email = &email
+	}
+	return out
 }
 
 type customerListDTO struct {
@@ -48,19 +54,22 @@ type customerListDTO struct {
 type createCustomerRequest struct {
 	FullName string `json:"fullName"`
 	Phone    string `json:"phone"`
+	Email    string `json:"email"`
 }
 
 type updateCustomerRequest struct {
 	FullName *string `json:"fullName"`
 	Phone    *string `json:"phone"`
+	Email    *string `json:"email"`
 }
 
 type manualAppointmentRequest struct {
-	ProfessionalID uuid.UUID `json:"professionalId"`
-	ServiceID      uuid.UUID `json:"serviceId"`
-	CustomerID     uuid.UUID `json:"customerId"`
-	StartAt        time.Time `json:"startAt"`
-	Confirmed      *bool     `json:"confirmed"`
+	ProfessionalID uuid.UUID              `json:"professionalId"`
+	ServiceID      uuid.UUID              `json:"serviceId"`
+	CustomerID     uuid.UUID              `json:"customerId"`
+	Customer       *createCustomerRequest `json:"customer"`
+	StartAt        time.Time              `json:"startAt"`
+	Confirmed      *bool                  `json:"confirmed"`
 }
 
 func (h *Handler) staffRoutes(rt *httpx.Router) {
@@ -113,7 +122,7 @@ func (h *Handler) createCustomer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p, _ := contract.PrincipalFrom(r.Context())
-	c, err := h.staff.CreateCustomer(r.Context(), p, ids[0], application.CustomerInput{FullName: req.FullName, Phone: req.Phone})
+	c, err := h.staff.CreateCustomer(r.Context(), p, ids[0], application.CustomerInput{FullName: req.FullName, Phone: req.Phone, Email: req.Email})
 	if err != nil {
 		h.fail(w, r, err)
 		return
@@ -131,7 +140,7 @@ func (h *Handler) updateCustomer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p, _ := contract.PrincipalFrom(r.Context())
-	c, err := h.staff.UpdateCustomer(r.Context(), p, ids[0], ids[1], application.CustomerPatch{FullName: req.FullName, Phone: req.Phone})
+	c, err := h.staff.UpdateCustomer(r.Context(), p, ids[0], ids[1], application.CustomerPatch{FullName: req.FullName, Phone: req.Phone, Email: req.Email})
 	if err != nil {
 		h.fail(w, r, err)
 		return
@@ -151,10 +160,14 @@ func (h *Handler) bookManual(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	confirmed := req.Confirmed == nil || *req.Confirmed
+	var typed *application.CustomerInput
+	if req.Customer != nil {
+		typed = &application.CustomerInput{FullName: req.Customer.FullName, Phone: req.Customer.Phone, Email: req.Customer.Email}
+	}
 	p, _ := contract.PrincipalFrom(r.Context())
 	a, err := h.staff.BookManual(r.Context(), p, ids[0], application.ManualInput{
-		ProfessionalID: req.ProfessionalID, ServiceID: req.ServiceID, CustomerID: req.CustomerID, Start: req.StartAt,
-		Confirmed: confirmed, IdempotencyKey: r.Header.Get("Idempotency-Key"),
+		ProfessionalID: req.ProfessionalID, ServiceID: req.ServiceID, CustomerID: req.CustomerID, Customer: typed,
+		Start: req.StartAt, Confirmed: confirmed, IdempotencyKey: r.Header.Get("Idempotency-Key"),
 	})
 	if err != nil {
 		h.fail(w, r, err)

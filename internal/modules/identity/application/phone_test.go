@@ -65,7 +65,7 @@ func TestPhoneAndCustomerProfile(t *testing.T) {
 		t.Errorf("audit = %v", got)
 	}
 	c, err := e.svc.CustomerProfile(ctx, id)
-	if err != nil || c != (contract.Customer{UserID: id, FullName: "Ana Pérez", Phone: "+573001234567"}) {
+	if err != nil || c != (contract.Customer{UserID: id, FullName: "Ana Pérez", Phone: "+573001234567", Email: "ana@example.com"}) {
 		t.Errorf("profile = %+v %v", c, err)
 	}
 	if u, err := e.svc.SetPhone(ctx, p, "+1 415 555 0100"); err != nil || u.Phone() != "+14155550100" {

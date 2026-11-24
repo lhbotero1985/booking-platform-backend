@@ -1248,6 +1248,10 @@ paths:
                 phone:
                   type: string
                   maxLength: 32
+                email:
+                  type: string
+                  maxLength: 254
+                  description: Optional.
       responses:
         "201":
           description: Customer created.
@@ -1305,6 +1309,10 @@ paths:
                 phone:
                   type: string
                   maxLength: 32
+                email:
+                  type: string
+                  maxLength: 254
+                  description: Empty string clears it.
       responses:
         "200":
           description: Customer updated.
@@ -1345,7 +1353,9 @@ paths:
         `confirmed` (default `true`) books it `CONFIRMED`; `false` leaves it
         `PENDING_CONFIRMATION`. Same guarantees and `Idempotency-Key` semantics as the customer
         booking. A PROFESSIONAL booking another professional's agenda gets 403. Field codes
-        `CUSTOMER_NOT_FOUND`, `PROFESSIONAL_NOT_BOOKABLE`, `SERVICE_NOT_BOOKABLE`.
+        `CUSTOMER_NOT_FOUND`, `CUSTOMER_OR_CUSTOMER_ID`, `PROFESSIONAL_NOT_BOOKABLE`,
+        `SERVICE_NOT_BOOKABLE`, and `customer.fullName` / `customer.phone` / `customer.email`
+        (`REQUIRED`, `INVALID_NAME`, `INVALID_PHONE`, `INVALID_EMAIL`).
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -1363,7 +1373,8 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [professionalId, serviceId, customerId, startAt]
+              required: [professionalId, serviceId, startAt]
+              description: Give `customer` (the quick way) or `customerId`, not both.
               properties:
                 professionalId:
                   type: string
@@ -1371,9 +1382,28 @@ paths:
                 serviceId:
                   type: string
                   format: uuid
+                customer:
+                  type: object
+                  additionalProperties: false
+                  required: [fullName, phone]
+                  description: |
+                    The customer typed in the booking: name and mobile mandatory, email
+                    optional. A customer of the business with that mobile is reused (its email
+                    is completed if it had none); otherwise it is created.
+                  properties:
+                    fullName:
+                      type: string
+                      maxLength: 120
+                    phone:
+                      type: string
+                      maxLength: 32
+                    email:
+                      type: string
+                      maxLength: 254
                 customerId:
                   type: string
                   format: uuid
+                  description: An existing customer of the business.
                 startAt:
                   type: string
                   format: date-time
@@ -3748,6 +3778,8 @@ components:
         phone:
           type: string
           description: E.164.
+        email:
+          type: [string, "null"]
         hasAccount:
           type: boolean
           description: The person has booked from the app with an account.

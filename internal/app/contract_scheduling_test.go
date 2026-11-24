@@ -214,4 +214,17 @@ func TestContractStaffBooking(t *testing.T) {
 	c.callWith(t, e.srv, http.MethodPost, base+"/appointments", `{"professionalId":"`+juan+`","serviceId":"`+svc+`","customerId":"01a20aae-0000-7000-8000-000000000000","startAt":"2026-11-24T16:00:00Z"}`, owner, map[string]string{"Idempotency-Key": "owner-manual-3"}, http.StatusBadRequest)
 	c.callWith(t, e.srv, http.MethodPost, base+"/appointments", `{"professionalId":"`+juan+`"}`, owner, map[string]string{"Idempotency-Key": "owner-manual-4"}, http.StatusBadRequest)
 	book(owner, juan, "2026-11-24T16:00:00Z", "", "", http.StatusBadRequest) // no key
+
+	// The quick way: the barber types the customer in the booking.
+	quick := `{"professionalId":"` + juan + `","serviceId":"` + svc + `","startAt":"2026-11-24T16:00:00Z","customer":{"fullName":"Laura Gómez","phone":"311 555 0303","email":"laura@example.com"}}`
+	if a := c.callWith(t, e.srv, http.MethodPost, base+"/appointments", quick, barber, map[string]string{"Idempotency-Key": "juan-rapida-1"}, http.StatusCreated); !strings.Contains(a, `"customerName":"Laura Gómez"`) {
+		t.Errorf("quick booking = %s", a)
+	}
+	if list := c.callAuth(t, e.srv, http.MethodGet, base+"/customers?q=3115550303", "", barber, http.StatusOK); !strings.Contains(list, `"email":"laura@example.com"`) {
+		t.Errorf("customer created by the booking = %s", list)
+	}
+	bad := `{"professionalId":"` + juan + `","serviceId":"` + svc + `","startAt":"2026-11-24T16:30:00Z","customer":{"fullName":"Sin celular"}}`
+	if p := c.callWith(t, e.srv, http.MethodPost, base+"/appointments", bad, barber, map[string]string{"Idempotency-Key": "juan-rapida-2"}, http.StatusBadRequest); !strings.Contains(p, "customer.phone") {
+		t.Errorf("no mobile: %s", p)
+	}
 }

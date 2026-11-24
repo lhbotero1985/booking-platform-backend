@@ -19,9 +19,12 @@ import (
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/authz"
 )
 
-// ManualInput is a manual booking by the staff.
+// ManualInput is a manual booking by the staff. The customer is either an existing customer of
+// the business (CustomerID) or typed in the same request (Customer: name and mobile, email
+// optional), the quick way: a customer with that mobile is reused, otherwise created.
 type ManualInput struct {
 	ProfessionalID, ServiceID, CustomerID uuid.UUID
+	Customer                              *CustomerInput
 	Start                                 time.Time
 	// Confirmed books it CONFIRMED (the customer is present or called); otherwise
 	// PENDING_CONFIRMATION.
@@ -34,8 +37,12 @@ func (in ManualInput) fingerprint(businessID uuid.UUID) string {
 	if in.Confirmed {
 		confirmed = "confirmed"
 	}
+	who := in.CustomerID.String()
+	if in.Customer != nil {
+		who = in.Customer.FullName + "|" + in.Customer.Phone + "|" + in.Customer.Email
+	}
 	return BookingInput{BusinessID: businessID, ServiceID: in.ServiceID, ProfessionalID: in.ProfessionalID, Start: in.Start}.fingerprint() +
-		"|" + in.CustomerID.String() + "|" + confirmed
+		"|" + who + "|" + confirmed
 }
 
 // BookManual creates an appointment for a customer of the business. Errors: authorization
@@ -52,13 +59,27 @@ func (s *Service) BookManual(ctx context.Context, p identity.Principal, business
 	for _, f := range []struct {
 		name string
 		id   uuid.UUID
-	}{{"professionalId", in.ProfessionalID}, {"serviceId", in.ServiceID}, {"customerId", in.CustomerID}} {
+	}{{"professionalId", in.ProfessionalID}, {"serviceId", in.ServiceID}} {
 		if f.id == uuid.Nil {
 			verr.add(f.name, CodeRequired)
 		}
 	}
 	if in.Start.IsZero() {
 		verr.add("startAt", CodeRequired)
+	}
+	var typed domain.BusinessCustomer
+	switch {
+	case in.Customer != nil && in.CustomerID != uuid.Nil:
+		verr.add("customer", "CUSTOMER_OR_CUSTOMER_ID")
+	case in.Customer != nil:
+		c, err := s.newCustomer(businessID, p, *in.Customer, "customer.")
+		var cerr *ValidationError
+		if errors.As(err, &cerr) {
+			verr.Fields = append(verr.Fields, cerr.Fields...)
+		}
+		typed = c
+	case in.CustomerID == uuid.Nil:
+		verr.add("customer", CodeRequired)
 	}
 	if err := verr.orNil(); err != nil {
 		return domain.Appointment{}, err
@@ -118,10 +139,7 @@ func (s *Service) BookManual(ctx context.Context, p identity.Principal, business
 			}
 			return err
 		}
-		customer, err := tx.CustomerByID(ctx, businessID, in.CustomerID)
-		if errors.Is(err, ErrCustomerNotFound) {
-			return &ValidationError{Fields: []FieldError{{"customerId", CodeCustomerNotFound}}}
-		}
+		customer, err := s.customerOf(ctx, tx, businessID, in.CustomerID, typed, now)
 		if err != nil {
 			return err
 		}
@@ -162,4 +180,30 @@ func (s *Service) BookManual(ctx context.Context, p identity.Principal, business
 		return nil
 	})
 	return out, err
+}
+
+// customerOf returns the customer of a manual booking: the existing one by id, or the typed one,
+// reusing the customer with that mobile (completing its email if it had none) or creating it.
+func (s *Service) customerOf(ctx context.Context, tx Tx, businessID, id uuid.UUID, typed domain.BusinessCustomer, now time.Time) (domain.BusinessCustomer, error) {
+	if id != uuid.Nil {
+		c, err := tx.CustomerByID(ctx, businessID, id)
+		if errors.Is(err, ErrCustomerNotFound) {
+			return c, &ValidationError{Fields: []FieldError{{"customerId", CodeCustomerNotFound}}}
+		}
+		return c, err
+	}
+	existing, err := tx.CustomerByPhone(ctx, businessID, typed.Phone)
+	switch {
+	case errors.Is(err, ErrCustomerNotFound):
+		return typed, tx.InsertCustomer(ctx, typed)
+	case err != nil:
+		return existing, err
+	}
+	if existing.Email == "" && typed.Email != "" {
+		existing.Email, existing.UpdatedAt = typed.Email, now
+		if err := tx.UpdateCustomer(ctx, existing); err != nil {
+			return existing, err
+		}
+	}
+	return existing, nil
 }

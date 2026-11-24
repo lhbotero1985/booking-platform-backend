@@ -9,6 +9,7 @@ CREATE TABLE customers (
     business_id uuid        NOT NULL REFERENCES businesses (id),
     full_name   text        NOT NULL,
     phone       text        NOT NULL,
+    email       text,
     user_id     uuid        REFERENCES users (id),
     created_by  uuid        NOT NULL REFERENCES users (id),
     created_at  timestamptz NOT NULL,
@@ -16,7 +17,8 @@ CREATE TABLE customers (
     CONSTRAINT customers_business_id_unique UNIQUE (business_id, id),
     CONSTRAINT customers_phone_unique UNIQUE (business_id, phone),
     CONSTRAINT customers_full_name_length CHECK (char_length(full_name) BETWEEN 1 AND 120),
-    CONSTRAINT customers_phone_e164 CHECK (phone ~ '^\+[1-9][0-9]{6,14}$')
+    CONSTRAINT customers_phone_e164 CHECK (phone ~ '^\+[1-9][0-9]{6,14}$'),
+    CONSTRAINT customers_email_valid CHECK (email IS NULL OR (char_length(email) <= 254 AND email ~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$'))
 );
 CREATE INDEX customers_business_name_idx ON customers (business_id, lower(full_name));
 

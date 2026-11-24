@@ -100,7 +100,9 @@ sin centavos) + `currency` del negocio. `categoryId: null` en PATCH quita la cat
 `PATCH …/customers/{customerId}`: nombre y celular (E.164, único por negocio → 409
 `CUSTOMER_PHONE_TAKEN`); `hasAccount` indica si reservó desde la app.
 `POST /api/v1/business/{businessId}/appointments` con `Idempotency-Key`: `professionalId`,
-`serviceId`, `customerId`, `startAt`, `confirmed` (por defecto `true`). El registro
+`serviceId`, `startAt`, `confirmed` (por defecto `true`) y el cliente: `customer`
+(`fullName`, `phone`, `email` opcional; la forma rápida, se reutiliza por celular o se crea) o
+`customerId` (uno ya existente). Los clientes tienen `email` opcional. El registro
 (`POST /auth/register`) exige `phone` desde T6.4.
 
 ### Reserva del cliente (T6.3)

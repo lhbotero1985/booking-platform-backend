@@ -39,6 +39,7 @@ type Customer struct {
 	BusinessID uuid.UUID
 	FullName   string
 	Phone      string
+	Email      *string
 	UserID     *uuid.UUID
 	CreatedBy  uuid.UUID
 	CreatedAt  time.Time

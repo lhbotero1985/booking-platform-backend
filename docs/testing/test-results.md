@@ -880,6 +880,9 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `TestManualBookingOnPostgres` | ✅ | SQL real: búsqueda con `%` literal, celular único; cita manual con su cliente; la reserva desde la app aparece en la lista; **cita manual + 10 reservas desde la app por la misma hora → 1** |
 | `TestEveryBusinessRouteIsTenantIsolated` | ✅ | **30 operaciones** con otro negocio y **17** con ids de hijos ajenos (incluye `{customerId}`) → 404 idéntico; la lista de clientes de Bob no cambia |
 | `TestAuthenticatedRoutesRejectInvalidCredentials` | ✅ | Desde OpenAPI (52 operaciones autenticadas) |
-| Postman + Newman (entorno local temporal) | ✅ 2 corridas | 34 peticiones, 61 comprobaciones, 0 fallos; registro sin celular → 400 |
+| `TestBookManualQuickWay` (scheduling) | ✅ | Cliente escrito en la cita: nombre normalizado, celular E.164, correo en minúsculas; celular existente reutilizado (correo completado solo si faltaba, nunca sobrescrito); sin duplicados; `customer` + `customerId` / sin cliente / sin celular / correo inválido / sin nombre → 400 con el campo `customer.*`; una cita fallida no deja cliente |
+| `TestParsePhoneAndName` (dominio, con correo) | ✅ | Correo opcional, minúsculas, formas inválidas. Dominio 100 % |
+| `TestContractStaffBooking` (forma rápida) / `TestManualBookingOnPostgres` (forma rápida) | ✅ | 201 con cliente escrito y búsqueda con su correo; 400 `customer.phone`; en PostgreSQL el cliente con correo se guarda y una cita solapada no deja cliente |
+| Postman + Newman (entorno local temporal) | ✅ 2 corridas | 33 peticiones, 60 comprobaciones, 0 fallos (paso 9: cita manual rápida; la 2.ª corrida reutiliza el cliente); registro sin celular → 400 |
 | `task check` (lint 0, vuln) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
 | Despliegue y E2E en QA | ⏳ | Tras el merge (registro con celular, clientes, cita manual, 403 agenda ajena, 409) |

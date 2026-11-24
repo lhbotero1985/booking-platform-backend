@@ -43,8 +43,8 @@ WHERE business_id = @business_id AND professional_id = @professional_id
 ORDER BY start_at;
 
 -- name: InsertCustomer :exec
-INSERT INTO customers (id, business_id, full_name, phone, user_id, created_by, created_at, updated_at)
-VALUES (@id, @business_id, @full_name, @phone, @user_id, @created_by, @created_at, @updated_at);
+INSERT INTO customers (id, business_id, full_name, phone, email, user_id, created_by, created_at, updated_at)
+VALUES (@id, @business_id, @full_name, @phone, @email, @user_id, @created_by, @created_at, @updated_at);
 
 -- name: CustomerByID :one
 SELECT * FROM customers WHERE business_id = @business_id AND id = @id;
@@ -53,7 +53,7 @@ SELECT * FROM customers WHERE business_id = @business_id AND id = @id;
 SELECT * FROM customers WHERE business_id = @business_id AND phone = @phone;
 
 -- name: UpdateCustomer :exec
-UPDATE customers SET full_name = @full_name, phone = @phone, user_id = @user_id, updated_at = @updated_at
+UPDATE customers SET full_name = @full_name, phone = @phone, email = @email, user_id = @user_id, updated_at = @updated_at
 WHERE business_id = @business_id AND id = @id;
 
 -- Customers of a business, optionally filtered by name (case-insensitive, contains) or phone

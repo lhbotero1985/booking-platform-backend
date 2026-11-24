@@ -134,7 +134,7 @@ func (q *Queries) ClaimIdempotencyKey(ctx context.Context, arg ClaimIdempotencyK
 }
 
 const customerByID = `-- name: CustomerByID :one
-SELECT id, business_id, full_name, phone, user_id, created_by, created_at, updated_at FROM customers WHERE business_id = $1 AND id = $2
+SELECT id, business_id, full_name, phone, email, user_id, created_by, created_at, updated_at FROM customers WHERE business_id = $1 AND id = $2
 `
 
 type CustomerByIDParams struct {
@@ -150,6 +150,7 @@ func (q *Queries) CustomerByID(ctx context.Context, arg CustomerByIDParams) (Cus
 		&i.BusinessID,
 		&i.FullName,
 		&i.Phone,
+		&i.Email,
 		&i.UserID,
 		&i.CreatedBy,
 		&i.CreatedAt,
@@ -159,7 +160,7 @@ func (q *Queries) CustomerByID(ctx context.Context, arg CustomerByIDParams) (Cus
 }
 
 const customerByPhone = `-- name: CustomerByPhone :one
-SELECT id, business_id, full_name, phone, user_id, created_by, created_at, updated_at FROM customers WHERE business_id = $1 AND phone = $2
+SELECT id, business_id, full_name, phone, email, user_id, created_by, created_at, updated_at FROM customers WHERE business_id = $1 AND phone = $2
 `
 
 type CustomerByPhoneParams struct {
@@ -175,6 +176,7 @@ func (q *Queries) CustomerByPhone(ctx context.Context, arg CustomerByPhoneParams
 		&i.BusinessID,
 		&i.FullName,
 		&i.Phone,
+		&i.Email,
 		&i.UserID,
 		&i.CreatedBy,
 		&i.CreatedAt,
@@ -299,8 +301,8 @@ func (q *Queries) InsertAppointmentEvent(ctx context.Context, arg InsertAppointm
 }
 
 const insertCustomer = `-- name: InsertCustomer :exec
-INSERT INTO customers (id, business_id, full_name, phone, user_id, created_by, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO customers (id, business_id, full_name, phone, email, user_id, created_by, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 `
 
 type InsertCustomerParams struct {
@@ -308,6 +310,7 @@ type InsertCustomerParams struct {
 	BusinessID uuid.UUID
 	FullName   string
 	Phone      string
+	Email      *string
 	UserID     *uuid.UUID
 	CreatedBy  uuid.UUID
 	CreatedAt  time.Time
@@ -320,6 +323,7 @@ func (q *Queries) InsertCustomer(ctx context.Context, arg InsertCustomerParams) 
 		arg.BusinessID,
 		arg.FullName,
 		arg.Phone,
+		arg.Email,
 		arg.UserID,
 		arg.CreatedBy,
 		arg.CreatedAt,
@@ -329,7 +333,7 @@ func (q *Queries) InsertCustomer(ctx context.Context, arg InsertCustomerParams) 
 }
 
 const listCustomers = `-- name: ListCustomers :many
-SELECT id, business_id, full_name, phone, user_id, created_by, created_at, updated_at FROM customers
+SELECT id, business_id, full_name, phone, email, user_id, created_by, created_at, updated_at FROM customers
 WHERE business_id = $1
   AND ($2::text = '' OR lower(full_name) LIKE '%' || lower($2::text) || '%' ESCAPE '\' OR phone LIKE '%' || $2::text || '%' ESCAPE '\')
 ORDER BY lower(full_name), id
@@ -358,6 +362,7 @@ func (q *Queries) ListCustomers(ctx context.Context, arg ListCustomersParams) ([
 			&i.BusinessID,
 			&i.FullName,
 			&i.Phone,
+			&i.Email,
 			&i.UserID,
 			&i.CreatedBy,
 			&i.CreatedAt,
@@ -400,13 +405,14 @@ func (q *Queries) SetIdempotencyAppointment(ctx context.Context, arg SetIdempote
 }
 
 const updateCustomer = `-- name: UpdateCustomer :exec
-UPDATE customers SET full_name = $1, phone = $2, user_id = $3, updated_at = $4
-WHERE business_id = $5 AND id = $6
+UPDATE customers SET full_name = $1, phone = $2, email = $3, user_id = $4, updated_at = $5
+WHERE business_id = $6 AND id = $7
 `
 
 type UpdateCustomerParams struct {
 	FullName   string
 	Phone      string
+	Email      *string
 	UserID     *uuid.UUID
 	UpdatedAt  time.Time
 	BusinessID uuid.UUID
@@ -417,6 +423,7 @@ func (q *Queries) UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) 
 	_, err := q.db.Exec(ctx, updateCustomer,
 		arg.FullName,
 		arg.Phone,
+		arg.Email,
 		arg.UserID,
 		arg.UpdatedAt,
 		arg.BusinessID,

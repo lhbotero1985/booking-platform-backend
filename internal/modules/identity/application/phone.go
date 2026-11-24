@@ -61,5 +61,5 @@ func (s *Service) CustomerProfile(ctx context.Context, userID uuid.UUID) (contra
 	if u.Phone() == "" {
 		return contract.Customer{}, contract.ErrPhoneRequired
 	}
-	return contract.Customer{UserID: u.ID(), FullName: u.FullName(), Phone: u.Phone()}, nil
+	return contract.Customer{UserID: u.ID(), FullName: u.FullName(), Phone: u.Phone(), Email: u.Email().String()}, nil
 }

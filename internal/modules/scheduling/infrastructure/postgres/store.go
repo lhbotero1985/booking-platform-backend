@@ -129,6 +129,13 @@ func (t *txStore) ActiveAppointments(ctx context.Context, businessID, profession
 	return out, nil
 }
 
+func optionalText(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
 func optional(id uuid.UUID) *uuid.UUID {
 	if id == uuid.Nil {
 		return nil
@@ -146,14 +153,14 @@ func customerPhoneTaken(err error) error {
 
 func (t *txStore) InsertCustomer(ctx context.Context, c domain.BusinessCustomer) error {
 	return customerPhoneTaken(t.q.InsertCustomer(ctx, sqlcgen.InsertCustomerParams{
-		ID: c.ID, BusinessID: c.BusinessID, FullName: c.FullName, Phone: c.Phone, UserID: optional(c.UserID),
+		ID: c.ID, BusinessID: c.BusinessID, FullName: c.FullName, Phone: c.Phone, Email: optionalText(c.Email), UserID: optional(c.UserID),
 		CreatedBy: c.CreatedBy, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}))
 }
 
 func (t *txStore) UpdateCustomer(ctx context.Context, c domain.BusinessCustomer) error {
 	return customerPhoneTaken(t.q.UpdateCustomer(ctx, sqlcgen.UpdateCustomerParams{
-		BusinessID: c.BusinessID, ID: c.ID, FullName: c.FullName, Phone: c.Phone, UserID: optional(c.UserID), UpdatedAt: c.UpdatedAt,
+		BusinessID: c.BusinessID, ID: c.ID, FullName: c.FullName, Phone: c.Phone, Email: optionalText(c.Email), UserID: optional(c.UserID), UpdatedAt: c.UpdatedAt,
 	}))
 }
 
@@ -187,12 +194,15 @@ func toCustomer(r sqlcgen.Customer, err error) (domain.BusinessCustomer, error) 
 	if err != nil {
 		return domain.BusinessCustomer{}, err
 	}
-	user := uuid.Nil
+	user, email := uuid.Nil, ""
 	if r.UserID != nil {
 		user = *r.UserID
 	}
+	if r.Email != nil {
+		email = *r.Email
+	}
 	return domain.BusinessCustomer{
-		ID: r.ID, BusinessID: r.BusinessID, FullName: r.FullName, Phone: r.Phone, UserID: user,
+		ID: r.ID, BusinessID: r.BusinessID, FullName: r.FullName, Phone: r.Phone, Email: email, UserID: user,
 		CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt.UTC(), UpdatedAt: r.UpdatedAt.UTC(),
 	}, nil
 }

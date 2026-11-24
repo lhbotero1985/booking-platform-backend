@@ -2,7 +2,7 @@
   "info": {
     "name": "Booking Platform — QA (Fase 6: disponibilidad, reservas y citas manuales)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Validación manual de la API en QA hasta la disponibilidad pública (T6.2).\n\n**Antes de empezar:** en la pestaña *Variables* de la colección escriba `email` y `password` de una cuenta **verificada** de QA que sea responsable (OWNER) de un negocio, o que aún no tenga negocio (el paso 3b lo crea). Ejecute las carpetas en orden (o *Run collection*).\n\nLos pasos 4–6 **modifican datos de QA** de esa cuenta: registran al responsable como barbero, reemplazan su horario semanal (lunes a sábado 09:00–18:00, descanso 13:00–14:00), crean una ausencia de 15:00 a 16:00 el día `targetDate` y el servicio \"Corte Postman\" (30 min). Necesita un teléfono (`customerPhone`). El paso 8 reserva como cliente la primera hora libre (la cita queda creada; se podrá cancelar con T6.6) y prueba la repetición con la misma clave y el 409; el 9, como responsable, crea un cliente sin cuenta y le agenda una cita manual confirmada; el 10 borra la ausencia.\n\n`targetDate` se calcula sola (dentro de 2 días, saltando domingo) si está vacía; puede fijarla (AAAA-MM-DD). Las horas libres aparecen en la consola de Postman (View → Show Postman Console)."
+    "description": "Validación manual de la API en QA hasta la disponibilidad pública (T6.2).\n\n**Antes de empezar:** en la pestaña *Variables* de la colección escriba `email` y `password` de una cuenta **verificada** de QA que sea responsable (OWNER) de un negocio, o que aún no tenga negocio (el paso 3b lo crea). Ejecute las carpetas en orden (o *Run collection*).\n\nLos pasos 4–6 **modifican datos de QA** de esa cuenta: registran al responsable como barbero, reemplazan su horario semanal (lunes a sábado 09:00–18:00, descanso 13:00–14:00), crean una ausencia de 15:00 a 16:00 el día `targetDate` y el servicio \"Corte Postman\" (30 min). Necesita un teléfono (`customerPhone`). El paso 8 reserva como cliente la primera hora libre (la cita queda creada; se podrá cancelar con T6.6) y prueba la repetición con la misma clave y el 409; el 9, como responsable, agenda una cita manual escribiendo nombre, celular y correo del cliente (si no existe se crea); el 10 borra la ausencia.\n\n`targetDate` se calcula sola (dentro de 2 días, saltando domingo) si está vacía; puede fijarla (AAAA-MM-DD). Las horas libres aparecen en la consola de Postman (View → Show Postman Console)."
   },
   "auth": {
     "type": "bearer",
@@ -104,8 +104,8 @@
       "value": "301 555 0199"
     },
     {
-      "key": "walkinId",
-      "value": ""
+      "key": "walkinEmail",
+      "value": "cliente.postman@example.test"
     },
     {
       "key": "nextSlot",
@@ -1388,158 +1388,11 @@
       ]
     },
     {
-      "name": "9. Clientes y cita manual (como responsable)",
-      "description": "Crea el cliente 'Cliente Postman' (celular walkinPhone) y le agenda la siguiente hora libre.",
+      "name": "9. Cita manual rápida (como responsable)",
+      "description": "Agenda la siguiente hora libre escribiendo los datos del cliente en la misma cita.",
       "item": [
         {
-          "name": "9a. Crear cliente sin cuenta",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}/customers",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "business",
-                "{{businessId}}",
-                "customers"
-              ]
-            },
-            "description": "",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"fullName\": \"Cliente Postman\",\n  \"phone\": \"{{walkinPhone}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (pm.response.code === 201) pm.collectionVariables.set('walkinId', pm.response.json().id);",
-                  "pm.test('201 creado o 409 si ese celular ya es cliente', () => pm.expect([201, 409]).to.include(pm.response.code));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "9b. Buscar el cliente por celular",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}/customers?q={{walkinDigits}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "business",
-                "{{businessId}}",
-                "customers"
-              ],
-              "query": [
-                {
-                  "key": "q",
-                  "value": "{{walkinDigits}}"
-                }
-              ]
-            },
-            "description": ""
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.collectionVariables.set('walkinDigits', pm.variables.get('walkinPhone').replace(/[^0-9]/g, ''));"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                  "const c = pm.response.json().items[0];",
-                  "pm.test('encontrado', () => pm.expect(c).to.be.an('object'));",
-                  "pm.collectionVariables.set('walkinId', c.id);",
-                  "console.log('Cliente', c.fullName, c.phone, 'con cuenta:', c.hasAccount);"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "9c. Mi cuenta también es cliente del negocio (por la reserva 8b)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}/customers?q={{myDigits}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "business",
-                "{{businessId}}",
-                "customers"
-              ],
-              "query": [
-                {
-                  "key": "q",
-                  "value": "{{myDigits}}"
-                }
-              ]
-            },
-            "description": ""
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.collectionVariables.set('myDigits', pm.variables.get('customerPhone').replace(/[^0-9]/g, ''));"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                  "const c = pm.response.json().items[0];",
-                  "pm.test('aparece con cuenta', () => pm.expect(c && c.hasAccount).to.eql(true));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "9d. Siguiente hora libre del barbero",
+          "name": "9a. Siguiente hora libre del barbero",
           "request": {
             "method": "GET",
             "header": [],
@@ -1591,7 +1444,7 @@
           ]
         },
         {
-          "name": "9e. Cita manual confirmada para el cliente",
+          "name": "9b. Agendar escribiendo el cliente (nombre, celular, correo)",
           "request": {
             "method": "POST",
             "header": [
@@ -1617,10 +1470,10 @@
                 "appointments"
               ]
             },
-            "description": "",
+            "description": "La forma rápida: no hace falta crear el cliente antes. Si ese celular ya es cliente del negocio se reutiliza; si no, se crea. El correo es opcional.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"professionalId\": \"{{professionalId}}\",\n  \"serviceId\": \"{{serviceId}}\",\n  \"customerId\": \"{{walkinId}}\",\n  \"startAt\": \"{{nextSlot}}\"\n}",
+              "raw": "{\n  \"professionalId\": \"{{professionalId}}\",\n  \"serviceId\": \"{{serviceId}}\",\n  \"startAt\": \"{{nextSlot}}\",\n  \"customer\": {\n    \"fullName\": \"Cliente Postman\",\n    \"phone\": \"{{walkinPhone}}\",\n    \"email\": \"{{walkinEmail}}\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1654,7 +1507,106 @@
           ]
         },
         {
-          "name": "9f. Misma hora, otra clave -> 409",
+          "name": "9c. El cliente quedó en la lista del negocio",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}/customers?q={{walkinDigits}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "business",
+                "{{businessId}}",
+                "customers"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "{{walkinDigits}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('walkinDigits', pm.variables.get('walkinPhone').replace(/[^0-9]/g, ''));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const c = pm.response.json().items[0];",
+                  "pm.test('encontrado con su correo', () => pm.expect(c && c.email).to.eql(pm.variables.get('walkinEmail')));",
+                  "console.log('Cliente', c.fullName, c.phone, c.email, 'con cuenta:', c.hasAccount);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "9d. Mi cuenta también es cliente del negocio (por la reserva 8b)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}/customers?q={{myDigits}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "business",
+                "{{businessId}}",
+                "customers"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "{{myDigits}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('myDigits', pm.variables.get('customerPhone').replace(/[^0-9]/g, ''));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const c = pm.response.json().items[0];",
+                  "pm.test('aparece con cuenta', () => pm.expect(c && c.hasAccount).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "9e. Misma hora, otra clave -> 409",
           "request": {
             "method": "POST",
             "header": [
@@ -1683,7 +1635,7 @@
             "description": "",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"professionalId\": \"{{professionalId}}\",\n  \"serviceId\": \"{{serviceId}}\",\n  \"customerId\": \"{{walkinId}}\",\n  \"startAt\": \"{{nextSlot}}\"\n}",
+              "raw": "{\n  \"professionalId\": \"{{professionalId}}\",\n  \"serviceId\": \"{{serviceId}}\",\n  \"startAt\": \"{{nextSlot}}\",\n  \"customer\": {\n    \"fullName\": \"Cliente Postman\",\n    \"phone\": \"{{walkinPhone}}\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"

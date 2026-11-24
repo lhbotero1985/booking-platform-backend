@@ -317,9 +317,27 @@ func TestManualBookingOnPostgres(t *testing.T) {
 	if n := count(t, w.pool, `SELECT count(*) FROM appointments WHERE id = $1 AND customer_id = $2 AND customer_user_id IS NULL AND status = 'CONFIRMED'`, a.ID, carlos.ID); n != 1 {
 		t.Error("manual appointment not stored with its customer")
 	}
+	// The quick way: the customer typed in the booking (with email) is created in the same
+	// transaction; a failed booking leaves no customer behind.
+	q, err := w.sched.BookManual(ctx, w.barber, w.biz, schedapp.ManualInput{ProfessionalID: w.pro, ServiceID: w.svc, Start: w.at(9, 40), Confirmed: true, IdempotencyKey: "manual-rapida-0940",
+		Customer: &schedapp.CustomerInput{FullName: "Laura", Phone: "311 555 0303", Email: "Laura@Example.com"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := count(t, w.pool, `SELECT count(*) FROM customers WHERE id = $1 AND email = 'laura@example.com' AND phone = '+573115550303'`, q.Customer.CustomerID); n != 1 {
+		t.Error("quick customer not stored")
+	}
+	if _, err := w.sched.BookManual(ctx, w.barber, w.biz, schedapp.ManualInput{ProfessionalID: w.pro, ServiceID: w.svc, Start: w.at(9, 50), Confirmed: true, IdempotencyKey: "manual-rapida-0950",
+		Customer: &schedapp.CustomerInput{FullName: "Tarde", Phone: "314 555 0606"}}); !errors.Is(err, schedapp.ErrSlotUnavailable) {
+		t.Fatalf("overlapping quick booking: %v", err)
+	}
+	if n := count(t, w.pool, `SELECT count(*) FROM customers WHERE phone = '+573145550606'`); n != 0 {
+		t.Error("a failed booking left its customer")
+	}
+
 	// An app booking joins the customer list.
 	ana := w.customer(t)
-	if _, err := w.sched.Book(ctx, ana, w.in(w.at(10, 0), "ana-app-1000")); err != nil {
+	if _, err := w.sched.Book(ctx, ana, w.in(w.at(10, 20), "ana-app-1020")); err != nil {
 		t.Fatal(err)
 	}
 	if n := count(t, w.pool, `SELECT count(*) FROM customers WHERE business_id = $1 AND user_id = $2`, w.biz, ana.UserID); n != 1 {
@@ -371,7 +389,7 @@ func TestManualBookingOnPostgres(t *testing.T) {
 	if ok != 1 || lost != 10 || len(others) > 0 {
 		t.Fatalf("manual vs app on 11:00: %d ok, %d lost, %v", ok, lost, others)
 	}
-	if w.activeAppointments(t) != 3 {
+	if w.activeAppointments(t) != 4 {
 		t.Errorf("active appointments = %d", w.activeAppointments(t))
 	}
 }
