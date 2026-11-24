@@ -1,8 +1,8 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T5.1 — Quitar el rol MANAGER (2026-11-24), en `feature/t5.1-remove-manager-role` (commit y
-push; PR y merge pendientes de autorización).
+T5.2 — Profesionales (2026-11-24), en `feature/t5.2-professionals` (commit y push; PR y merge
+pendientes de autorización).
 
 **Fase 5 en curso** (desglose aprobado 2026-11-24, ver `roadmap.md`).
 
@@ -11,10 +11,10 @@ push; PR y merge pendientes de autorización).
 `feature/*` (nace de `qa`) → PR → `qa` → despliegue automático a QA → validación. `qa` → `main`
 solo al pasar a producción.
 
-## Próxima tarea: T5.2 — Profesionales
+## Próxima tarea: T5.3 — Horario semanal y descansos
 
-- Nuevo módulo `professionals` (o dentro de `businesses`, a decidir con el diseño de
-  `domain-model.md` §5): perfil ligado a la cuenta de un miembro del negocio (PROFESSIONAL u
-  OWNER que atiende), nombre visible, descripción, activo/inactivo, orden.
-- Solo el OWNER crea/edita; un miembro solo tiene un perfil por negocio; retirar la membresía
-  desactiva el perfil; otro negocio → 404; auditoría.
+- Franjas de trabajo por día de la semana (hora local del negocio; varias por día, sin solapes),
+  definidas por el OWNER.
+- Descansos recurrentes (p. ej. almuerzo) dentro de una franja: OWNER o el propio barbero.
+- Tablas `professional_working_hours` y `professional_breaks` con FK compuestas
+  `(business_id, professional_id)`; reemplazo completo del horario de un día en una transacción.

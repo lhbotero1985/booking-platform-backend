@@ -47,3 +47,7 @@ WHERE business_id = $1 AND user_id = $2 AND status = 'ACTIVE';
 -- name: RevokeMembership :exec
 UPDATE memberships SET status = 'REVOKED', updated_at = $3
 WHERE business_id = $1 AND user_id = $2 AND status = 'ACTIVE';
+
+-- name: ActiveMembersAmong :many
+SELECT user_id FROM memberships
+WHERE business_id = sqlc.arg(business_id) AND status = 'ACTIVE' AND user_id = ANY(sqlc.arg(user_ids)::uuid[]);

@@ -62,6 +62,11 @@ PROFESSIONAL),
 `PATCH …/members/{userId}` (rol) y `DELETE …/members/{userId}` (OWNER); 409 `LAST_OWNER`,
 `ALREADY_MEMBER`; 400 `ACCOUNT_NOT_ELIGIBLE`.
 
+### Profesionales (T5.2)
+`GET /business/{businessId}/professionals` y `GET …/{professionalId}` (OWNER, PROFESSIONAL),
+`POST …/professionals` (OWNER: email + nombre visible; agrega la membresía si hace falta) y
+`PATCH …/{professionalId}` (OWNER). 409 `ALREADY_PROFESSIONAL`.
+
 ### Búsqueda pública (T4.6)
 `GET /businesses?cityId=&q=&cursor=&limit=` y `GET /businesses/{slug}` (sin autenticación):
 solo negocios `ACTIVE` con demo vigente o pagada; vista reducida sin datos internos.

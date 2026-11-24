@@ -703,3 +703,23 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Integración (PostgreSQL) | ✅ | Migración 00010 aplicada; `MANAGER` y roles desconocidos rechazados por el CHECK; autorización con profesional |
 | `task check` / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
 | Despliegue y E2E en QA | ⏳ | Tras el merge (incluye "MANAGER ya no existe" → 400) |
+
+## 2026-11-24 · Fase 5 · T5.1 — CI, despliegue y E2E
+
+| Comando | Resultado | Observaciones |
+|---|---|---|
+| PR #40 — ci + security | ✅ 6/6 | Squash `a92de2c`; `release-qa` ✅ (migración 10) |
+| Membresías en QA tras la migración | ✅ | OWNER ACTIVE 13, PROFESSIONAL REVOKED 3 (los MANAGER de prueba convertidos) |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **95/95** | Barbero → OWNER → PROFESSIONAL; `MANAGER` → 400 |
+
+## 2026-11-24 · Fase 5 · T5.2 — Profesionales
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `go test ./internal/modules/professionals/...` | ✅ | domain **100 %**; application **91,5 %**: barbero nuevo por email → miembro PROFESSIONAL + perfil; el OWNER también es profesional y conserva su rol; un perfil por cuenta; cuentas no verificadas/inexistentes/email inválido → `ACCOUNT_NOT_ELIGIBLE`; 4 errores de campo; barbero lee pero no crea ni edita; ajeno 404; admin edita; cambios auditados con campos; no-op sin auditoría; retirado del negocio → `bookable=false` |
+| `TestEnsureMemberAndActiveMembersAmong` (identity) | ✅ | Nuevo miembro PROFESSIONAL, miembro existente conserva rol, idempotente, no elegibles, profesional no puede, lote de miembros activos y tras retiro |
+| `TestProfessionalsOnPostgres` | ✅ | Membresía + perfil en BD; OWNER como profesional sin perder OWNER; duplicado → `ErrAlreadyExists`; el mismo barbero en un segundo negocio; retiro → no reservable; auditoría; sin lecturas cruzadas |
+| `TestEveryRouteIsDocumented` / `TestEveryBusinessRouteIsTenantIsolated` | ✅ | **43 rutas documentadas**; **10 operaciones `{businessId}`** aisladas (incluye las 4 nuevas, sin escribir otra prueba) |
+| `TestContractProfessionals` | ✅ | 4 operaciones contra OpenAPI: 200/201/400/401/403/404/409 |
+| `task check` / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
+| Despliegue y E2E en QA | ⏳ | Tras el merge |

@@ -26,6 +26,9 @@ import (
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application/apptest"
 	identityhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/interfaces/http"
+	profapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/application"
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/application/proftest"
+	professionalshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/interfaces/http"
 	subapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/application/subtest"
 	subscriptionshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/interfaces/http"
@@ -77,6 +80,7 @@ func startAuth(t *testing.T) authHarness {
 	h.srv = httptest.NewServer(app.NewHTTPHandler(cfg, logger, app.Deps{Modules: []app.RouteRegistrar{
 		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),
 		subscriptionshttp.New(subs, logger, idh.RequireAuth),
+		professionalshttp.New(profapp.NewService(proftest.NewStore(), h.svc, h.clock), logger, idh.RequireAuth),
 	}}))
 	t.Cleanup(h.srv.Close)
 	return h

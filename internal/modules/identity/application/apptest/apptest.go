@@ -369,6 +369,18 @@ func (t *storeTx) ActiveMembers(_ context.Context, businessID uuid.UUID) ([]cont
 	return out, nil
 }
 
+func (t *storeTx) ActiveMembersAmong(_ context.Context, businessID uuid.UUID, userIDs []uuid.UUID) ([]uuid.UUID, error) {
+	var out []uuid.UUID
+	for _, id := range userIDs {
+		for _, m := range t.s.memberships[id] {
+			if m.BusinessID == businessID {
+				out = append(out, id)
+			}
+		}
+	}
+	return out, nil
+}
+
 func (t *storeTx) ActiveRole(_ context.Context, businessID, userID uuid.UUID) (contract.Role, error) {
 	for _, m := range t.s.memberships[userID] {
 		if m.BusinessID == businessID {

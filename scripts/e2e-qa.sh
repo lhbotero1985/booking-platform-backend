@@ -171,6 +171,14 @@ check "remove member" 204 "$(status DELETE "/api/v1/business/$mine/members/$staf
 owner_id=$(status GET /api/v1/me "" "$T1" >/dev/null; json .id)
 check "last owner cannot leave" 409 "$(status DELETE "/api/v1/business/$mine/members/$owner_id" "" "$T1")"
 check "  code LAST_OWNER" LAST_OWNER "$(json .code)"
+
+# --- professionals (T5.2): the OWNER adds the barber by email and itself (it also cuts hair) ---
+check "add barber as professional" 201 "$(status POST "/api/v1/business/$mine/professionals" "{\"email\":\"$STAFF\",\"displayName\":\"Barbero E2E\"}" "$T1")"
+check "  bookable" true "$(json .bookable)"
+check "owner is also a professional" 201 "$(status POST "/api/v1/business/$mine/professionals" "{\"email\":\"$EMAIL\",\"displayName\":\"Dueño E2E\",\"sortOrder\":1}" "$T1")"
+check "one profile per account" 409 "$(status POST "/api/v1/business/$mine/professionals" "{\"email\":\"$STAFF\",\"displayName\":\"Otra vez\"}" "$T1")"
+check "list professionals" 2 "$(status GET "/api/v1/business/$mine/professionals" "" "$T1" >/dev/null; json '.items | length')"
+check "barber is a PROFESSIONAL member" PROFESSIONAL "$(status GET "/api/v1/business/$mine/members" "" "$T1" >/dev/null; json "[.items[] | select(.userId==\"$staff\") | .role][0]")"
 check "  one per account" 409 "$(status POST /api/v1/businesses "$own" "$T1")"
 check "  code ALREADY_OWNER" ALREADY_OWNER "$(json .code)"
 if [[ -n ${ADMIN_EMAIL:-} && -n ${ADMIN_PASSWORD:-} ]]; then

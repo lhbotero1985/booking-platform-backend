@@ -48,6 +48,12 @@ tags:
       visible and bookable only if its status is `ACTIVE` and its subscription is entitled
       (demo running, or paid). Payments arrive in phase 11B; meanwhile `PLATFORM_ADMIN` may
       extend demos or activate a subscription as a courtesy.
+  - name: Professionals
+    description: |
+      Barbers and stylists of a business (T5.2). Every professional is the account of a member
+      (a PROFESSIONAL, or an OWNER who also serves customers). The OWNER manages them; the staff
+      reads them. `bookable` is false when the profile is INACTIVE or the account was removed
+      from the business.
 
 paths:
   /healthz:
@@ -1273,6 +1279,146 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
+  /api/v1/business/{businessId}/professionals:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Professionals]
+      operationId: listProfessionals
+      summary: Professionals of your business (OWNER, PROFESSIONAL)
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Professionals ordered by `sortOrder` and name.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfessionalList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Professionals]
+      operationId: createProfessional
+      summary: Add a professional by email (OWNER)
+      description: |
+        The account must be registered and verified (`ACCOUNT_NOT_ELIGIBLE`). If it is not a
+        member yet it becomes a PROFESSIONAL member in the same transaction; an existing member
+        (e.g. an OWNER who also serves customers) keeps its role. One profile per account and
+        business (409 `ALREADY_PROFESSIONAL`). Audited.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProfessionalRequest"
+      responses:
+        "201":
+          description: Professional created.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Professional"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/business/{businessId}/professionals/{professionalId}:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: professionalId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Professionals]
+      operationId: getProfessional
+      summary: A professional of your business (OWNER, PROFESSIONAL)
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The professional.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Professional"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Professionals]
+      operationId: updateProfessional
+      summary: Update a professional (OWNER)
+      description: Only the fields present change. Audited with the changed fields.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfessionalRequest"
+      responses:
+        "200":
+          description: The updated professional.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Professional"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
 components:
   parameters:
     CountryCode:
@@ -2149,6 +2295,87 @@ components:
         nextCursor:
           type: string
 
+    Professional:
+      type: object
+      additionalProperties: false
+      required: [id, userId, displayName, bio, status, sortOrder, memberActive, bookable, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        bio:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+        sortOrder:
+          type: integer
+          minimum: 0
+          maximum: 1000
+        memberActive:
+          type: boolean
+          description: The account is still a member of the business.
+        bookable:
+          type: boolean
+          description: ACTIVE and still a member.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ProfessionalList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Professional"
+
+    CreateProfessionalRequest:
+      type: object
+      additionalProperties: false
+      required: [email, displayName]
+      properties:
+        email:
+          type: string
+        displayName:
+          type: string
+          maxLength: 60
+        bio:
+          type: string
+          maxLength: 500
+        sortOrder:
+          type: integer
+          minimum: 0
+          maximum: 1000
+
+    UpdateProfessionalRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        displayName:
+          type: string
+          maxLength: 60
+        bio:
+          type: string
+          maxLength: 500
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+        sortOrder:
+          type: integer
+          minimum: 0
+          maximum: 1000
+
   responses:
     Unauthorized:
       description: |
@@ -2242,7 +2469,8 @@ components:
         cannot be activated while its location is inactive (`LOCATION_INACTIVE`), the account
         already owns a business (`ALREADY_OWNER`), the subscription is not a demo
         (`NOT_EXTENDABLE`), the account is already a member (`ALREADY_MEMBER`) or the change
-        would leave the business without an OWNER (`LAST_OWNER`).
+        would leave the business without an OWNER (`LAST_OWNER`), or the account already has a
+        professional profile in the business (`ALREADY_PROFESSIONAL`).
       headers:
         X-Request-ID:
           $ref: "#/components/headers/XRequestID"

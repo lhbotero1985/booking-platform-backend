@@ -47,3 +47,17 @@ type Member struct {
 	Role     Role
 	Since    time.Time
 }
+
+// MemberEnsurer makes sure an account is a member of a business (T5.2): if the account with
+// email is already an active member (any role) it returns its ID unchanged; otherwise it adds it
+// with role (audited). Authorized for OWNER and PLATFORM_ADMIN. Called with the caller's
+// transaction in ctx it is atomic with the caller's changes.
+type MemberEnsurer interface {
+	EnsureMember(ctx context.Context, actor Principal, businessID uuid.UUID, email string, role Role) (userID uuid.UUID, err error)
+}
+
+// MembershipChecker answers which of the given accounts are active members of a business (one
+// query). Not authorized: callers use it to derive the state of their own resources.
+type MembershipChecker interface {
+	ActiveMembersAmong(ctx context.Context, businessID uuid.UUID, userIDs []uuid.UUID) (map[uuid.UUID]bool, error)
+}

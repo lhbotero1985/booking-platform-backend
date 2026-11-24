@@ -216,3 +216,29 @@ func TestContractPublicBusinesses(t *testing.T) {
 	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/businesses/barberia-a", "", "", http.StatusOK)
 	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/businesses/no-existe", "", "", http.StatusNotFound)
 }
+
+func TestContractProfessionals(t *testing.T) {
+	c := loadContract(t)
+	e := newGeoServer(t)
+	ownerTok := e.signIn(t, "dueno@example.com")
+	barberTok := e.signIn(t, "barbero@example.com")
+	cali := geotest.CaliID.String()
+	body := c.callAuth(t, e.srv, http.MethodPost, "/api/v1/businesses", `{"name":"Barbería Profesionales","contactPhone":"3001234567","cityId":"`+cali+`","addressLine":"Calle 1"}`, ownerTok, http.StatusCreated)
+	biz := "/api/v1/business/" + regexp.MustCompile(`"id":"([^"]+)"`).FindStringSubmatch(body)[1] + "/professionals"
+
+	created := c.callAuth(t, e.srv, http.MethodPost, biz, `{"email":"barbero@example.com","displayName":"Juan el Barbero","bio":"Fades","sortOrder":1}`, ownerTok, http.StatusCreated)
+	id := regexp.MustCompile(`"id":"([^"]+)"`).FindStringSubmatch(created)[1]
+	c.callAuth(t, e.srv, http.MethodPost, biz, `{"email":"dueno@example.com","displayName":"El Dueño"}`, ownerTok, http.StatusCreated) // the OWNER also serves
+	c.callAuth(t, e.srv, http.MethodPost, biz, `{"email":"barbero@example.com","displayName":"Otra vez"}`, ownerTok, http.StatusConflict)
+	c.callAuth(t, e.srv, http.MethodPost, biz, `{"email":"nadie@example.com","displayName":"Nadie"}`, ownerTok, http.StatusBadRequest)
+	list := c.callAuth(t, e.srv, http.MethodGet, biz, "", barberTok, http.StatusOK)
+	if !strings.Contains(list, `"displayName":"Juan el Barbero"`) || !strings.Contains(list, `"bookable":true`) {
+		t.Errorf("list = %s", list)
+	}
+	c.callAuth(t, e.srv, http.MethodGet, biz+"/"+id, "", ownerTok, http.StatusOK)
+	c.callAuth(t, e.srv, http.MethodGet, biz+"/00000000-0000-0000-0000-000000000001", "", ownerTok, http.StatusNotFound)
+	c.callAuth(t, e.srv, http.MethodPatch, biz+"/"+id, `{"status":"INACTIVE","sortOrder":3}`, ownerTok, http.StatusOK)
+	c.callAuth(t, e.srv, http.MethodPatch, biz+"/"+id, `{"status":"PAUSED"}`, ownerTok, http.StatusBadRequest)
+	c.callAuth(t, e.srv, http.MethodPatch, biz+"/"+id, `{"displayName":"Yo mismo"}`, barberTok, http.StatusForbidden)
+	c.callAuth(t, e.srv, http.MethodGet, biz, "", "", http.StatusUnauthorized)
+}

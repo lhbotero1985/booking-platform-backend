@@ -70,6 +70,8 @@ type Tx interface {
 	InsertMembership(ctx context.Context, id, userID, businessID uuid.UUID, role contract.Role, now time.Time) error
 	// ActiveMembers lists the active members of a business (OWNERs first).
 	ActiveMembers(ctx context.Context, businessID uuid.UUID) ([]contract.Member, error)
+	// ActiveMembersAmong returns which userIDs are active members of businessID.
+	ActiveMembersAmong(ctx context.Context, businessID uuid.UUID, userIDs []uuid.UUID) ([]uuid.UUID, error)
 	// ActiveRole returns the active role of userID in businessID, or contract.ErrMemberNotFound.
 	ActiveRole(ctx context.Context, businessID, userID uuid.UUID) (contract.Role, error)
 	// LockActiveOwners locks and returns the active OWNERs of a business until the end of the
