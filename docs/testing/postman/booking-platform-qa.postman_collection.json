@@ -1,0 +1,1084 @@
+{
+  "info": {
+    "name": "Booking Platform — QA (Fase 6: disponibilidad)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Validación manual de la API en QA hasta la disponibilidad pública (T6.2).\n\n**Antes de empezar:** en la pestaña *Variables* de la colección escriba `email` y `password` de una cuenta **verificada** de QA que sea responsable (OWNER) de un negocio, o que aún no tenga negocio (el paso 3b lo crea). Ejecute las carpetas en orden (o *Run collection*).\n\nLos pasos 4–6 **modifican datos de QA** de esa cuenta: registran al responsable como barbero, reemplazan su horario semanal (lunes a sábado 09:00–18:00, descanso 13:00–14:00), crean una ausencia de 15:00 a 16:00 el día `targetDate` y el servicio \"Corte Postman\" (30 min). El paso 8 borra la ausencia.\n\n`targetDate` se calcula sola (dentro de 2 días, saltando domingo) si está vacía; puede fijarla (AAAA-MM-DD). Las horas libres aparecen en la consola de Postman (View → Show Postman Console)."
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.variables.get('targetDate')) {",
+          "  const bogota = new Date(Date.now() - 5 * 3600 * 1000);",
+          "  const d = new Date(Date.UTC(bogota.getUTCFullYear(), bogota.getUTCMonth(), bogota.getUTCDate() + 2));",
+          "  if (d.getUTCDay() === 0) d.setUTCDate(d.getUTCDate() + 1);",
+          "  pm.collectionVariables.set('targetDate', d.toISOString().slice(0, 10));",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://booking-platform-col.duckdns.org"
+    },
+    {
+      "key": "email",
+      "value": ""
+    },
+    {
+      "key": "password",
+      "value": ""
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "businessName",
+      "value": "Barbería Postman"
+    },
+    {
+      "key": "barberName",
+      "value": "Barbero Postman"
+    },
+    {
+      "key": "targetDate",
+      "value": ""
+    },
+    {
+      "key": "cityId",
+      "value": ""
+    },
+    {
+      "key": "businessId",
+      "value": ""
+    },
+    {
+      "key": "slug",
+      "value": ""
+    },
+    {
+      "key": "professionalId",
+      "value": ""
+    },
+    {
+      "key": "serviceId",
+      "value": ""
+    },
+    {
+      "key": "absenceId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Sesión",
+      "description": "",
+      "item": [
+        {
+          "name": "Iniciar sesión",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"clientType\": \"MOBILE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const t = pm.response.json().token;",
+                  "pm.test('token recibido', () => pm.expect(t).to.be.a('string'));",
+                  "pm.collectionVariables.set('token', t);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mi cuenta",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "me"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Ciudad (Cali)",
+      "description": "",
+      "item": [
+        {
+          "name": "Departamentos de Colombia",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/countries/CO/divisions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "countries",
+                "CO",
+                "divisions"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const valle = pm.response.json().items.find(d => d.code === 'CO-VAC');",
+                  "pm.test('Valle del Cauca', () => pm.expect(valle).to.be.an('object'));",
+                  "pm.collectionVariables.set('valleId', valle.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ciudades del Valle",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/divisions/{{valleId}}/cities",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "divisions",
+                "{{valleId}}",
+                "cities"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const cali = pm.response.json().items.find(c => c.name === 'Cali');",
+                  "pm.test('Cali', () => pm.expect(cali).to.be.an('object'));",
+                  "pm.collectionVariables.set('cityId', cali.id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Negocio",
+      "description": "",
+      "item": [
+        {
+          "name": "3a. Usar mi negocio (si ya soy responsable)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me/memberships",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "me",
+                "memberships"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const own = pm.response.json().items.find(m => m.role === 'OWNER');",
+                  "if (own) {",
+                  "  pm.collectionVariables.set('businessId', own.businessId);",
+                  "  console.log('Uso el negocio', own.businessId, '- puede saltar 3b');",
+                  "} else {",
+                  "  console.log('No es responsable de ningún negocio: ejecute 3b');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3b. Crear negocio (solo si no tengo)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "businesses"
+              ]
+            },
+            "description": "Una demo por cuenta: si ya tiene negocio responde 409 y se usa el de 3a.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{businessName}}\",\n  \"contactPhone\": \"3001234567\",\n  \"cityId\": \"{{cityId}}\",\n  \"addressLine\": \"Calle 1 # 2-3\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('businessId', pm.response.json().id);",
+                  "} else {",
+                  "  console.log('No se creó (ya tiene negocio): se usa el de 3a', pm.variables.get('businessId'));",
+                  "}",
+                  "pm.test('201 creado, o 409 si ya tenía negocio (se usa el de 3a)', () => pm.expect([201, 409]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3c. Ver mi negocio (toma el slug)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "business",
+                "{{businessId}}"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const m = pm.response.json();",
+                  "const b = m.business;",
+                  "pm.test('slug', () => pm.expect(b.slug).to.be.a('string'));",
+                  "pm.collectionVariables.set('slug', b.slug);",
+                  "console.log('Negocio', b.name, '| slug', b.slug, '| suscripción', JSON.stringify(m.subscription), '| política', JSON.stringify(b.bookingPolicy));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Barbero y horario",
+      "description": "",
+      "item": [
+        {
+          "name": "4a. Registrarme como barbero",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}/professionals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "business",
+                "{{businessId}}",
+                "professionals"
+              ]
+            },
+            "description": "Si ya era barbero responde 409; 4b toma su id.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"displayName\": \"{{barberName}}\",\n  \"bio\": \"Creado desde Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('professionalId', pm.response.json().id);",
+                  "}",
+                  "pm.test('201 creado o 409 ya existía', () => pm.expect([201, 409]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4b. Listar barberos (toma el mío)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}/professionals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "business",
+                "{{businessId}}",
+                "professionals"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const items = pm.response.json().items;",
+                  "const mine = items.find(p => p.id === pm.variables.get('professionalId')) || items.find(p => p.displayName === pm.variables.get('barberName')) || items[0];",
+                  "pm.test('hay barbero', () => pm.expect(mine).to.be.an('object'));",
+                  "pm.collectionVariables.set('professionalId', mine.id);",
+                  "console.log('Barbero', mine.displayName, mine.id, 'reservable:', mine.bookable);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4c. Horario lunes a sábado 09:00-18:00, descanso 13:00-14:00",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}/professionals/{{professionalId}}/schedule",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "business",
+                "{{businessId}}",
+                "professionals",
+                "{{professionalId}}",
+                "schedule"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"days\": [\n    {\n      \"weekday\": \"MONDAY\",\n      \"workingHours\": [\n        {\n          \"start\": \"09:00\",\n          \"end\": \"18:00\"\n        }\n      ],\n      \"breaks\": [\n        {\n          \"start\": \"13:00\",\n          \"end\": \"14:00\"\n        }\n      ]\n    },\n    {\n      \"weekday\": \"TUESDAY\",\n      \"workingHours\": [\n        {\n          \"start\": \"09:00\",\n          \"end\": \"18:00\"\n        }\n      ],\n      \"breaks\": [\n        {\n          \"start\": \"13:00\",\n          \"end\": \"14:00\"\n        }\n      ]\n    },\n    {\n      \"weekday\": \"WEDNESDAY\",\n      \"workingHours\": [\n        {\n          \"start\": \"09:00\",\n          \"end\": \"18:00\"\n        }\n      ],\n      \"breaks\": [\n        {\n          \"start\": \"13:00\",\n          \"end\": \"14:00\"\n        }\n      ]\n    },\n    {\n      \"weekday\": \"THURSDAY\",\n      \"workingHours\": [\n        {\n          \"start\": \"09:00\",\n          \"end\": \"18:00\"\n        }\n      ],\n      \"breaks\": [\n        {\n          \"start\": \"13:00\",\n          \"end\": \"14:00\"\n        }\n      ]\n    },\n    {\n      \"weekday\": \"FRIDAY\",\n      \"workingHours\": [\n        {\n          \"start\": \"09:00\",\n          \"end\": \"18:00\"\n        }\n      ],\n      \"breaks\": [\n        {\n          \"start\": \"13:00\",\n          \"end\": \"14:00\"\n        }\n      ]\n    },\n    {\n      \"weekday\": \"SATURDAY\",\n      \"workingHours\": [\n        {\n          \"start\": \"09:00\",\n          \"end\": \"18:00\"\n        }\n      ],\n      \"breaks\": [\n        {\n          \"start\": \"13:00\",\n          \"end\": \"14:00\"\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Ausencia",
+      "description": "",
+      "item": [
+        {
+          "name": "Ausencia el día targetDate de 15:00 a 16:00 (hora Colombia)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}/professionals/{{professionalId}}/absences",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "business",
+                "{{businessId}}",
+                "professionals",
+                "{{professionalId}}",
+                "absences"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start\": \"{{absenceStart}}\",\n  \"end\": \"{{absenceEnd}}\",\n  \"reason\": \"Prueba Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.variables.get('targetDate');",
+                  "pm.collectionVariables.set('absenceStart', d + 'T20:00:00Z');",
+                  "pm.collectionVariables.set('absenceEnd', d + 'T21:00:00Z');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) pm.collectionVariables.set('absenceId', pm.response.json().id);",
+                  "pm.test('201 creada (409 si ya existía una que se cruza)', () => pm.expect([201, 409]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Servicio",
+      "description": "",
+      "item": [
+        {
+          "name": "Crear servicio 'Corte Postman' (30 min)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}/services",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "business",
+                "{{businessId}}",
+                "services"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Corte Postman\",\n  \"durationMinutes\": 30,\n  \"priceMinor\": 2500000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) pm.collectionVariables.set('serviceId', pm.response.json().id);",
+                  "pm.test('201 creado o 409 nombre ya usado', () => pm.expect([201, 409]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar 'Corte Postman' (toma su id)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}/services",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "business",
+                "{{businessId}}",
+                "services"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const s = pm.response.json().items.find(x => x.name === 'Corte Postman');",
+                  "pm.test('existe', () => pm.expect(s).to.be.an('object'));",
+                  "pm.collectionVariables.set('serviceId', s.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Asignarlo a mi barbero (conserva los que ya tenía)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}/professionals/{{professionalId}}/services",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "business",
+                "{{businessId}}",
+                "professionals",
+                "{{professionalId}}",
+                "services"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceIds\": {{serviceIdsJson}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.sendRequest({url: pm.variables.get('baseUrl') + '/api/v1/business/' + pm.variables.get('businessId') + '/professionals/' + pm.variables.get('professionalId') + '/services',",
+                  "  header: {Authorization: 'Bearer ' + pm.variables.get('token')}}, (err, res) => {",
+                  "  const ids = new Set((res.json().items || []).map(s => s.id));",
+                  "  ids.add(pm.variables.get('serviceId'));",
+                  "  pm.collectionVariables.set('serviceIdsJson', JSON.stringify([...ids]));",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Vista pública (sin iniciar sesión)",
+      "description": "",
+      "item": [
+        {
+          "name": "Catálogo público",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/{{slug}}/catalog",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "businesses",
+                "{{slug}}",
+                "catalog"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const c = pm.response.json();",
+                  "pm.test('incluye Corte Postman', () => pm.expect(c.services.map(s => s.name)).to.include('Corte Postman'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DISPONIBILIDAD del barbero el día targetDate",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/{{slug}}/availability?serviceId={{serviceId}}&professionalId={{professionalId}}&date={{targetDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "businesses",
+                "{{slug}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "serviceId",
+                  "value": "{{serviceId}}"
+                },
+                {
+                  "key": "professionalId",
+                  "value": "{{professionalId}}"
+                },
+                {
+                  "key": "date",
+                  "value": "{{targetDate}}"
+                }
+              ]
+            },
+            "description": "Con la política por defecto (cada 10 min, 60 min de antelación, sin preparación) y un servicio de 30 min se esperan 09:00–12:30, 14:00–14:30 y 16:00–17:30.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "const hhmm = s => s.startLocal.slice(11, 16);",
+                  "const mins = t => +t.slice(0, 2) * 60 + +t.slice(3, 5);",
+                  "const times = b.slots.map(hhmm);",
+                  "console.log('Horas libres el', b.date, '(' + b.timeZone + ', ' + b.durationMinutes + ' min):', times.join(' '));",
+                  "pm.test('hay horas libres', () => pm.expect(times.length).to.be.above(0));",
+                  "pm.test('todas dentro del horario 09:00-18:00', () => times.forEach(t => pm.expect(mins(t) >= 540 && mins(t) + b.durationMinutes <= 1080, t).to.be.true));",
+                  "pm.test('ninguna cruza el descanso 13:00-14:00', () => times.forEach(t => pm.expect(mins(t) + b.durationMinutes <= 780 || mins(t) >= 840, t).to.be.true));",
+                  "pm.test('ninguna cruza la ausencia 15:00-16:00', () => times.forEach(t => pm.expect(mins(t) + b.durationMinutes <= 900 || mins(t) >= 960, t).to.be.true));",
+                  "pm.test('sin datos internos', () => pm.expect(Object.keys(b).sort()).to.eql(['date', 'durationMinutes', 'professionalId', 'serviceId', 'slots', 'timeZone']));",
+                  "pm.test('cada hora trae UTC y hora local', () => b.slots.forEach(s => pm.expect(Object.keys(s).sort()).to.eql(['endAt', 'startAt', 'startLocal'])));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Fecha pasada -> 400",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/{{slug}}/availability?serviceId={{serviceId}}&professionalId={{professionalId}}&date=2020-01-01",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "businesses",
+                "{{slug}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "serviceId",
+                  "value": "{{serviceId}}"
+                },
+                {
+                  "key": "professionalId",
+                  "value": "{{professionalId}}"
+                },
+                {
+                  "key": "date",
+                  "value": "2020-01-01"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('DATE_OUTSIDE_BOOKING_WINDOW', () => pm.expect(pm.response.json().code).to.eql('DATE_OUTSIDE_BOOKING_WINDOW'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Fecha inválida -> 400",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/{{slug}}/availability?serviceId={{serviceId}}&professionalId={{professionalId}}&date=manana",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "businesses",
+                "{{slug}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "serviceId",
+                  "value": "{{serviceId}}"
+                },
+                {
+                  "key": "professionalId",
+                  "value": "{{professionalId}}"
+                },
+                {
+                  "key": "date",
+                  "value": "manana"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negocio inexistente -> 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/no-existe-postman/availability?serviceId={{serviceId}}&professionalId={{professionalId}}&date={{targetDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "businesses",
+                "no-existe-postman",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "serviceId",
+                  "value": "{{serviceId}}"
+                },
+                {
+                  "key": "professionalId",
+                  "value": "{{professionalId}}"
+                },
+                {
+                  "key": "date",
+                  "value": "{{targetDate}}"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Servicio que no presta -> 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/{{slug}}/availability?serviceId=01a20aae-0000-7000-8000-000000000000&professionalId={{professionalId}}&date={{targetDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "businesses",
+                "{{slug}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "serviceId",
+                  "value": "01a20aae-0000-7000-8000-000000000000"
+                },
+                {
+                  "key": "professionalId",
+                  "value": "{{professionalId}}"
+                },
+                {
+                  "key": "date",
+                  "value": "{{targetDate}}"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8. Limpieza",
+      "description": "",
+      "item": [
+        {
+          "name": "Borrar la ausencia de prueba",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}/professionals/{{professionalId}}/absences/{{absenceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "business",
+                "{{businessId}}",
+                "professionals",
+                "{{professionalId}}",
+                "absences",
+                "{{absenceId}}"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 (o 404 si no se creó en esta corrida)', () => pm.expect([204, 404]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

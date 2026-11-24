@@ -27,6 +27,8 @@ import (
 	profapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/application/proftest"
 	professionalshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/interfaces/http"
+	schedapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/application"
+	schedulinghttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/interfaces/http"
 	subapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/application/subtest"
 	subscriptionshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/interfaces/http"
@@ -69,11 +71,13 @@ func newGeoServer(t *testing.T) geoEnv {
 	profs := profapp.NewService(proftest.NewStore(), e.identity, clk)
 	cat := catapp.NewService(catalogtest.NewStore(), e.identity, biz, profs, clk)
 	LinkPublicCatalog(biz, cat, profs, biz)
+	sched := schedapp.NewService(schedapp.Deps{Businesses: biz, Catalog: cat, Professionals: profs, Clock: clk})
 	e.modules = []RouteRegistrar{
 		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),
 		subscriptionshttp.New(subs, logger, idh.RequireAuth),
 		professionalshttp.New(profs, logger, idh.RequireAuth),
 		cataloghttp.New(cat, logger, idh.RequireAuth),
+		schedulinghttp.New(sched, logger),
 	}
 	e.srv = httptest.NewServer(NewHTTPHandler(cfg, logger, Deps{Modules: e.modules}))
 	t.Cleanup(e.srv.Close)

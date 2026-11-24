@@ -222,3 +222,20 @@ func (s *Service) PublicBusinessID(ctx context.Context, slug string) (uuid.UUID,
 	}
 	return b.ID(), nil
 }
+
+// PublicBookingPolicy implements the businesses contract PublicBooking (T6.2): the booking
+// policy and time zone of a business customers can see.
+func (s *Service) PublicBookingPolicy(ctx context.Context, slug string) (bizcontract.BookingPolicy, error) {
+	b, err := s.GetPublic(ctx, slug)
+	if errors.Is(err, ErrNotFound) {
+		return bizcontract.BookingPolicy{}, bizcontract.ErrBusinessNotFound
+	}
+	if err != nil {
+		return bizcontract.BookingPolicy{}, err
+	}
+	p := b.Policy()
+	return bizcontract.BookingPolicy{
+		BusinessID: b.ID(), TimeZone: b.TimeZone(), SlotIntervalMinutes: p.SlotIntervalMinutes,
+		BufferMinutes: p.BufferMinutes, MinLeadMinutes: p.MinLeadMinutes, MaxAdvanceDays: p.MaxAdvanceDays,
+	}, nil
+}

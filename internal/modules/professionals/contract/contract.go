@@ -3,6 +3,8 @@ package contract
 
 import (
 	"context"
+	"errors"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -28,3 +30,27 @@ type PublicProfessional struct {
 type Bookable interface {
 	BookableProfessionals(ctx context.Context, businessIDs []uuid.UUID) (map[uuid.UUID][]PublicProfessional, error)
 }
+
+// MinuteRange is [Start, End) in minutes since local midnight.
+type MinuteRange struct{ Start, End int }
+
+// Interval is an absolute [Start, End) in UTC.
+type Interval struct{ Start, End time.Time }
+
+// DayAgenda is a professional's schedule for one weekday (local times of the business) and the
+// absences overlapping a period.
+type DayAgenda struct {
+	WorkingHours []MinuteRange
+	Breaks       []MinuteRange
+	Absences     []Interval
+}
+
+// Agenda reads a professional's agenda for the availability engine (T6.2). No authorization:
+// callers check that the professional is bookable. ErrProfessionalNotFound if it does not exist in
+// the business.
+type Agenda interface {
+	DayAgenda(ctx context.Context, businessID, professionalID uuid.UUID, weekday time.Weekday, from, to time.Time) (DayAgenda, error)
+}
+
+// ErrProfessionalNotFound means there is no such professional in the business.
+var ErrProfessionalNotFound = errors.New("professionals: professional not found")

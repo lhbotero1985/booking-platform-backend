@@ -466,6 +466,24 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 6 · T6.2 — Disponibilidad pública
+
+- **Previo:** PR #48 (T6.1) → `qa`: CI 6/6 ✅, squash `3df9ed4`, rama borrada.
+- **Estado:** ✅ en `feature/t6.2-public-availability` (commit y push; PR pendiente).
+- **Archivos:** contratos `businesses.PublicBooking`, `catalog.Booking` (+ `ErrNotBookable`),
+  `professionals.Agenda` (+ `DayAgenda`, `ErrProfessionalNotFound`) y sus implementaciones;
+  `scheduling/application/service.go`, `scheduling/interfaces/http/handler.go`,
+  `internal/app/scheduling.go`, `cmd/api`, OpenAPI (1 operación + esquema, 61 rutas), pruebas
+  (unitarias, contrato, seguridad, integración), E2E, colección de Postman
+  `docs/testing/postman/booking-platform-qa.postman_collection.json`, docs.
+- **Pedido del usuario:** colección de Postman para validar en QA. Verificada con Newman contra un
+  entorno local temporal (proyecto Docker aparte; el DEV existente tiene datos viejos que impiden
+  la migración 6 y no se tocó): 3 corridas, 22 peticiones, 35 comprobaciones, 0 fallos. La
+  verificación encontró y corrigió 3 errores **de la colección** (slug dentro de `business`, URL
+  de QA fija en un script, 409 de "ya tengo negocio" borraba el id).
+- **Problemas:** DEV local con datos de fases antiguas (FK de memberships en la migración 6);
+  pendiente decidir si recrear su volumen (destructivo, solo datos sintéticos).
+
 ## 2026-11-24 · Fase 6 · T6.1 — Motor de disponibilidad
 
 - **Previo:** PR #47 (T5.8) → `qa`: CI 6/6 ✅, squash `7a04094`, rama borrada; `release-qa` ✅;

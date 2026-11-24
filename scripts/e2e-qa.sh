@@ -233,6 +233,24 @@ check "public catalog (no auth)" 200 "$(status GET "/api/v1/businesses/$myslug/c
 check "  service, price and barber" "Corte \\+ barba 4000000 Barbero E2E" "$(json '"\(.services[0].name) \(.services[0].priceMinor) \(.professionals[0].displayName)"')"
 check "  no internal fields" 0 "$(json '[.professionals[0] | keys[] | select(. == "userId" or . == "status" or . == "email")] | length')"
 check "unknown slug catalog -> 404" 404 "$(status GET /api/v1/businesses/no-existe-e2e/catalog)"
+
+# --- public availability (T6.2): the barber works Tuesdays 10:00-20:00, break 13:00-14:00 -----
+now=$(date +%s)
+for i in 2 3 4 5 6 7 8; do
+  e=$((now + i * 86400))
+  if [[ $(date -u -d "@$e" +%u) == 2 ]]; then break; fi
+done
+tue=$(date -u -d "@$e" +%F)
+wed=$(date -u -d "@$((e + 86400))" +%F)
+av="/api/v1/businesses/$myslug/availability?serviceId=$svc&professionalId=$pbarber"
+check "availability next Tuesday (no auth)" 200 "$(status GET "$av&date=$tue")"
+check "  45 min every 10: 10:00-12:10 and 14:00-19:10" "46 ${tue}T10:00:00-05:00 ${tue}T19:10:00-05:00" "$(json '"\(.slots | length) \(.slots[0].startLocal) \(.slots[-1].startLocal)"')"
+check "  no internal fields" 0 "$(json '[keys[] | select(. != "date" and . != "timeZone" and . != "serviceId" and . != "professionalId" and . != "durationMinutes" and . != "slots")] | length')"
+check "a day he does not work" 0 "$(status GET "$av&date=$wed" >/dev/null; json '.slots | length')"
+check "date in the past" 400 "$(status GET "$av&date=2020-01-01")"
+check "  code DATE_OUTSIDE_BOOKING_WINDOW" DATE_OUTSIDE_BOOKING_WINDOW "$(json .code)"
+check "owner does not perform the service -> 404" 404 "$(status GET "/api/v1/businesses/$myslug/availability?serviceId=$svc&professionalId=$powner&date=$tue")"
+check "invalid date -> 400" 400 "$(status GET "$av&date=manana")"
 status POST /api/v1/auth/logout "" "$TS" >/dev/null
 check "  one per account" 409 "$(status POST /api/v1/businesses "$own" "$T1")"
 check "  code ALREADY_OWNER" ALREADY_OWNER "$(json .code)"
