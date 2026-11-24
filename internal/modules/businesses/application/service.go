@@ -83,26 +83,28 @@ type Authorizer interface {
 
 // Service implements the businesses use cases.
 type Service struct {
-	store     Store
-	authz     Authorizer
-	members   identity.MemberAdder
-	owners    identity.OwnershipClaimer
-	trials    subscriptions.Trials
-	summaries subscriptions.Summaries
-	places    geography.Places
-	clock     clock.Clock
+	store        Store
+	authz        Authorizer
+	members      identity.MemberAdder
+	owners       identity.OwnershipClaimer
+	trials       subscriptions.Trials
+	summaries    subscriptions.Summaries
+	entitlements subscriptions.Entitlements
+	places       geography.Places
+	clock        clock.Clock
 }
 
 // Deps are the collaborators of the service.
 type Deps struct {
-	Store     Store
-	Authz     Authorizer
-	Members   identity.MemberAdder
-	Owners    identity.OwnershipClaimer
-	Trials    subscriptions.Trials
-	Summaries subscriptions.Summaries
-	Places    geography.Places
-	Clock     clock.Clock
+	Store        Store
+	Authz        Authorizer
+	Members      identity.MemberAdder
+	Owners       identity.OwnershipClaimer
+	Trials       subscriptions.Trials
+	Summaries    subscriptions.Summaries
+	Entitlements subscriptions.Entitlements
+	Places       geography.Places
+	Clock        clock.Clock
 }
 
 // NewService builds the service; a nil clock defaults to the system clock.
@@ -112,7 +114,7 @@ func NewService(d Deps) *Service {
 	}
 	return &Service{
 		store: d.Store, authz: d.Authz, members: d.Members, owners: d.Owners, trials: d.Trials,
-		summaries: d.Summaries, places: d.Places, clock: d.Clock,
+		summaries: d.Summaries, entitlements: d.Entitlements, places: d.Places, clock: d.Clock,
 	}
 }
 

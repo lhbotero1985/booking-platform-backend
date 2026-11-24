@@ -31,6 +31,9 @@ func (slugTx) AppendAudit(context.Context, *audit.Entry) error { return nil }
 func (slugTx) ListBusinesses(context.Context, application.ListFilter) ([]*domain.Business, error) {
 	return nil, nil
 }
+func (slugTx) SearchActive(context.Context, application.SearchFilter) ([]application.SearchHit, error) {
+	return nil, nil
+}
 
 func TestAllocateSlug(t *testing.T) {
 	ctx := context.Background()

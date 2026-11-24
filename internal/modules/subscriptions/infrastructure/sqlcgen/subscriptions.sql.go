@@ -117,6 +117,39 @@ func (q *Queries) SubscriptionByBusinessForUpdate(ctx context.Context, businessI
 	return i, err
 }
 
+const subscriptionsOf = `-- name: SubscriptionsOf :many
+SELECT business_id, status, trial_ends_at, expired_at, created_at, updated_at
+FROM subscriptions
+WHERE business_id = ANY($1::uuid[])
+`
+
+func (q *Queries) SubscriptionsOf(ctx context.Context, businessIds []uuid.UUID) ([]Subscription, error) {
+	rows, err := q.db.Query(ctx, subscriptionsOf, businessIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Subscription{}
+	for rows.Next() {
+		var i Subscription
+		if err := rows.Scan(
+			&i.BusinessID,
+			&i.Status,
+			&i.TrialEndsAt,
+			&i.ExpiredAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateSubscription = `-- name: UpdateSubscription :exec
 UPDATE subscriptions
 SET status = $2, trial_ends_at = $3, expired_at = $4, updated_at = $5

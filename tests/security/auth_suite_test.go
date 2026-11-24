@@ -73,7 +73,7 @@ func startAuth(t *testing.T) authHarness {
 	idh := identityhttp.New(h.svc, logger, identityhttp.Options{AllowedOrigins: cfg.HTTP.CORSAllowedOrigins})
 	geo := geoapp.NewService(h.geo, h.svc, h.geo, h.clock)
 	subs := subapp.NewService(h.subs, h.svc, h.clock)
-	biz := bizapp.NewService(bizapp.Deps{Store: h.biz, Authz: h.svc, Members: h.svc, Owners: h.svc, Trials: subs, Summaries: subs, Places: geo, Clock: h.clock})
+	biz := bizapp.NewService(bizapp.Deps{Store: h.biz, Authz: h.svc, Members: h.svc, Owners: h.svc, Trials: subs, Summaries: subs, Entitlements: subs, Places: geo, Clock: h.clock})
 	h.srv = httptest.NewServer(app.NewHTTPHandler(cfg, logger, app.Deps{Modules: []app.RouteRegistrar{
 		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),
 		subscriptionshttp.New(subs, logger, idh.RequireAuth),

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -119,6 +120,59 @@ func (t *tx) ListBusinesses(_ context.Context, f application.ListFilter) ([]*dom
 	sort.Slice(out, func(i, j int) bool { return less(out[i].ID(), out[j].ID()) })
 	if len(out) > f.Limit {
 		out = out[:f.Limit]
+	}
+	return out, nil
+}
+
+func (t *tx) SearchActive(_ context.Context, f application.SearchFilter) ([]application.SearchHit, error) {
+	var out []application.SearchHit
+	for _, b := range t.businesses {
+		key := strings.ToLower(b.Name())
+		if b.Status() != domain.StatusActive || b.Location().CityID != f.CityID {
+			continue
+		}
+		if f.NameLike != "" && !strings.Contains(key, strings.ToLower(unescapeLike(strings.Trim(f.NameLike, "%")))) {
+			continue
+		}
+		if f.AfterName != "" && (key < f.AfterName || (key == f.AfterName && !less(f.AfterID, b.ID()))) {
+			continue
+		}
+		out = append(out, application.SearchHit{Business: &b, SortName: key})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].SortName != out[j].SortName {
+			return out[i].SortName < out[j].SortName
+		}
+		return less(out[i].Business.ID(), out[j].Business.ID())
+	})
+	if len(out) > f.Limit {
+		out = out[:f.Limit]
+	}
+	return out, nil
+}
+
+func unescapeLike(s string) string {
+	return strings.NewReplacer(`\\`, `\`, `\%`, `%`, `\_`, `_`).Replace(s)
+}
+
+// Entitlements answers from a set of entitled businesses (everything entitled when All).
+type Entitlements struct {
+	All bool
+	IDs map[uuid.UUID]bool
+}
+
+// Entitled implements subscriptions contract Entitlements.
+func (e Entitlements) Entitled(_ context.Context, id uuid.UUID) (bool, error) {
+	return e.All || e.IDs[id], nil
+}
+
+// EntitledAmong implements subscriptions contract Entitlements.
+func (e Entitlements) EntitledAmong(_ context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
+	out := map[uuid.UUID]bool{}
+	for _, id := range ids {
+		if e.All || e.IDs[id] {
+			out[id] = true
+		}
 	}
 	return out, nil
 }

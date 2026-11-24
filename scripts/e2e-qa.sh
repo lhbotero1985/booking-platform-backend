@@ -141,6 +141,15 @@ own="{\"name\":\"QA E2E propia $(date +%s)\",\"contactPhone\":\"3001234567\",\"c
 check "self-service business" 201 "$(status POST /api/v1/businesses "$own" "$T1")"
 check "  ACTIVE at once (demo)" ACTIVE "$(json .status)"
 mine=$(json .id)
+myslug=$(json .slug)
+myname=$(json .name)
+
+# --- public search (T4.6): visible to customers while the demo runs -----------------------
+check "public search finds it (no auth)" 1 "$(status GET "/api/v1/businesses?cityId=$cali&q=$(jq -rn --arg v "$myname" '$v|@uri')" >/dev/null; json "[.items[] | select(.id==\"$mine\")] | length")"
+check "  no internal fields" 0 "$(json '[.items[0] | keys[] | select(. == "status" or . == "reminders" or . == "createdAt")] | length')"
+check "public detail by slug" 200 "$(status GET "/api/v1/businesses/$myslug")"
+check "unknown slug -> 404" 404 "$(status GET /api/v1/businesses/no-existe-e2e)"
+check "search without city -> 400" 400 "$(status GET /api/v1/businesses)"
 check "owner views the business" 200 "$(status GET "/api/v1/business/$mine" "" "$T1")"
 check "  demo running" "TRIALING true" "$(json '"\(.subscription.status) \(.subscription.entitled)"')"
 check "owner edits the business" 200 "$(status PATCH "/api/v1/business/$mine" '{"description":"Cortes y barba","bookingPolicy":{"slotIntervalMinutes":15}}' "$T1")"

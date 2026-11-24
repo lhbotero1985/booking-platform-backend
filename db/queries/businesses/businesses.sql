@@ -66,3 +66,20 @@ WHERE (sqlc.narg(status)::text IS NULL OR status = sqlc.narg(status)::text)
   AND (sqlc.narg(after)::uuid IS NULL OR id > sqlc.narg(after)::uuid)
 ORDER BY id
 LIMIT sqlc.arg(max_rows);
+
+-- name: SearchActiveBusinesses :many
+-- Public search (T4.6): ACTIVE businesses of a city, optional name filter (the caller escapes
+-- LIKE wildcards), keyset pagination after (lower(name), id). Entitlement (demo or payment) is
+-- filtered by the subscriptions module. sort_name is the keyset (PostgreSQL's lower()).
+SELECT lower(name) AS sort_name, id, name, slug::text AS slug, status, contact_phone, description, country_code, division_id,
+       city_id, address_line, latitude, longitude, time_zone, currency, slot_interval_minutes,
+       buffer_minutes, min_lead_minutes, max_advance_days, cancellation_cutoff_hours,
+       reschedule_cutoff_hours, require_customer_confirmation, reminders_enabled,
+       reminder_hours_before, created_at, updated_at
+FROM businesses
+WHERE status = 'ACTIVE'
+  AND city_id = sqlc.arg(city_id)
+  AND (sqlc.narg(name_like)::text IS NULL OR name ILIKE sqlc.narg(name_like)::text ESCAPE '\')
+  AND (sqlc.narg(after_name)::text IS NULL OR (lower(name), id) > (sqlc.narg(after_name)::text, sqlc.narg(after_id)::uuid))
+ORDER BY lower(name), id
+LIMIT sqlc.arg(max_rows);

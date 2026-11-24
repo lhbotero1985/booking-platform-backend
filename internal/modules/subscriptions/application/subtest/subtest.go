@@ -77,6 +77,23 @@ func (t *tx) SubscriptionByBusiness(_ context.Context, id uuid.UUID, _ bool) (do
 	return s, nil
 }
 
+func (t *tx) SubscriptionsOf(_ context.Context, ids []uuid.UUID) ([]domain.Subscription, error) {
+	var out []domain.Subscription
+	for _, id := range ids {
+		if s, ok := t.subs[id]; ok {
+			out = append(out, s)
+		}
+	}
+	return out, nil
+}
+
+// Set stores a subscription directly (test helper).
+func (s *Store) Set(sub domain.Subscription) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.subs[sub.BusinessID] = sub
+}
+
 func (t *tx) UpdateSubscription(_ context.Context, s domain.Subscription) error {
 	t.subs[s.BusinessID] = s
 	return nil

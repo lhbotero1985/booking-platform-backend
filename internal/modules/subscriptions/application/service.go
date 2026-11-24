@@ -47,6 +47,8 @@ type Tx interface {
 	// SubscriptionByBusiness returns ErrNotFound when absent; forUpdate locks the row.
 	SubscriptionByBusiness(ctx context.Context, businessID uuid.UUID, forUpdate bool) (domain.Subscription, error)
 	UpdateSubscription(ctx context.Context, s domain.Subscription) error
+	// SubscriptionsOf returns the subscriptions of the given businesses (missing ones omitted).
+	SubscriptionsOf(ctx context.Context, businessIDs []uuid.UUID) ([]domain.Subscription, error)
 	// ExpireDueTrials marks up to limit demos ended at now as EXPIRED and returns their businesses.
 	ExpireDueTrials(ctx context.Context, now time.Time, limit int) ([]uuid.UUID, error)
 	AppendAudit(ctx context.Context, e *audit.Entry) error
@@ -102,6 +104,28 @@ func (s *Service) Entitled(ctx context.Context, businessID uuid.UUID) (bool, err
 		return nil
 	})
 	return ok, err
+}
+
+// EntitledAmong implements contract.Entitlements for a batch of businesses.
+func (s *Service) EntitledAmong(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
+	out := make(map[uuid.UUID]bool, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	err := s.store.WithinTx(ctx, func(tx Tx) error {
+		subs, err := tx.SubscriptionsOf(ctx, ids)
+		if err != nil {
+			return err
+		}
+		now := s.clock.Now()
+		for _, sub := range subs {
+			if sub.Entitled(now) {
+				out[sub.BusinessID] = true
+			}
+		}
+		return nil
+	})
+	return out, err
 }
 
 // SummaryOf implements contract.Summaries (the caller has authorized the request).

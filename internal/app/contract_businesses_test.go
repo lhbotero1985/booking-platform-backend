@@ -193,3 +193,25 @@ func TestContractBusinessMembers(t *testing.T) {
 	}
 	c.callAuth(t, e.srv, http.MethodPatch, base+"/"+dueno, `{"role":"MANAGER"}`, ownerTok, http.StatusConflict)
 }
+
+func TestContractPublicBusinesses(t *testing.T) {
+	c := loadContract(t)
+	e := newGeoServer(t)
+	cali := geotest.CaliID.String()
+	for i, email := range []string{"a@example.com", "b@example.com", "c@example.com"} {
+		tok := e.signIn(t, email)
+		c.callAuth(t, e.srv, http.MethodPost, "/api/v1/businesses", `{"name":"Barbería `+string(rune('A'+i))+`","contactPhone":"3001234567","cityId":"`+cali+`","addressLine":"Calle 1","coordinates":{"latitude":3.45,"longitude":-76.53}}`, tok, http.StatusCreated)
+	}
+	page := c.callAuth(t, e.srv, http.MethodGet, "/api/v1/businesses?cityId="+cali+"&limit=2", "", "", http.StatusOK)
+	if !strings.Contains(page, `"nextCursor"`) || strings.Contains(page, `"status"`) || strings.Contains(page, `"reminders"`) {
+		t.Errorf("public page = %s", page)
+	}
+	cursor := regexp.MustCompile(`"nextCursor":"([^"]+)"`).FindStringSubmatch(page)[1]
+	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/businesses?cityId="+cali+"&cursor="+cursor, "", "", http.StatusOK)
+	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/businesses?cityId="+cali+"&q=barb", "", "", http.StatusOK)
+	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/businesses", "", "", http.StatusBadRequest)
+	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/businesses?cityId="+cali+"&limit=500", "", "", http.StatusBadRequest)
+	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/businesses?cityId="+cali+"&q=x", "", "", http.StatusBadRequest)
+	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/businesses/barberia-a", "", "", http.StatusOK)
+	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/businesses/no-existe", "", "", http.StatusNotFound)
+}

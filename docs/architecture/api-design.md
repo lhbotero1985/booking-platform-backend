@@ -61,6 +61,10 @@ ubicación, política de reservas y recordatorios. Otro negocio → 404 idéntic
 `PATCH …/members/{userId}` (rol) y `DELETE …/members/{userId}` (OWNER); 409 `LAST_OWNER`,
 `ALREADY_MEMBER`; 400 `ACCOUNT_NOT_ELIGIBLE`.
 
+### Búsqueda pública (T4.6)
+`GET /businesses?cityId=&q=&cursor=&limit=` y `GET /businesses/{slug}` (sin autenticación):
+solo negocios `ACTIVE` con demo vigente o pagada; vista reducida sin datos internos.
+
 ### Descubrimiento (cliente)
 | Método | Ruta |
 |---|---|

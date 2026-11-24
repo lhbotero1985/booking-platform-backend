@@ -69,6 +69,25 @@ func (t *txStore) SubscriptionByBusiness(ctx context.Context, businessID uuid.UU
 	}, nil
 }
 
+func (t *txStore) SubscriptionsOf(ctx context.Context, businessIDs []uuid.UUID) ([]domain.Subscription, error) {
+	rows, err := t.q.SubscriptionsOf(ctx, businessIDs)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.Subscription, 0, len(rows))
+	for _, r := range rows {
+		st, err := domain.ParseStatus(r.Status)
+		if err != nil {
+			return nil, fmt.Errorf("subscription %s: %w", r.BusinessID, err)
+		}
+		out = append(out, domain.Subscription{
+			BusinessID: r.BusinessID, Status: st, TrialEndsAt: r.TrialEndsAt, ExpiredAt: r.ExpiredAt,
+			CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+		})
+	}
+	return out, nil
+}
+
 func (t *txStore) UpdateSubscription(ctx context.Context, s domain.Subscription) error {
 	return t.q.UpdateSubscription(ctx, sqlcgen.UpdateSubscriptionParams{
 		BusinessID: s.BusinessID, Status: string(s.Status), TrialEndsAt: s.TrialEndsAt, ExpiredAt: s.ExpiredAt, UpdatedAt: s.UpdatedAt,

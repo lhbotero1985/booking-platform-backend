@@ -19,6 +19,9 @@ type Trials interface {
 // paid). Used by search (T4.6) and bookings (Phase 6).
 type Entitlements interface {
 	Entitled(ctx context.Context, businessID uuid.UUID) (bool, error)
+	// EntitledAmong returns the subset of ids that are entitled now (one query for a page of
+	// search results).
+	EntitledAmong(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error)
 }
 
 // Summary is what a business's own staff sees of its subscription.
