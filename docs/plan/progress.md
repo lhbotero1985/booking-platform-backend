@@ -466,6 +466,20 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 5 · T5.5 — Catálogo de servicios
+
+- **Previo:** PR #43 (T5.4) → `qa`: CI 6/6 ✅, squash `facfa0c`, rama borrada; `release-qa` ✅
+  (migración 13); E2E en QA **118/118**.
+- **Decisión del usuario:** confirmadas las reglas del catálogo (duración en múltiplos de 5,
+  precio en pesos enteros, solo el responsable gestiona).
+- **Estado:** ✅ en `feature/t5.5-catalog` (commit y push; PR pendiente).
+- **Archivos:** migración `00014_catalog.sql`; módulo nuevo `internal/modules/catalog/` (domain,
+  application + catalogtest, postgres, sqlcgen, HTTP); `businesses/contract` (`Currencies`) y
+  `CurrencyOf`; `internal/app/catalog.go`, `cmd/api`, `.golangci.yml` (fronteras de catalog),
+  `sqlc.yaml`, OpenAPI (8 operaciones + 8 esquemas, etiqueta Catalog), pruebas, E2E, docs.
+- **Problemas:** la prueba de aislamiento habría aceptado un 404 por un `{categoryId}` sin
+  sustituir → ahora falla si queda un placeholder sin resolver.
+
 ## 2026-11-24 · Fase 5 · T5.4 — Ausencias e incapacidades
 
 - **Previo:** PR #42 (T5.3) → `qa`: CI 6/6 ✅, squash `14a4b39`, rama borrada; `release-qa` ✅ al

@@ -111,7 +111,7 @@ barba") son servicios normales con su propio precio y duración.
 | T5.2 ✅ | Profesionales: perfil ligado a la cuenta de un miembro (barbero o responsable que atiende), nombre visible, descripción, activo/inactivo, orden | Solo OWNER gestiona; otro negocio 404; auditoría |
 | T5.3 ✅ | Horario semanal (franjas por día) y descansos recurrentes: OWNER para todos, el barbero para el suyo | Sin solapes; descanso dentro de una franja; zona horaria del negocio |
 | T5.4 ✅ | Ausencias e incapacidades (OWNER para todos, el barbero las suyas) | Sin solapes por profesional (exclusion constraint) |
-| T5.5 | Catálogo: categorías opcionales y servicios (nombre, descripción, duración, precio en COP) | Moneda del negocio, unidades menores, nombre único por negocio |
+| T5.5 ✅ | Catálogo: categorías opcionales y servicios (nombre, descripción, duración, precio en COP) | Moneda del negocio, unidades menores, nombre único por negocio |
 | T5.6 | Servicios que presta cada profesional | Mismo negocio; solo OWNER |
 | T5.7 | Vista pública de profesionales y servicios; la búsqueda exige al menos un servicio y un profesional activos | Sin datos internos |
 | T5.8 | Suite de aislamiento, E2E en QA, cierre de fase | Aprobación del usuario |

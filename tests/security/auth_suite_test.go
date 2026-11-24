@@ -20,6 +20,9 @@ import (
 	bizapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/application/biztest"
 	businesseshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/interfaces/http"
+	catapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/application"
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/application/catalogtest"
+	cataloghttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/interfaces/http"
 	geoapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/application/geotest"
 	geographyhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/interfaces/http"
@@ -81,6 +84,7 @@ func startAuth(t *testing.T) authHarness {
 		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),
 		subscriptionshttp.New(subs, logger, idh.RequireAuth),
 		professionalshttp.New(profapp.NewService(proftest.NewStore(), h.svc, h.clock), logger, idh.RequireAuth),
+		cataloghttp.New(catapp.NewService(catalogtest.NewStore(), h.svc, biz, h.clock), logger, idh.RequireAuth),
 	}}))
 	t.Cleanup(h.srv.Close)
 	return h

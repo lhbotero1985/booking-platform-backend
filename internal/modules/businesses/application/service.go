@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	bizcontract "github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/domain"
 	geography "github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/contract"
 	identity "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
@@ -379,4 +380,21 @@ func required(raw, code string) string {
 		return CodeRequired
 	}
 	return code
+}
+
+// CurrencyOf implements contract.Currencies (no authorization; see the contract).
+func (s *Service) CurrencyOf(ctx context.Context, businessID uuid.UUID) (string, error) {
+	var currency string
+	err := s.store.WithinTx(ctx, func(ctx context.Context, tx Tx) error {
+		b, err := tx.BusinessByID(ctx, businessID)
+		if errors.Is(err, ErrNotFound) {
+			return bizcontract.ErrBusinessNotFound
+		}
+		if err != nil {
+			return err
+		}
+		currency = b.Currency()
+		return nil
+	})
+	return currency, err
 }

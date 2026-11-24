@@ -28,6 +28,10 @@ var tenantBodies = map[string]string{
 	"PUT /api/v1/business/{businessId}/professionals/{professionalId}/schedule":               `{"days":[{"weekday":"SUNDAY","workingHours":[{"start":"00:00","end":"23:00"}]}]}`,
 	"POST /api/v1/business/{businessId}/professionals/{professionalId}/absences":              `{"start":"2030-01-01T00:00:00Z","end":"2030-01-02T00:00:00Z","reason":"Intruso"}`,
 	"PATCH /api/v1/business/{businessId}/professionals/{professionalId}/absences/{absenceId}": `{"reason":"Hackeado"}`,
+	"POST /api/v1/business/{businessId}/service-categories":                                   `{"name":"Intrusa"}`,
+	"PATCH /api/v1/business/{businessId}/service-categories/{categoryId}":                     `{"name":"Hackeada"}`,
+	"POST /api/v1/business/{businessId}/services":                                             `{"name":"Intruso","durationMinutes":30,"priceMinor":100}`,
+	"PATCH /api/v1/business/{businessId}/services/{serviceId}":                                `{"priceMinor":100}`,
 }
 
 func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
@@ -68,6 +72,21 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 		t.Fatalf("bob registers an absence: %d %s", ab.status, ab.body)
 	}
 	absencesBefore := h.call(t, http.MethodGet, absencesURL, "", bearerH(bob)).body
+	created := func(path, body string) string {
+		r := h.call(t, http.MethodPost, "/api/v1/business/"+bobBiz+path, body, bearerH(bob))
+		var v struct{ ID string }
+		if r.status != http.StatusCreated || json.Unmarshal([]byte(r.body), &v) != nil {
+			t.Fatalf("bob creates %s: %d %s", path, r.status, r.body)
+		}
+		return v.ID
+	}
+	categoryID := created("/service-categories", `{"name":"Cortes"}`)
+	serviceID := created("/services", `{"name":"Corte + barba","durationMinutes":45,"priceMinor":3500000,"categoryId":"`+categoryID+`"}`)
+	catalogURLs := []string{"/api/v1/business/" + bobBiz + "/services", "/api/v1/business/" + bobBiz + "/service-categories"}
+	catalogBefore := map[string]string{}
+	for _, u := range catalogURLs {
+		catalogBefore[u] = h.call(t, http.MethodGet, u, "", bearerH(bob)).body
+	}
 	before := h.call(t, http.MethodGet, "/api/v1/business/"+bobBiz, "", bearerH(bob)).body
 	membersBefore := h.call(t, http.MethodGet, "/api/v1/business/"+bobBiz+"/members", "", bearerH(bob)).body
 	deniedBefore := countAction(h.store.AuditActions(), application.AuditAuthzDenied+":DENIED")
@@ -94,7 +113,10 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 				body = "{}"
 			}
 			url := func(biz string) string {
-				return strings.NewReplacer("{businessId}", biz, "{userId}", staffID, "{professionalId}", prof.ID, "{absenceId}", absence.ID).Replace(path)
+				return strings.NewReplacer("{businessId}", biz, "{userId}", staffID, "{professionalId}", prof.ID, "{absenceId}", absence.ID, "{categoryId}", categoryID, "{serviceId}", serviceID).Replace(path)
+			}
+			if strings.Contains(url(bobBiz), "{") {
+				t.Fatalf("%s: unresolved path placeholder in %s", op, url(bobBiz))
 			}
 			cross := h.call(t, method, url(bobBiz), body, bearerH(ana))
 			none := h.call(t, method, url(missing), body, bearerH(ana))
@@ -104,7 +126,7 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 			tested++
 		}
 	}
-	if tested < 16 {
+	if tested < 24 {
 		t.Fatalf("only %d business-scoped operations found in the contract", tested)
 	}
 	// Nothing changed in Bob's business, and every attempt was audited as a denial.
@@ -122,6 +144,11 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 	}
 	if after := h.call(t, http.MethodGet, absencesURL, "", bearerH(bob)).body; after != absencesBefore {
 		t.Errorf("Bob's absences changed:\n%s\n%s", absencesBefore, after)
+	}
+	for _, u := range catalogURLs {
+		if after := h.call(t, http.MethodGet, u, "", bearerH(bob)).body; after != catalogBefore[u] {
+			t.Errorf("Bob's catalog changed (%s):\n%s\n%s", u, catalogBefore[u], after)
+		}
 	}
 	if denied := countAction(h.store.AuditActions(), application.AuditAuthzDenied+":DENIED") - deniedBefore; denied < tested {
 		t.Errorf("authz.denied entries = %d, want at least %d (one per cross-tenant attempt)", denied, tested)
