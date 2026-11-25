@@ -1,6 +1,7 @@
 package domain_test
 
 import (
+	"errors"
 	"slices"
 	"testing"
 	"time"
@@ -277,5 +278,42 @@ func TestRescheduleLimitES(t *testing.T) {
 		if c.CanReschedule() != tc.can || c.RescheduleLimitES() != tc.want {
 			t.Errorf("%d/%d: %v %q", tc.done, tc.max, c.CanReschedule(), c.RescheduleLimitES())
 		}
+	}
+}
+
+func TestCustomerPreferences(t *testing.T) {
+	if domain.DefaultCustomerPreferences().Validate() != nil || !errors.Is((domain.CustomerPreferences{Reminders: true}).Validate(), domain.ErrNoChannel) {
+		t.Error("validate")
+	}
+	onlyEmail := domain.CustomerPreferences{Email: true}
+	for _, tc := range []struct {
+		ch   domain.Channel
+		kind domain.Kind
+		want domain.SkipReason
+	}{
+		{domain.ChannelWhatsApp, domain.KindCreated, domain.SkipCustomerOptedOut},
+		{domain.ChannelEmail, domain.KindCreated, ""},
+		{domain.ChannelEmail, domain.KindReminder, domain.SkipRemindersOff},
+		{domain.ChannelWhatsApp, domain.KindReminder, domain.SkipCustomerOptedOut},
+	} {
+		if got := onlyEmail.SkipFor(domain.Message{Channel: tc.ch, Kind: tc.kind}); got != tc.want {
+			t.Errorf("%s %s: %q", tc.ch, tc.kind, got)
+		}
+	}
+	if got := domain.DefaultCustomerPreferences().SkipFor(domain.Message{Channel: domain.ChannelWhatsApp, Kind: domain.KindReminder}); got != "" {
+		t.Errorf("defaults: %q", got)
+	}
+}
+
+func TestMonthAndDayOf(t *testing.T) {
+	bogota, _ := time.LoadLocation("America/Bogota")
+	// 31 Dec 2030, 21:00 in Bogotá is already January in UTC.
+	from, to := domain.MonthOf(time.Date(2030, 12, 31, 21, 0, 0, 0, bogota))
+	if !from.Equal(time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC)) || !to.Equal(time.Date(2031, 2, 1, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("month %s %s", from, to)
+	}
+	from, to = domain.DayOf(time.Date(2030, 3, 5, 23, 59, 0, 0, time.UTC))
+	if !from.Equal(time.Date(2030, 3, 5, 0, 0, 0, 0, time.UTC)) || to.Sub(from) != 24*time.Hour {
+		t.Errorf("day %s %s", from, to)
 	}
 }

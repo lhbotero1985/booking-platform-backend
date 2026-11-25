@@ -197,3 +197,67 @@ func (t *txStore) EnqueueReply(ctx context.Context, to, text string) error {
 	_, err := t.jobs.InsertTx(ctx, t.tx, worker.SendReplyArgs{To: to, Text: text}, nil)
 	return err
 }
+
+// CustomerPreferences implements application.PreferencesStore (T7.9).
+func (s *Store) CustomerPreferences(ctx context.Context, userID uuid.UUID) (domain.CustomerPreferences, error) {
+	r, err := sqlcgen.New(s.pool).CustomerPreferences(ctx, userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.DefaultCustomerPreferences(), nil
+	}
+	if err != nil {
+		return domain.CustomerPreferences{}, err
+	}
+	return domain.CustomerPreferences{WhatsApp: r.Whatsapp, Email: r.Email, Reminders: r.Reminders}, nil
+}
+
+// SetCustomerPreferences implements application.PreferencesStore.
+func (s *Store) SetCustomerPreferences(ctx context.Context, userID uuid.UUID, p domain.CustomerPreferences, at time.Time) error {
+	return sqlcgen.New(s.pool).SetCustomerPreferences(ctx, sqlcgen.SetCustomerPreferencesParams{
+		UserID: userID, Whatsapp: p.WhatsApp, Email: p.Email, Reminders: p.Reminders, UpdatedAt: at,
+	})
+}
+
+// ProfessionalEmailEnabled implements application.PreferencesStore.
+func (s *Store) ProfessionalEmailEnabled(ctx context.Context, businessID, professionalID uuid.UUID) (bool, error) {
+	on, err := sqlcgen.New(s.pool).ProfessionalEmailEnabled(ctx, sqlcgen.ProfessionalEmailEnabledParams{BusinessID: businessID, ProfessionalID: professionalID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return true, nil
+	}
+	return on, err
+}
+
+// SetProfessionalEmailEnabled implements application.PreferencesStore.
+func (s *Store) SetProfessionalEmailEnabled(ctx context.Context, businessID, professionalID uuid.UUID, on bool, at time.Time) error {
+	return sqlcgen.New(s.pool).SetProfessionalEmailEnabled(ctx, sqlcgen.SetProfessionalEmailEnabledParams{
+		BusinessID: businessID, ProfessionalID: professionalID, Email: on, UpdatedAt: at,
+	})
+}
+
+// WhatsAppMonthlyLimit implements application.PreferencesStore.
+func (s *Store) WhatsAppMonthlyLimit(ctx context.Context, businessID uuid.UUID) (int, bool, error) {
+	l, err := sqlcgen.New(s.pool).WhatsAppMonthlyLimit(ctx, businessID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, false, nil
+	}
+	return int(l), err == nil, err
+}
+
+// SetWhatsAppMonthlyLimit implements application.PreferencesStore.
+func (s *Store) SetWhatsAppMonthlyLimit(ctx context.Context, businessID uuid.UUID, limit int, at time.Time) error {
+	return sqlcgen.New(s.pool).SetWhatsAppMonthlyLimit(ctx, sqlcgen.SetWhatsAppMonthlyLimitParams{
+		BusinessID: businessID, MonthlyLimit: int32(limit), UpdatedAt: at, //nolint:gosec // validated: 0–100000
+	})
+}
+
+// CountWhatsAppSent implements application.PreferencesStore.
+func (s *Store) CountWhatsAppSent(ctx context.Context, businessID uuid.UUID, from, to time.Time) (int, error) {
+	q := sqlcgen.New(s.pool)
+	var n int64
+	var err error
+	if businessID == uuid.Nil {
+		n, err = q.CountWhatsAppSent(ctx, sqlcgen.CountWhatsAppSentParams{FromAt: &from, ToAt: &to})
+	} else {
+		n, err = q.CountWhatsAppSentByBusiness(ctx, sqlcgen.CountWhatsAppSentByBusinessParams{BusinessID: businessID, FromAt: &from, ToAt: &to})
+	}
+	return int(n), err
+}

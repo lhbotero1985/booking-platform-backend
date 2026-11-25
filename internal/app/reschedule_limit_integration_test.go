@@ -97,8 +97,14 @@ func TestRescheduleLimitOnPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r, err := m.Down(ctx); err != nil || r.Version != 25 {
-		t.Fatalf("down: %+v %v", r, err)
+	for { // down to 00024, whatever came after 00025
+		r, err := m.Down(ctx)
+		if err != nil || r.Version < 25 {
+			t.Fatalf("down: %+v %v", r, err)
+		}
+		if r.Version == 25 {
+			break
+		}
 	}
 	if _, err := m.Up(ctx); err != nil {
 		t.Fatal(err)

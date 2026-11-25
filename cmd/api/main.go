@@ -122,7 +122,7 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	schedulingSvc := app.NewSchedulingService(pool, identitySvc, businessesSvc, catalogSvc, professionalsSvc, identitySvc)
 	app.LinkAgendaGuard(professionalsSvc, schedulingSvc)
 	notificationsSvc, err := app.NewNotificationsService(cfg, pool, jobClient, schedulingSvc, businessesSvc,
-		app.NewEmailRecipients(identitySvc, professionalsSvc), logger)
+		app.NewEmailRecipients(identitySvc, professionalsSvc), identitySvc, logger)
 	if err != nil {
 		return err
 	}

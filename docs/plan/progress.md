@@ -466,6 +466,23 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-25 · Fase 7 · T7.9 — Preferencias de notificación y control de costos
+
+- **Estado:** ✅ en `feature/t7.9-notification-preferences` (commit y push; PR pendiente de
+  autorización).
+- **Hecho:** preferencias del cliente por cuenta (WhatsApp y/o correo, al menos uno; recordatorios);
+  correos del especialista sí/no (especialista o dueño); tope mensual de WhatsApp por negocio
+  (admin de la plataforma, 500 por defecto) y tope diario global opcional; aplicados al enviar con
+  motivos `CUSTOMER_OPTED_OUT`, `REMINDERS_OFF`, `PROFESSIONAL_OPTED_OUT`,
+  `MONTHLY_LIMIT_REACHED`, `DAILY_LIMIT_REACHED`; migración 00026; 6 operaciones nuevas en
+  OpenAPI; E2E.
+- **Hallazgos:** la suite de aislamiento entre negocios detectó que la validación del cuerpo iba
+  antes de la autorización (un extraño recibía 400 en vez de 404): ahora se autoriza primero. La
+  prueba de migración de T7.8 suponía que 00025 era la última: ahora baja hasta deshacerla.
+- **Otros:** PR #65 del agente del frontend (reintentos del smoke test por Caddy) integrado en
+  `qa` tras resolver un conflicto en `test-results.md`; el script ya estaba instalado en el
+  servidor (mismo SHA-256).
+
 ## 2026-11-25 · Fase 7 · T7.8 — Límite de reprogramaciones por cita
 
 - **Estado:** ✅ en `qa` (PR #68) y validada en QA: E2E 218/218.

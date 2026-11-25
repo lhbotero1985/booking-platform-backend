@@ -25,18 +25,22 @@ type Service interface {
 // Handler serves the notifications endpoints.
 type Handler struct {
 	svc         Service
+	prefs       PreferencesService // T7.9; nil when svc does not implement it
 	logger      *slog.Logger
 	requireAuth httpx.Middleware
 }
 
-// New builds the handler; requireAuth is the identity module's authentication middleware.
+// New builds the handler; requireAuth is the identity module's authentication middleware. When
+// svc also implements PreferencesService, the preference endpoints are served too.
 func New(svc Service, logger *slog.Logger, requireAuth httpx.Middleware) *Handler {
-	return &Handler{svc: svc, logger: logger, requireAuth: requireAuth}
+	prefs, _ := svc.(PreferencesService)
+	return &Handler{svc: svc, prefs: prefs, logger: logger, requireAuth: requireAuth}
 }
 
 // Routes registers the endpoints.
 func (h *Handler) Routes(rt *httpx.Router) {
 	rt.Handle("GET /api/v1/business/{businessId}/appointments/{appointmentId}/notifications", h.requireAuth(http.HandlerFunc(h.list)))
+	h.preferenceRoutes(rt)
 }
 
 type messageDTO struct {

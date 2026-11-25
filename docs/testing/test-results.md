@@ -1105,3 +1105,20 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 |---|---|---|
 | Despliegue de #63 (`86a4dad`) | ❌ → rollback ✅ | Caddy recreado/reiniciado por el Caddyfile nuevo; `curl` a 443 "Couldn't connect … after 0 ms" en el mismo instante; el rollback dejó QA sano (`4437175`) |
 | Corrección: reintentos de la verificación por Caddy (60 s) en `deploy.sh` | ✅ `bash -n` | shellcheck en CI (el contenedor local se colgó) |
+
+## 2026-11-25 · Fase 7 · T7.9 — Preferencias de notificación y control de costos
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestCustomerPreferences` / `TestMonthAndDayOf` (dominio) | ✅ | Al menos un canal; WhatsApp apagado → `CUSTOMER_OPTED_OUT`; recordatorio sin recordatorios → `REMINDERS_OFF`; mes y día en UTC (31-dic 21:00 Bogotá ya es enero) |
+| `TestPreferencesAtSend` (aplicación) | ✅ | Cliente solo correo y sin recordatorios: WhatsApp y recordatorios omitidos, correo enviado; correos del especialista apagados → `PROFESSIONAL_OPTED_OUT`; cliente sin elegir o sin cuenta → todo enviado |
+| `TestWhatsAppCaps` | ✅ | Tope por defecto 1: el 2.º WhatsApp → `MONTHLY_LIMIT_REACHED`, el correo sale; tope propio 5 gana; tope propio 0 → sin WhatsApp; por defecto 0 → sin tope; tope diario 1 → `DAILY_LIMIT_REACHED` |
+| `TestPreferenceUseCases` | ✅ | Sin canal → `ErrNoChannel`; especialista: dueño y el propio sí, otro especialista 403, no miembro y perfil desconocido 404, sin cuerpo y extraño → 404 (autoriza antes de validar); tope: solo admin, 0–100000, negocio desconocido 404 |
+| `TestContractNotificationPreferences` (OpenAPI) | ✅ | Las 6 operaciones; 400, 401, 403 y 404 |
+| Suite de seguridad: aislamiento entre negocios | ✅ | Detectó 400 en vez de 404 para un extraño (validación antes de autorizar) y 500 sin autorizador en la suite; corregidos |
+| `TestPreferencesOnPostgres` | ✅ | Con SQL real: tope por defecto 1 → 2.º WhatsApp omitido; consumo del mes 1; tope propio 10; cliente sin WhatsApp → `CUSTOMER_OPTED_OUT`; preferencia del especialista guardada; restricciones: sin canales, perfil inexistente y tope 100001 rechazados |
+| Mutaciones: sin el filtro al enviar / `>=` → `>` en el tope | ✅ detectadas | Fallaron `TestPreferencesAtSend` y `TestWhatsAppCaps`; código restaurado |
+| `TestWhatsAppLimitsConfig` | ✅ | 500 y 0 por defecto; −1, 100001 y texto rechazados |
+| `task check` (lint 0, sin vulnerabilidades) / `sqlc:check` / `shellcheck` | ✅ | govulncheck falló una vez por DNS local; reintento OK |
+| Integración completa | ✅ | 45 paquetes. 1.ª corrida: `TestRescheduleLimitOnPostgres` suponía 00025 como última migración → ahora baja hasta deshacerla |
+| Despliegue y E2E en QA | ⏳ | Tras el merge: preferencias del cliente (400 sin canal), correos omitidos por preferencia del cliente y del especialista, tope solo para el admin |

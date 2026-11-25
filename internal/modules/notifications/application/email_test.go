@@ -15,9 +15,17 @@ import (
 )
 
 type recipients struct {
-	accounts map[uuid.UUID]string
-	pros     map[uuid.UUID]string
-	err      error
+	accounts    map[uuid.UUID]string
+	pros        map[uuid.UUID]string
+	proAccounts map[uuid.UUID]uuid.UUID // T7.9
+	err         error
+}
+
+func (r *recipients) ProfessionalAccount(_ context.Context, businessID, id uuid.UUID) (uuid.UUID, error) {
+	if businessID != biz {
+		return uuid.Nil, nil
+	}
+	return r.proAccounts[id], r.err
 }
 
 func (r *recipients) AccountEmail(_ context.Context, id uuid.UUID) (string, error) {

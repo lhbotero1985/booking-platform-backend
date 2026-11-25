@@ -30,7 +30,7 @@ import (
 // sender, and nothing leaves the server. Emails (T7.6) go through the SMTP server of the
 // environment (Mailpit in QA).
 func NewNotificationsService(cfg config.Config, pool *pgxpool.Pool, jobs postgres.JobInserter, appointments SchedulingForNotifications,
-	reminders application.ReminderSettings, recipients application.Recipients, logger *slog.Logger,
+	reminders application.ReminderSettings, recipients application.Recipients, authz identity.Authorizer, logger *slog.Logger,
 ) (*application.Service, error) {
 	n := cfg.Notifications
 	wa := WhatsAppSender(n, logger)
@@ -54,8 +54,12 @@ func NewNotificationsService(cfg config.Config, pool *pgxpool.Pool, jobs postgre
 				AppDownloadURL: cfg.AppDownloadURL, LinksBaseURL: cfg.PublicAPIURL, RescheduleURL: cfg.AppointmentRescheduleURL,
 			}),
 		},
-		Policy: application.Policy{EmailEnabled: n.EmailEnabled, WhatsAppEnabled: n.WhatsAppEnabled, WhatsAppAllowlist: n.WhatsAppAllowlist},
-		Clock:  clock.System{},
+		Policy: application.Policy{
+			EmailEnabled: n.EmailEnabled, WhatsAppEnabled: n.WhatsAppEnabled, WhatsAppAllowlist: n.WhatsAppAllowlist,
+			WhatsAppMonthlyLimit: n.WhatsAppMonthlyLimit, WhatsAppDailyLimit: n.WhatsAppDailyLimit,
+		},
+		Clock: clock.System{},
+		Authz: authz,
 	}), nil
 }
 
@@ -83,6 +87,14 @@ func (r emailRecipients) ProfessionalEmail(ctx context.Context, businessID, prof
 		return "", err
 	}
 	return r.accounts.AccountEmail(ctx, userID)
+}
+
+func (r emailRecipients) ProfessionalAccount(ctx context.Context, businessID, professionalID uuid.UUID) (uuid.UUID, error) {
+	userID, err := r.profs.ProfessionalUserID(ctx, businessID, professionalID)
+	if errors.Is(err, professionals.ErrProfessionalNotFound) {
+		return uuid.Nil, nil
+	}
+	return userID, err
 }
 
 // SchedulingForNotifications is what notifications reads and does in scheduling.

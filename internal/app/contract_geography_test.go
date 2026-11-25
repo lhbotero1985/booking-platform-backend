@@ -80,7 +80,9 @@ func newGeoServer(t *testing.T) geoEnv {
 	LinkPublicCatalog(biz, cat, profs, biz)
 	sched := schedapp.NewService(schedapp.Deps{Store: schedtest.NewStore(), Authz: e.identity, Businesses: biz, Catalog: cat, Professionals: profs, Bookable: profs, Customers: e.identity, Clock: clk})
 	LinkAgendaGuard(profs, sched)
-	notif, outbox := notiftest.NewService(sched, biz, clk)
+	notif, outbox := notiftest.NewService(sched, biz, clk, func(d *notifapp.Deps) {
+		d.Authz, d.Recipients = e.identity, NewEmailRecipients(e.identity, profs)
+	})
 	e.notif, e.outbox = notif, outbox
 	LinkNotifications(sched, notif)
 	e.modules = []RouteRegistrar{
