@@ -121,7 +121,7 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	app.LinkPublicCatalog(businessesSvc, catalogSvc, professionalsSvc, businessesSvc)
 	schedulingSvc := app.NewSchedulingService(pool, identitySvc, businessesSvc, catalogSvc, professionalsSvc, identitySvc)
 	app.LinkAgendaGuard(professionalsSvc, schedulingSvc)
-	notificationsSvc := app.NewNotificationsService(cfg.Notifications, pool, jobClient, schedulingSvc, logger)
+	notificationsSvc := app.NewNotificationsService(cfg.Notifications, pool, jobClient, schedulingSvc, businessesSvc, logger)
 	app.LinkNotifications(schedulingSvc, notificationsSvc)
 
 	handler := app.NewHTTPHandler(cfg, logger, app.Deps{

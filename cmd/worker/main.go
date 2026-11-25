@@ -97,7 +97,7 @@ func run() error {
 	businessesSvc := app.NewBusinessesService(pool, identitySvc, app.NewGeographyService(pool, identitySvc), subscriptionsSvc)
 	professionalsSvc := app.NewProfessionalsService(pool, identitySvc)
 	notificationsSvc := app.NewNotificationsService(cfg.Notifications, pool, inserter,
-		app.NewSchedulingReader(pool, identitySvc, businessesSvc, professionalsSvc), logger)
+		app.NewSchedulingReader(pool, identitySvc, businessesSvc, professionalsSvc), businessesSvc, logger)
 	if err := notificationsworker.Register(workers, notificationsSvc); err != nil {
 		return err
 	}

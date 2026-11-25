@@ -42,7 +42,7 @@ func newNotifWorld(t *testing.T) notifWorld {
 		t.Fatal(err)
 	}
 	w.notif = notifapp.NewService(notifapp.Deps{
-		Store: notifpg.NewStore(w.pool, inserter), Appointments: w.sched,
+		Store: notifpg.NewStore(w.pool, inserter), Appointments: w.sched, Reminders: w.bizSvc,
 		Senders: map[notifdomain.Channel]notifapp.Sender{notifdomain.ChannelWhatsApp: w.sender},
 		Policy:  notifapp.Policy{WhatsAppEnabled: true}, Clock: w.clk,
 	})
@@ -69,6 +69,17 @@ func (w notifWorld) messages(t *testing.T, appointmentID uuid.UUID) []notifdomai
 	return ms
 }
 
+// byKind returns the messages of one kind, in order.
+func byKind(ms []notifdomain.Message, k notifdomain.Kind) []notifdomain.Message {
+	var out []notifdomain.Message
+	for _, m := range ms {
+		if m.Kind == k {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
 // failingListener stores the messages and then fails, as if a later step of the change failed.
 type failingListener struct{ inner schedcontract.EventListener }
 
@@ -91,8 +102,9 @@ func TestNotificationsOnPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	ms := w.messages(t, a.ID)
-	if len(ms) != 1 || ms[0].Kind != notifdomain.KindCreated || ms[0].Status != notifdomain.StatusPending || ms[0].Recipient != "+573001234567" {
-		t.Fatalf("after booking: %+v", ms)
+	if len(ms) != 2 || ms[0].Kind != notifdomain.KindCreated || ms[0].Status != notifdomain.StatusPending || ms[0].Recipient != "+573001234567" ||
+		ms[1].Kind != notifdomain.KindReminder {
+		t.Fatalf("after booking (notice and reminder): %+v", ms)
 	}
 	if err := w.notif.Send(ctx, ms[0].ID, false); err != nil {
 		t.Fatal(err)
@@ -114,7 +126,9 @@ func TestNotificationsOnPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	ms = w.messages(t, b.ID)
-	if len(ms) != 2 || ms[1].Kind != notifdomain.KindRescheduled {
+	created, moved := byKind(ms, notifdomain.KindCreated), byKind(ms, notifdomain.KindRescheduled)
+	reminders := byKind(ms, notifdomain.KindReminder)
+	if len(created) != 1 || len(moved) != 1 || len(reminders) != 2 { // one reminder per time
 		t.Fatalf("after moving: %+v", ms)
 	}
 	for _, m := range ms {
@@ -123,8 +137,10 @@ func TestNotificationsOnPostgres(t *testing.T) {
 		}
 	}
 	ms = w.messages(t, b.ID)
-	if ms[0].Status != notifdomain.StatusSkipped || ms[0].SkipReason != notifdomain.SkipChanged || ms[1].Status != notifdomain.StatusSent {
-		t.Errorf("stale then fresh: %+v / %+v", ms[0], ms[1])
+	created, moved, reminders = byKind(ms, notifdomain.KindCreated), byKind(ms, notifdomain.KindRescheduled), byKind(ms, notifdomain.KindReminder)
+	if created[0].Status != notifdomain.StatusSkipped || created[0].SkipReason != notifdomain.SkipChanged || moved[0].Status != notifdomain.StatusSent ||
+		reminders[0].SkipReason != notifdomain.SkipChanged || reminders[1].Status != notifdomain.StatusSent {
+		t.Errorf("stale then fresh: %+v", ms)
 	}
 
 	// A change that fails after the messages were stored leaves no message and no job.
@@ -165,7 +181,7 @@ func TestNotificationsWorkerOnPostgres(t *testing.T) {
 	deadline := time.Now().Add(15 * time.Second)
 	for {
 		ms := w.messages(t, a.ID)
-		if len(ms) == 1 && ms[0].Status == notifdomain.StatusSent {
+		if len(ms) == 2 && ms[0].Status == notifdomain.StatusSent && ms[1].Status == notifdomain.StatusPending { // the reminder waits
 			break
 		}
 		if time.Now().After(deadline) {
@@ -277,3 +293,51 @@ func TestWhatsAppClientOnPostgres(t *testing.T) {
 
 // fakeMetaToken is not a credential: the fake Cloud API above accepts anything.
 const fakeMetaToken = "EAAfakeTOKENforTests0000"
+
+// TestRemindersOnPostgres (T7.4): a pending booking queues its reminder in River for 24 h before
+// (the default of the business); confirmed meanwhile, the reminder is dropped when due. A manual
+// booking (confirmed) gets none.
+func TestRemindersOnPostgres(t *testing.T) {
+	ctx := t.Context()
+	w := newNotifWorld(t)
+	ana := w.customer(t)
+	a, err := w.sched.Book(ctx, ana, w.in(w.at(9, 0), "recordar-ana-0001"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ms := w.messages(t, a.ID)
+	if len(ms) != 2 || ms[1].Kind != notifdomain.KindReminder {
+		t.Fatalf("messages %+v", ms)
+	}
+	due := w.at(9, 0).Add(-24 * time.Hour)
+	var scheduled time.Time
+	var state string
+	if err := w.pool.QueryRow(ctx, `SELECT scheduled_at, state FROM river_job WHERE kind = 'notifications.send_message' AND args->>'message_id' = $1`,
+		ms[1].ID.String()).Scan(&scheduled, &state); err != nil {
+		t.Fatal(err)
+	}
+	if !scheduled.Equal(due) || !ms[1].SendAt.Equal(due) || state != "scheduled" {
+		t.Errorf("reminder job at %s (%s), message due %s, want %s", scheduled, state, ms[1].SendAt, due)
+	}
+
+	if _, err := w.sched.CustomerChange(ctx, ana, a.ID, schedapp.ActionConfirm, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.notif.Send(ctx, ms[1].ID, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := w.messages(t, a.ID)[1]; got.Status != notifdomain.StatusSkipped || got.SkipReason != notifdomain.SkipConfirmed {
+		t.Errorf("confirmed meanwhile: %+v", got)
+	}
+
+	m, err := w.sched.BookManual(ctx, w.owner, w.biz, schedapp.ManualInput{
+		ProfessionalID: w.pro, ServiceID: w.svc, Start: w.at(11, 0), Confirmed: true, IdempotencyKey: "recordar-manual-1",
+		Customer: &schedapp.CustomerInput{FullName: "Laura", Phone: "3005550199"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ms := w.messages(t, m.ID); len(ms) != 1 || ms[0].Kind != notifdomain.KindCreatedByBusiness {
+		t.Errorf("manual confirmed booking: %+v", ms)
+	}
+}

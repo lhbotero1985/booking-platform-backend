@@ -2,10 +2,10 @@
 -- Returns the row only when it was inserted (a repeated event inserts nothing).
 INSERT INTO notification_messages (
     id, business_id, appointment_id, event_id, kind, channel, recipient_role, recipient,
-    professional_id, start_at, status, created_at, updated_at
+    professional_id, start_at, status, send_at, created_at, updated_at
 ) VALUES (
     @id, @business_id, @appointment_id, @event_id, @kind, @channel, @recipient_role, @recipient,
-    @professional_id, @start_at, 'PENDING', @created_at, @created_at
+    @professional_id, @start_at, 'PENDING', @send_at, @created_at, @created_at
 )
 ON CONFLICT ON CONSTRAINT notification_messages_once DO NOTHING
 RETURNING id;

@@ -23,10 +23,13 @@ import (
 // NewNotificationsService wires the notification use cases (T7.1). WhatsApp goes through the
 // Cloud API of Meta when its credentials are configured (T7.2); otherwise through the simulated
 // sender, and nothing leaves the server.
-func NewNotificationsService(cfg config.Notifications, pool *pgxpool.Pool, jobs postgres.JobInserter, appointments scheduling.Appointments, logger *slog.Logger) *application.Service {
+func NewNotificationsService(cfg config.Notifications, pool *pgxpool.Pool, jobs postgres.JobInserter, appointments scheduling.Appointments,
+	reminders application.ReminderSettings, logger *slog.Logger,
+) *application.Service {
 	return application.NewService(application.Deps{
 		Store:        postgres.NewStore(pool, jobs),
 		Appointments: appointments,
+		Reminders:    reminders,
 		Senders:      map[domain.Channel]application.Sender{domain.ChannelWhatsApp: WhatsAppSender(cfg, logger)},
 		Policy:       application.Policy{WhatsAppEnabled: cfg.WhatsAppEnabled, WhatsAppAllowlist: cfg.WhatsAppAllowlist},
 		Clock:        clock.System{},

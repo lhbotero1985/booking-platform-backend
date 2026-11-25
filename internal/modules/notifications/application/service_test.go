@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	businesses "github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/contract"
 	identity "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/application/notiftest"
@@ -289,5 +290,63 @@ func TestSendFillsTheContent(t *testing.T) {
 	m = w.queued(t, event("CREATED", "CUSTOMER"))
 	if err := w.svc.Send(context.Background(), m.ID, false); err != nil || w.sender.sent[0].Content.Location != time.UTC {
 		t.Errorf("bad zone: %v %v", err, w.sender.sent[0].Content.Location)
+	}
+}
+
+type reminderSettings struct {
+	pol   businesses.BookingPolicy
+	err   error
+	calls int
+}
+
+func (r *reminderSettings) BookingPolicyOf(context.Context, uuid.UUID) (businesses.BookingPolicy, error) {
+	r.calls++
+	return r.pol, r.err
+}
+
+// TestReminders (T7.4): a pending appointment gets its reminder queued for the business's time;
+// a reminder of a confirmed appointment is dropped when due.
+func TestReminders(t *testing.T) {
+	ctx := context.Background()
+	rs := &reminderSettings{pol: businesses.BookingPolicy{RemindersEnabled: true, ReminderHoursBefore: 24}}
+	w := newWorld(application.Policy{WhatsAppEnabled: true})
+	w.svc = application.NewService(application.Deps{
+		Store: w.st, Appointments: w.appts, Reminders: rs,
+		Senders: map[domain.Channel]application.Sender{domain.ChannelWhatsApp: w.sender},
+		Policy:  application.Policy{WhatsAppEnabled: true}, Clock: clock.NewFixed(now),
+	})
+	e := event("CREATED", "CUSTOMER")
+	e.Status = scheduling.StatusPendingConfirmation
+	if err := w.svc.AppointmentEventRecorded(ctx, e); err != nil {
+		t.Fatal(err)
+	}
+	ms := w.st.Messages()
+	if len(ms) != 2 || ms[1].Kind != domain.KindReminder || !ms[1].SendAt.Equal(start.Add(-24*time.Hour)) || len(w.st.Enqueued()) != 2 {
+		t.Fatalf("messages %+v", ms)
+	}
+	// Confirmed meanwhile: when due, the reminder is skipped.
+	w.appts.state.Status = "CONFIRMED"
+	if err := w.svc.Send(ctx, ms[1].ID, false); err != nil || w.msg(ms[1].ID).SkipReason != domain.SkipConfirmed {
+		t.Errorf("confirmed: %v %+v", err, w.msg(ms[1].ID))
+	}
+
+	// Changes that cannot need a reminder do not read the setting.
+	calls := rs.calls
+	confirmed := event("CREATED", "BUSINESS")
+	confirmed.Status = "CONFIRMED"
+	for _, x := range []scheduling.AppointmentEvent{confirmed, event("CANCELLED", "BUSINESS")} { //nolint:misspell // stored value
+		if err := w.svc.AppointmentEventRecorded(ctx, x); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if rs.calls != calls {
+		t.Errorf("setting read %d times for changes without reminder", rs.calls-calls)
+	}
+	// The setting cannot be read: the change fails (and is rolled back).
+	rs.err = errors.New("db down")
+	e = event("RESCHEDULED", "BUSINESS")
+	e.Status = scheduling.StatusPendingConfirmation
+	if err := w.svc.AppointmentEventRecorded(ctx, e); !errors.Is(err, rs.err) {
+		t.Errorf("setting unreadable: %v", err)
 	}
 }

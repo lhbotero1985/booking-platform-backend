@@ -34,6 +34,9 @@ type BookingPolicy struct {
 	// Cut-offs for the customer to cancel or reschedule (T6.6).
 	CancellationCutoffHours int
 	RescheduleCutoffHours   int
+	// Reminder before each appointment (T7.4): on/off and how many hours before (1–72).
+	RemindersEnabled    bool
+	ReminderHoursBefore int
 }
 
 // PublicBooking resolves the slug of a business customers can see (same rules as

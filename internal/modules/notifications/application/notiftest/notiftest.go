@@ -5,6 +5,7 @@ package notiftest
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -54,7 +55,7 @@ func (s *Store) WithinTx(ctx context.Context, fn func(ctx context.Context, tx ap
 
 func (t *tx) InsertMessage(_ context.Context, m domain.Message) (bool, error) {
 	for _, old := range t.s.msgs {
-		if old.EventID == m.EventID && old.Channel == m.Channel && old.RecipientRole == m.RecipientRole {
+		if old.EventID == m.EventID && old.Kind == m.Kind && old.Channel == m.Channel && old.RecipientRole == m.RecipientRole {
 			return false, nil
 		}
 	}
@@ -62,7 +63,7 @@ func (t *tx) InsertMessage(_ context.Context, m domain.Message) (bool, error) {
 	return true, nil
 }
 
-func (t *tx) EnqueueSend(_ context.Context, id uuid.UUID) error {
+func (t *tx) EnqueueSend(_ context.Context, id uuid.UUID, _ time.Time) error {
 	t.enqueued = append(t.enqueued, id)
 	return nil
 }
@@ -141,10 +142,10 @@ func (s *Sender) Send(_ context.Context, m application.Outgoing) (string, error)
 
 // NewService is the notifications service over an in-memory store, with WhatsApp on and a
 // recording sender.
-func NewService(appointments scheduling.Appointments, clk clock.Clock) (*application.Service, *Store) {
+func NewService(appointments scheduling.Appointments, reminders application.ReminderSettings, clk clock.Clock) (*application.Service, *Store) {
 	st := NewStore()
 	return application.NewService(application.Deps{
-		Store: st, Appointments: appointments, Senders: map[domain.Channel]application.Sender{domain.ChannelWhatsApp: &Sender{}},
+		Store: st, Appointments: appointments, Reminders: reminders, Senders: map[domain.Channel]application.Sender{domain.ChannelWhatsApp: &Sender{}},
 		Policy: application.Policy{WhatsAppEnabled: true}, Clock: clk,
 	}), st
 }

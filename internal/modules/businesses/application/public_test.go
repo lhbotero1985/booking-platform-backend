@@ -208,7 +208,7 @@ func TestPublicBookingPolicy(t *testing.T) {
 	e := newPublicEnv(t, []string{"Barbería Pública", "Barbería Vencida"}, "Barbería Pública")
 	got, err := e.svc.PublicBookingPolicy(ctx, "barberia-publica")
 	want := bizcontract.BookingPolicy{BusinessID: e.ids["Barbería Pública"], TimeZone: "America/Bogota", SlotIntervalMinutes: 10, BufferMinutes: 0, MinLeadMinutes: 60, MaxAdvanceDays: 60,
-		CancellationCutoffHours: 2, RescheduleCutoffHours: 2}
+		CancellationCutoffHours: 2, RescheduleCutoffHours: 2, RemindersEnabled: true, ReminderHoursBefore: 24}
 	if err != nil || got != want {
 		t.Errorf("policy = %+v %v", got, err)
 	}

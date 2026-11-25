@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	businesses "github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/contract"
 	identity "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/domain"
 	scheduling "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/contract"
@@ -39,8 +40,8 @@ type Tx interface {
 	// InsertMessage reports false when the message already exists (same event, channel and
 	// recipient role).
 	InsertMessage(ctx context.Context, m domain.Message) (bool, error)
-	// EnqueueSend queues the delivery job of a message in the transaction.
-	EnqueueSend(ctx context.Context, messageID uuid.UUID) error
+	// EnqueueSend queues the delivery job of a message in the transaction, due at at (zero: now).
+	EnqueueSend(ctx context.Context, messageID uuid.UUID, at time.Time) error
 }
 
 // Outgoing is what a Sender delivers.
@@ -92,13 +93,20 @@ func (p Policy) gate(m domain.Message) domain.SkipReason {
 	return ""
 }
 
+// ReminderSettings reads the reminder setting of a business (T7.4).
+type ReminderSettings interface {
+	BookingPolicyOf(ctx context.Context, businessID uuid.UUID) (businesses.BookingPolicy, error)
+}
+
 // Deps of the service.
 type Deps struct {
 	Store        Store
 	Appointments scheduling.Appointments
-	Senders      map[domain.Channel]Sender
-	Policy       Policy
-	Clock        clock.Clock
+	// Reminders: nil sends no reminders.
+	Reminders ReminderSettings
+	Senders   map[domain.Channel]Sender
+	Policy    Policy
+	Clock     clock.Clock
 }
 
 // Service implements the notification use cases.
@@ -110,10 +118,14 @@ func NewService(d Deps) *Service { return &Service{d: d} }
 // AppointmentEventRecorded implements scheduling.EventListener: it stores the messages of the
 // change and queues their delivery, in the change's transaction.
 func (s *Service) AppointmentEventRecorded(ctx context.Context, e scheduling.AppointmentEvent) error {
+	rem, err := s.reminders(ctx, e)
+	if err != nil {
+		return fmt.Errorf("notifications: reminder setting: %w", err)
+	}
 	msgs := domain.Plan(domain.Change{
 		EventID: e.ID, BusinessID: e.BusinessID, AppointmentID: e.AppointmentID, ProfessionalID: e.ProfessionalID,
-		Type: e.Type, ActorRole: e.ActorRole, Start: e.Start, CustomerPhone: e.CustomerPhone, At: e.At,
-	}, func() uuid.UUID { return uuid.Must(uuid.NewV7()) })
+		Type: e.Type, ActorRole: e.ActorRole, Status: e.Status, Start: e.Start, CustomerPhone: e.CustomerPhone, At: e.At,
+	}, rem, func() uuid.UUID { return uuid.Must(uuid.NewV7()) })
 	if len(msgs) == 0 {
 		return nil
 	}
@@ -126,12 +138,33 @@ func (s *Service) AppointmentEventRecorded(ctx context.Context, e scheduling.App
 			if !inserted {
 				continue
 			}
-			if err := tx.EnqueueSend(ctx, m.ID); err != nil {
+			// Only a delivery due later (a reminder) is scheduled; the rest go at once, whatever
+			// the clock of the change.
+			var at time.Time
+			if m.SendAt.After(m.CreatedAt) {
+				at = m.SendAt
+			}
+			if err := tx.EnqueueSend(ctx, m.ID, at); err != nil {
 				return fmt.Errorf("notifications: queue delivery: %w", err)
 			}
 		}
 		return nil
 	})
+}
+
+// reminders reads the business's setting only for changes that may need a reminder.
+func (s *Service) reminders(ctx context.Context, e scheduling.AppointmentEvent) (domain.Reminders, error) {
+	switch {
+	case s.d.Reminders == nil, e.Status != scheduling.StatusPendingConfirmation:
+		return domain.Reminders{}, nil
+	case e.Type != scheduling.EventCreated && e.Type != scheduling.EventRescheduled && e.Type != scheduling.EventReassigned:
+		return domain.Reminders{}, nil
+	}
+	pol, err := s.d.Reminders.BookingPolicyOf(ctx, e.BusinessID)
+	if err != nil {
+		return domain.Reminders{}, err
+	}
+	return domain.Reminders{Enabled: pol.RemindersEnabled, Before: time.Duration(pol.ReminderHoursBefore) * time.Hour}, nil
 }
 
 // Send delivers a pending message (worker). It is skipped when its channel is off, the number is

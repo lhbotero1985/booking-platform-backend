@@ -90,7 +90,7 @@ func startAuth(t *testing.T) authHarness {
 	app.LinkPublicCatalog(biz, cat, profs, biz)
 	sched := schedapp.NewService(schedapp.Deps{Store: schedtest.NewStore(), Authz: h.svc, Businesses: biz, Catalog: cat, Professionals: profs, Bookable: profs, Customers: h.svc, Clock: h.clock})
 	app.LinkAgendaGuard(profs, sched)
-	notif, _ := notiftest.NewService(sched, h.clock)
+	notif, _ := notiftest.NewService(sched, biz, h.clock)
 	app.LinkNotifications(sched, notif)
 	h.srv = httptest.NewServer(app.NewHTTPHandler(cfg, logger, app.Deps{Modules: []app.RouteRegistrar{
 		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),

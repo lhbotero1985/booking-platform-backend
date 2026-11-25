@@ -91,13 +91,14 @@ func (t *txStore) InsertMessage(ctx context.Context, m domain.Message) (bool, er
 	ids, err := t.q.InsertMessage(ctx, sqlcgen.InsertMessageParams{
 		ID: m.ID, BusinessID: m.BusinessID, AppointmentID: m.AppointmentID, EventID: m.EventID, Kind: string(m.Kind),
 		Channel: string(m.Channel), RecipientRole: string(m.RecipientRole), Recipient: m.Recipient,
-		ProfessionalID: m.ProfessionalID, StartAt: m.Start, CreatedAt: m.CreatedAt,
+		ProfessionalID: m.ProfessionalID, StartAt: m.Start, SendAt: m.SendAt, CreatedAt: m.CreatedAt,
 	})
 	return len(ids) == 1, err
 }
 
-func (t *txStore) EnqueueSend(ctx context.Context, messageID uuid.UUID) error {
-	_, err := t.jobs.InsertTx(ctx, t.tx, worker.SendMessageArgs{MessageID: messageID}, nil)
+func (t *txStore) EnqueueSend(ctx context.Context, messageID uuid.UUID, at time.Time) error {
+	// Only ScheduledAt is set: River keeps the queue, attempts and uniqueness of the job args.
+	_, err := t.jobs.InsertTx(ctx, t.tx, worker.SendMessageArgs{MessageID: messageID}, &river.InsertOpts{ScheduledAt: at})
 	return err
 }
 
@@ -106,6 +107,7 @@ func toMessage(r sqlcgen.NotificationMessage) domain.Message {
 		ID: r.ID, BusinessID: r.BusinessID, AppointmentID: r.AppointmentID, EventID: r.EventID, Kind: domain.Kind(r.Kind),
 		Channel: domain.Channel(r.Channel), RecipientRole: domain.Role(r.RecipientRole), Recipient: r.Recipient,
 		ProfessionalID: r.ProfessionalID, Start: r.StartAt.UTC(), Status: domain.Status(r.Status), Attempts: int(r.Attempts),
+		SendAt:    r.SendAt.UTC(),
 		CreatedAt: r.CreatedAt.UTC(), UpdatedAt: r.UpdatedAt.UTC(),
 	}
 	if r.SkipReason != nil {

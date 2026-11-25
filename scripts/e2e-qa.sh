@@ -326,14 +326,19 @@ check "cancel again (no change)" 200 "$(status POST "$me_appt/cancel" "" "$T1")"
 
 # --- notifications (T7.1): every change that notifies queued one WhatsApp message --------------
 notif="$st_appt/notifications"
-check "messages: created and both moves (customer cancel sends none)"   "APPOINTMENT_CREATED,APPOINTMENT_RESCHEDULED,APPOINTMENT_RESCHEDULED"   "$(status GET "$notif" "" "$TS" >/dev/null; json '[.items[].kind] | join(",")')"
+check "messages: created and both moves (customer cancel sends none)"   "APPOINTMENT_CREATED,APPOINTMENT_RESCHEDULED,APPOINTMENT_RESCHEDULED"   "$(status GET "$notif" "" "$TS" >/dev/null; json '[.items[] | select(.kind != "APPOINTMENT_REMINDER") | .kind] | join(",")')"
+# T7.4: a reminder each time it was left pending (booked; moved by the barber), none while
+# confirmed (the customer's own move). Due 24 h before the start, or at once inside that window.
+check "reminders: when booked and when the barber moved it" 2 "$(json '[.items[] | select(.kind == "APPOINTMENT_REMINDER")] | length')"
+check "  the last one due 24 h before (or at once)" true "$(jq -r --arg s "$free2" '[.items[] | select(.kind == "APPOINTMENT_REMINDER")][-1]
+  | ((.sendAt[0:19] + "Z") | fromdateiso8601) == ([($s | fromdateiso8601) - 86400, ((.createdAt[0:19] + "Z") | fromdateiso8601)] | max)' "$tmp/b")"
 check "  WhatsApp to the customer, number masked" "WHATSAPP CUSTOMER \+57.*2233" "$(json '.items[0] | "\(.channel) \(.recipientRole) \(.to)"')"
-for _ in $(seq 1 30); do # the worker delivers within seconds (simulated sender in QA)
-  [[ $(status GET "$notif" "" "$TS" >/dev/null; json '[.items[] | select(.status == "PENDING")] | length') == 0 ]] && break
+for _ in $(seq 1 30); do # the worker delivers the notices within seconds; reminders wait their time
+  [[ $(status GET "$notif" "" "$TS" >/dev/null; json '[.items[] | select(.status == "PENDING" and .kind != "APPOINTMENT_REMINDER")] | length') == 0 ]] && break
   sleep 1
 done
 # QA writes only to WHATSAPP_ALLOWLIST: a synthetic number is skipped (simulated sender: sent).
-check "the worker processed them (sent, or skipped: not allowlisted)" "0 (SENT|SKIPPED NOT_ALLOWLISTED)"   "$(json '"\([.items[] | select(.status == "PENDING")] | length) \(.items[-1].status)\(if .items[-1].skipReason then " " + .items[-1].skipReason else "" end)"')"
+check "the worker processed the notices (sent, or skipped: not allowlisted)" "0 (SENT|SKIPPED NOT_ALLOWLISTED)"   "$(json '[.items[] | select(.kind != "APPOINTMENT_REMINDER")] | "\([.[] | select(.status == "PENDING")] | length) \(.[-1].status)\(if .[-1].skipReason then " " + .[-1].skipReason else "" end)"')"
 
 check "app download page (button of the manual booking message)" 200 "$(status GET /app)"
 
@@ -351,7 +356,7 @@ if [[ -n ${WHATSAPP_TEST_PHONE:-} ]]; then
   done
   check "Meta accepted the WhatsApp" "SENT null 1" "$(json '.items[0] | "\(.status) \(.errorCode) \(.attempts)"')"
   check "customer cancels it (no second message)" 200 "$(status POST "/api/v1/me/appointments/$wa_appt/cancel" "" "$T1")"
-  check "  still one message" 1 "$(status GET "/api/v1/business/$mine/appointments/$wa_appt/notifications" "" "$TS" >/dev/null; json '.items | length')"
+  check "  still one notice" 1 "$(status GET "/api/v1/business/$mine/appointments/$wa_appt/notifications" "" "$TS" >/dev/null; json '[.items[] | select(.kind != "APPOINTMENT_REMINDER")] | length')"
   check "customer phone restored" 200 "$(status PUT /api/v1/me/phone '{"phone":"300 111 2233"}' "$T1")"
 fi
 check "a cancelled one cannot be confirmed" 409 "$(status POST "$st_appt/confirm" "" "$TS")"

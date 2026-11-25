@@ -4786,14 +4786,14 @@ components:
           items:
             type: object
             additionalProperties: false
-            required: [id, kind, channel, recipientRole, to, status, skipReason, errorCode, attempts, createdAt, sentAt]
+            required: [id, kind, channel, recipientRole, to, status, skipReason, errorCode, attempts, sendAt, createdAt, sentAt]
             properties:
               id:
                 type: string
                 format: uuid
               kind:
                 type: string
-                enum: [APPOINTMENT_CREATED, APPOINTMENT_CREATED_BY_BUSINESS, APPOINTMENT_CANCELLED, APPOINTMENT_RESCHEDULED, APPOINTMENT_REASSIGNED]
+                enum: [APPOINTMENT_CREATED, APPOINTMENT_CREATED_BY_BUSINESS, APPOINTMENT_CANCELLED, APPOINTMENT_RESCHEDULED, APPOINTMENT_REASSIGNED, APPOINTMENT_REMINDER]
               channel:
                 type: string
                 enum: [WHATSAPP, PUSH]
@@ -4809,13 +4809,17 @@ components:
                 enum: [PENDING, SENT, DELIVERED, READ, FAILED, SKIPPED]
               skipReason:
                 type: [string, "null"]
-                enum: [CHANNEL_DISABLED, NOT_ALLOWLISTED, APPOINTMENT_CANCELLED, APPOINTMENT_CHANGED, APPOINTMENT_PASSED, APPOINTMENT_NOT_FOUND, NO_RECIPIENT, null]
+                enum: [CHANNEL_DISABLED, NOT_ALLOWLISTED, APPOINTMENT_CANCELLED, APPOINTMENT_CHANGED, APPOINTMENT_PASSED, APPOINTMENT_NOT_FOUND, NO_RECIPIENT, APPOINTMENT_CONFIRMED, null]
               errorCode:
                 type: [string, "null"]
                 description: Code of the last failed attempt.
               attempts:
                 type: integer
                 minimum: 0
+              sendAt:
+                type: string
+                format: date-time
+                description: When the delivery is due; for a reminder, its time before the appointment.
               createdAt:
                 type: string
                 format: date-time

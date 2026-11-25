@@ -20,6 +20,8 @@ const (
 	KindCancelled         Kind = "APPOINTMENT_CANCELLED" //nolint:misspell // stored value
 	KindRescheduled       Kind = "APPOINTMENT_RESCHEDULED"
 	KindReassigned        Kind = "APPOINTMENT_REASSIGNED"
+	// KindReminder asks the customer to confirm before the appointment (T7.4).
+	KindReminder Kind = "APPOINTMENT_REMINDER"
 )
 
 // Channel of delivery.
@@ -65,11 +67,14 @@ const (
 	SkipPassed          SkipReason = "APPOINTMENT_PASSED"
 	SkipNotFound        SkipReason = "APPOINTMENT_NOT_FOUND"
 	SkipNoRecipient     SkipReason = "NO_RECIPIENT"
+	// SkipConfirmed: a reminder whose appointment is no longer pending confirmation.
+	SkipConfirmed SkipReason = "APPOINTMENT_CONFIRMED"
 )
 
 // Values of the scheduling module's events (the domain imports no other module).
 const (
 	statusCancelled  = "CANCELLED" //nolint:misspell // value of the scheduling module
+	statusPending    = "PENDING_CONFIRMATION"
 	eventCreated     = "CREATED"
 	eventCancelled   = "CANCELLED" //nolint:misspell // value of the scheduling module
 	eventRescheduled = "RESCHEDULED"
@@ -85,9 +90,12 @@ type Message struct {
 	RecipientRole                          Role
 	Recipient                              string // E.164 phone for WhatsApp
 	// ProfessionalID and Start are what the message announces.
-	ProfessionalID    uuid.UUID
-	Start             time.Time
-	Status            Status
+	ProfessionalID uuid.UUID
+	Start          time.Time
+	Status         Status
+	// SendAt is when the delivery is due: the change itself, or the reminder time.
+	SendAt time.Time
+
 	SkipReason        SkipReason
 	ErrorCode         string
 	ProviderMessageID string
@@ -100,17 +108,28 @@ type Message struct {
 // Change is a recorded change of an appointment (scheduling's event, after the change).
 type Change struct {
 	EventID, BusinessID, AppointmentID, ProfessionalID uuid.UUID
-	Type, ActorRole                                    string
+	Type, ActorRole, Status                            string
 	Start                                              time.Time
 	CustomerPhone                                      string
 	At                                                 time.Time
 }
 
+// Reminders is the reminder setting of the business.
+type Reminders struct {
+	Enabled bool
+	Before  time.Duration
+}
+
 // Plan returns the messages a change produces (notifications.md §2): to the customer by
-// WhatsApp when the appointment is created (by the customer or by the staff), moved to another time or professional, or canceled
-// by the business (a customer who cancels knows it). Confirmations and the changes of the
-// service itself (start, completion, no-show) send nothing. Push to the professional: T7.6.
-func Plan(c Change, newID func() uuid.UUID) []Message {
+// WhatsApp when the appointment is created (by the customer or by the staff), moved to another
+// time or professional, or canceled by the business (a customer who cancels knows it).
+// Confirmations and the changes of the service itself (start, completion, no-show) send nothing.
+// Push to the professional: T7.6.
+//
+// Reminder (T7.4, decisions of the user 2026-11-25): when the change leaves the appointment
+// pending confirmation, a reminder is due r.Before the start; if that moment already passed it
+// goes at once. Confirmed appointments (manual ones are, by default) get no reminder.
+func Plan(c Change, r Reminders, newID func() uuid.UUID) []Message {
 	var kind Kind
 	switch c.Type {
 	case eventCreated:
@@ -130,11 +149,23 @@ func Plan(c Change, newID func() uuid.UUID) []Message {
 	default:
 		return nil
 	}
-	return []Message{{
-		ID: newID(), BusinessID: c.BusinessID, AppointmentID: c.AppointmentID, EventID: c.EventID,
-		Kind: kind, Channel: ChannelWhatsApp, RecipientRole: RecipientCustomer, Recipient: c.CustomerPhone,
-		ProfessionalID: c.ProfessionalID, Start: c.Start.UTC(), Status: StatusPending, CreatedAt: c.At.UTC(), UpdatedAt: c.At.UTC(),
-	}}
+	at, start := c.At.UTC(), c.Start.UTC()
+	msg := func(k Kind, sendAt time.Time) Message {
+		return Message{
+			ID: newID(), BusinessID: c.BusinessID, AppointmentID: c.AppointmentID, EventID: c.EventID,
+			Kind: k, Channel: ChannelWhatsApp, RecipientRole: RecipientCustomer, Recipient: c.CustomerPhone,
+			ProfessionalID: c.ProfessionalID, Start: start, Status: StatusPending, SendAt: sendAt, CreatedAt: at, UpdatedAt: at,
+		}
+	}
+	out := []Message{msg(kind, at)}
+	if kind != KindCancelled && c.Status == statusPending && r.Enabled && at.Before(start) {
+		due := start.Add(-r.Before)
+		if due.Before(at) {
+			due = at
+		}
+		out = append(out, msg(KindReminder, due))
+	}
+	return out
 }
 
 // Appointment is the current state of the appointment a message is about.
@@ -146,7 +177,8 @@ type Appointment struct {
 
 // Stale tells why a pending message must not be sent at now, or "" if it still holds: the
 // appointment already started, or (except for a cancellation notice) it was canceled or moved
-// meanwhile — the later change has its own message.
+// meanwhile — the later change has its own message; a reminder also when the appointment is no
+// longer pending confirmation.
 func Stale(m Message, current Appointment, now time.Time) SkipReason {
 	switch {
 	case m.Recipient == "":
@@ -159,6 +191,8 @@ func Stale(m Message, current Appointment, now time.Time) SkipReason {
 		return SkipCancelled
 	case current.ProfessionalID != m.ProfessionalID || !current.Start.Equal(m.Start):
 		return SkipChanged
+	case m.Kind == KindReminder && current.Status != statusPending:
+		return SkipConfirmed
 	}
 	return ""
 }
