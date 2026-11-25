@@ -317,6 +317,12 @@ free1=$(status GET "$av&date=$tue" >/dev/null; json '.slots[0].startAt')
 free2=$(json '.slots[1].startAt')
 check "customer reschedules (stays confirmed)" "200 CONFIRMED" "$(status POST "$me_appt/reschedule" "{\"startAt\":\"$free1\"}" "$T1") $(json .status)"
 check "barber reschedules (customer must confirm again)" "200 PENDING_CONFIRMATION" "$(status POST "$st_appt/reschedule" "{\"startAt\":\"$free2\"}" "$TS") $(json .status)"
+# T7.8: the business limits the customer's moves (default 2); the barber's move does not count.
+check "  only the customer's move counts" 1 "$(status GET "$me_appt" "" "$T1" >/dev/null; json .customerReschedules)"
+check "owner allows 1 move per appointment" "200 1" "$(status PATCH "/api/v1/business/$mine" '{"bookingPolicy":{"maxCustomerReschedules":1}}' "$T1") $(json .bookingPolicy.maxCustomerReschedules)"
+free3=$(status GET "$av&date=$tue" >/dev/null; json '.slots[-1].startAt')
+check "customer's 2nd move -> 409" "409 RESCHEDULE_LIMIT_REACHED" "$(status POST "$me_appt/reschedule" "{\"startAt\":\"$free3\"}" "$T1") $(json .code)"
+check "owner restores the default (2)" "200 2" "$(status PATCH "/api/v1/business/$mine" '{"bookingPolicy":{"maxCustomerReschedules":2}}' "$T1") $(json .bookingPolicy.maxCustomerReschedules)"
 check "history: created, confirmed, moved twice" "CREATED,CONFIRMED,RESCHEDULED,RESCHEDULED" "$(status GET "$st_appt/history" "" "$T1" >/dev/null; json '[.items[].type] | join(",")')"
 check "staff cancel needs a reason" 400 "$(status POST "$st_appt/cancel" '{"reason":""}' "$TS")"
 check "start days before -> 409" 409 "$(status POST "$st_appt/start" "" "$TS")"

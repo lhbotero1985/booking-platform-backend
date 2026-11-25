@@ -95,10 +95,10 @@ func TestTransitions(t *testing.T) {
 
 	// Moves.
 	m := appointmentAt(start, domain.StatusConfirmed, true)
-	if err := m.CanMove(domain.ActorCustomer, 2*time.Hour, start.Add(-time.Hour)); !errors.Is(err, domain.ErrCutoffPassed) {
+	if err := m.CanMove(domain.ActorCustomer, 2*time.Hour, 0, start.Add(-time.Hour)); !errors.Is(err, domain.ErrCutoffPassed) {
 		t.Errorf("customer move inside the cut-off: %v", err)
 	}
-	if err := m.CanMove(domain.ActorBusiness, 2*time.Hour, start.Add(time.Minute)); !errors.Is(err, domain.ErrAlreadyStarted) {
+	if err := m.CanMove(domain.ActorBusiness, 2*time.Hour, 0, start.Add(time.Minute)); !errors.Is(err, domain.ErrAlreadyStarted) {
 		t.Errorf("move after the start: %v", err)
 	}
 	newPro := uuid.Must(uuid.NewV7())
@@ -116,7 +116,7 @@ func TestTransitions(t *testing.T) {
 		t.Errorf("moved by the business, customer without account: %s", walkIn.Status)
 	}
 	done := appointmentAt(start, domain.StatusCompleted, true)
-	if err := done.CanMove(domain.ActorBusiness, 0, before); !errors.Is(err, domain.ErrInvalidTransition) {
+	if err := done.CanMove(domain.ActorBusiness, 0, 0, before); !errors.Is(err, domain.ErrInvalidTransition) {
 		t.Errorf("move a completed one: %v", err)
 	}
 
@@ -128,5 +128,44 @@ func TestTransitions(t *testing.T) {
 		if _, err := domain.ParseReason(bad); !errors.Is(err, domain.ErrInvalidReason) {
 			t.Errorf("reason %q: %v", bad[:5], err)
 		}
+	}
+}
+
+// TestRescheduleLimit (T7.8): the business limits the customer's moves; its own moves do not
+// count and are never limited; 0 = no limit.
+func TestRescheduleLimit(t *testing.T) {
+	start := time.Date(2030, 3, 5, 14, 0, 0, 0, time.UTC)
+	now := start.Add(-48 * time.Hour)
+	a := appointmentAt(start, domain.StatusConfirmed, true)
+	for i := range 2 {
+		if err := a.CanMove(domain.ActorCustomer, 2*time.Hour, 2, now); err != nil {
+			t.Fatalf("move %d: %v", i+1, err)
+		}
+		a.MoveTo(a.ProfessionalID, a.Start.Add(time.Hour), domain.ActorCustomer, now)
+	}
+	if a.CustomerReschedules != 2 {
+		t.Fatalf("counted %d", a.CustomerReschedules)
+	}
+	if err := a.CanMove(domain.ActorCustomer, 2*time.Hour, 2, now); !errors.Is(err, domain.ErrRescheduleLimit) {
+		t.Errorf("third move by the customer: %v", err)
+	}
+	if err := a.CanMove(domain.ActorCustomer, 2*time.Hour, 3, now); err != nil {
+		t.Errorf("the business raised its limit: %v", err)
+	}
+	if err := a.CanMove(domain.ActorCustomer, 2*time.Hour, 0, now); err != nil {
+		t.Errorf("no limit: %v", err)
+	}
+	if err := a.CanMove(domain.ActorBusiness, 0, 2, now); err != nil {
+		t.Errorf("the business moves it: %v", err)
+	}
+	a.MoveTo(a.ProfessionalID, a.Start.Add(time.Hour), domain.ActorBusiness, now)
+	if a.CustomerReschedules != 2 {
+		t.Errorf("a move by the business counted: %d", a.CustomerReschedules)
+	}
+	// The cut-off is reported first: it is what the customer can act on.
+	late := appointmentAt(start, domain.StatusConfirmed, true)
+	late.CustomerReschedules = 5
+	if err := late.CanMove(domain.ActorCustomer, 2*time.Hour, 1, start.Add(-time.Hour)); !errors.Is(err, domain.ErrCutoffPassed) {
+		t.Errorf("inside the cut-off and over the limit: %v", err)
 	}
 }

@@ -149,7 +149,8 @@ func TestCoordinatesTimeZoneCurrency(t *testing.T) {
 
 func TestPolicies(t *testing.T) {
 	p := DefaultBookingPolicy()
-	if p.Validate() != nil || p.SlotIntervalMinutes != 10 || p.MinLeadMinutes != 60 || p.MaxAdvanceDays != 60 || !p.RequireCustomerConfirmation {
+	if p.Validate() != nil || p.SlotIntervalMinutes != 10 || p.MinLeadMinutes != 60 || p.MaxAdvanceDays != 60 || !p.RequireCustomerConfirmation ||
+		p.MaxCustomerReschedules != 2 {
 		t.Fatalf("defaults %+v", p)
 	}
 	for field, mutate := range map[string]func(*BookingPolicy){
@@ -159,12 +160,23 @@ func TestPolicies(t *testing.T) {
 		"maxAdvanceDays":          func(p *BookingPolicy) { p.MaxAdvanceDays = 0 },
 		"cancellationCutoffHours": func(p *BookingPolicy) { p.CancellationCutoffHours = 169 },
 		"rescheduleCutoffHours":   func(p *BookingPolicy) { p.RescheduleCutoffHours = -1 },
+		"maxCustomerReschedules":  func(p *BookingPolicy) { p.MaxCustomerReschedules = 11 },
 	} {
 		q := DefaultBookingPolicy()
 		mutate(&q)
 		if q.PolicyField() != field || !errors.Is(q.Validate(), ErrInvalidPolicy) {
 			t.Errorf("%s: PolicyField = %q", field, q.PolicyField())
 		}
+	}
+	for _, n := range []int{0, 10} { // 0 = no limit
+		q := DefaultBookingPolicy()
+		q.MaxCustomerReschedules = n
+		if q.Validate() != nil {
+			t.Errorf("maxCustomerReschedules %d rejected", n)
+		}
+	}
+	if q := (BookingPolicy{SlotIntervalMinutes: 10, MaxAdvanceDays: 1, MaxCustomerReschedules: -1}); q.PolicyField() != "maxCustomerReschedules" {
+		t.Errorf("negative limit: %q", q.PolicyField())
 	}
 	if r := DefaultReminders(); r.Validate() != nil || !r.Enabled || r.HoursBefore != 24 {
 		t.Errorf("default reminders %+v", r)

@@ -62,6 +62,12 @@ type bookingEnv struct {
 // 10 min buffer, Corte 30 min.
 func newBookingEnv(t *testing.T) bookingEnv {
 	t.Helper()
+	return newBookingEnvWith(t, nil)
+}
+
+// newBookingEnvWith lets a test change the business's policy.
+func newBookingEnvWith(t *testing.T, policy func(*businesses.BookingPolicy)) bookingEnv {
+	t.Helper()
 	bog, _ := time.LoadLocation("America/Bogota")
 	e := bookingEnv{
 		store: schedtest.NewStore(), cat: &fakeCatalog{minutes: 30},
@@ -72,6 +78,9 @@ func newBookingEnv(t *testing.T) bookingEnv {
 	}
 	pol := businesses.BookingPolicy{BusinessID: e.biz, TimeZone: "America/Bogota", SlotIntervalMinutes: 10, BufferMinutes: 10, MinLeadMinutes: 60, MaxAdvanceDays: 60,
 		CancellationCutoffHours: 2, RescheduleCutoffHours: 2}
+	if policy != nil {
+		policy(&pol)
+	}
 	e.roles = fakeAuthz{}
 	e.clk = clock.NewFixed(time.Date(2030, 3, 1, 17, 0, 0, 0, time.UTC))
 	e.svc = application.NewService(application.Deps{

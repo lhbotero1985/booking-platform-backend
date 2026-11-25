@@ -81,7 +81,9 @@ type myAppointmentDTO struct {
 	EndAt           time.Time      `json:"endAt"`
 	StartLocal      string         `json:"startLocal"`
 	Status          string         `json:"status"`
-	CreatedAt       time.Time      `json:"createdAt"`
+	// T7.8: times the customer moved it.
+	CustomerReschedules int       `json:"customerReschedules"`
+	CreatedAt           time.Time `json:"createdAt"`
 }
 
 type myAppointmentsDTO struct {
@@ -209,7 +211,8 @@ func toMyAppointmentDTO(a application.MyAppointment) myAppointmentDTO {
 		ID: a.ID, Business: businessRefDTO{ID: a.BusinessID, Name: a.Business.Name, Slug: a.Business.Slug},
 		Professional: refDTO{ID: a.ProfessionalID, Name: a.ProfessionalName}, ServiceName: a.Service.Name,
 		DurationMinutes: a.Service.DurationMinutes, PriceMinor: a.Service.PriceMinor, Currency: a.Service.Currency,
-		StartAt: a.Start, EndAt: a.End, StartLocal: local, Status: string(a.Status), CreatedAt: a.CreatedAt,
+		StartAt: a.Start, EndAt: a.End, StartLocal: local, Status: string(a.Status), CustomerReschedules: a.CustomerReschedules,
+		CreatedAt: a.CreatedAt,
 	}
 }
 

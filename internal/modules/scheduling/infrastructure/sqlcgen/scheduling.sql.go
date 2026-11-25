@@ -13,7 +13,7 @@ import (
 )
 
 const activeAppointmentsDuring = `-- name: ActiveAppointmentsDuring :many
-SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id, cancelled_at, cancel_reason, cancelled_by FROM appointments
+SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id, cancelled_at, cancel_reason, cancelled_by, customer_reschedules FROM appointments
 WHERE business_id = $1 AND professional_id = $2
   AND status IN ('PENDING_CONFIRMATION', 'CONFIRMED', 'IN_PROGRESS')
   AND start_at < $3 AND end_at > $4
@@ -68,6 +68,7 @@ func (q *Queries) ActiveAppointmentsDuring(ctx context.Context, arg ActiveAppoin
 			&i.CancelledAt,
 			&i.CancelReason,
 			&i.CancelledBy,
+			&i.CustomerReschedules,
 		); err != nil {
 			return nil, err
 		}
@@ -134,7 +135,7 @@ func (q *Queries) ActiveAppointmentsOverlapping(ctx context.Context, arg ActiveA
 }
 
 const agendaAppointments = `-- name: AgendaAppointments :many
-SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id, cancelled_at, cancel_reason, cancelled_by FROM appointments
+SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id, cancelled_at, cancel_reason, cancelled_by, customer_reschedules FROM appointments
 WHERE business_id = $1
   AND ($2::bool OR professional_id = ANY($3::uuid[]))
   AND start_at >= $4 AND start_at < $5
@@ -201,6 +202,7 @@ func (q *Queries) AgendaAppointments(ctx context.Context, arg AgendaAppointments
 			&i.CancelledAt,
 			&i.CancelReason,
 			&i.CancelledBy,
+			&i.CustomerReschedules,
 		); err != nil {
 			return nil, err
 		}
@@ -213,7 +215,7 @@ func (q *Queries) AgendaAppointments(ctx context.Context, arg AgendaAppointments
 }
 
 const appointmentByID = `-- name: AppointmentByID :one
-SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id, cancelled_at, cancel_reason, cancelled_by FROM appointments WHERE id = $1
+SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id, cancelled_at, cancel_reason, cancelled_by, customer_reschedules FROM appointments WHERE id = $1
 `
 
 func (q *Queries) AppointmentByID(ctx context.Context, id uuid.UUID) (Appointment, error) {
@@ -244,6 +246,7 @@ func (q *Queries) AppointmentByID(ctx context.Context, id uuid.UUID) (Appointmen
 		&i.CancelledAt,
 		&i.CancelReason,
 		&i.CancelledBy,
+		&i.CustomerReschedules,
 	)
 	return i, err
 }
@@ -380,7 +383,7 @@ func (q *Queries) CustomerByPhone(ctx context.Context, arg CustomerByPhoneParams
 }
 
 const customerPastAppointments = `-- name: CustomerPastAppointments :many
-SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id, cancelled_at, cancel_reason, cancelled_by FROM appointments
+SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id, cancelled_at, cancel_reason, cancelled_by, customer_reschedules FROM appointments
 WHERE customer_user_id = $1 AND start_at < $2
   AND (NOT $3::bool OR (start_at, id) < ($4::timestamptz, $5::uuid))
 ORDER BY start_at DESC, id DESC
@@ -438,6 +441,7 @@ func (q *Queries) CustomerPastAppointments(ctx context.Context, arg CustomerPast
 			&i.CancelledAt,
 			&i.CancelReason,
 			&i.CancelledBy,
+			&i.CustomerReschedules,
 		); err != nil {
 			return nil, err
 		}
@@ -450,7 +454,7 @@ func (q *Queries) CustomerPastAppointments(ctx context.Context, arg CustomerPast
 }
 
 const customerUpcomingAppointments = `-- name: CustomerUpcomingAppointments :many
-SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id, cancelled_at, cancel_reason, cancelled_by FROM appointments
+SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id, cancelled_at, cancel_reason, cancelled_by, customer_reschedules FROM appointments
 WHERE customer_user_id = $1 AND start_at >= $2
   AND (NOT $3::bool OR (start_at, id) > ($4::timestamptz, $5::uuid))
 ORDER BY start_at, id
@@ -508,6 +512,7 @@ func (q *Queries) CustomerUpcomingAppointments(ctx context.Context, arg Customer
 			&i.CancelledAt,
 			&i.CancelReason,
 			&i.CancelledBy,
+			&i.CustomerReschedules,
 		); err != nil {
 			return nil, err
 		}
@@ -731,7 +736,7 @@ func (q *Queries) ListCustomers(ctx context.Context, arg ListCustomersParams) ([
 }
 
 const lockAppointment = `-- name: LockAppointment :one
-SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id, cancelled_at, cancel_reason, cancelled_by FROM appointments WHERE id = $1 FOR UPDATE
+SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id, cancelled_at, cancel_reason, cancelled_by, customer_reschedules FROM appointments WHERE id = $1 FOR UPDATE
 `
 
 // Serializes the changes of one appointment (T6.6).
@@ -763,6 +768,7 @@ func (q *Queries) LockAppointment(ctx context.Context, id uuid.UUID) (Appointmen
 		&i.CancelledAt,
 		&i.CancelReason,
 		&i.CancelledBy,
+		&i.CustomerReschedules,
 	)
 	return i, err
 }
@@ -797,22 +803,23 @@ const updateAppointment = `-- name: UpdateAppointment :execrows
 UPDATE appointments
 SET professional_id = $1, start_at = $2, end_at = $3, occupied_until = $4,
     status = $5, cancelled_at = $6, cancel_reason = $7, cancelled_by = $8,
-    version = version + 1, updated_at = $9
-WHERE id = $10 AND version = $11
+    customer_reschedules = $9, version = version + 1, updated_at = $10
+WHERE id = $11 AND version = $12
 `
 
 type UpdateAppointmentParams struct {
-	ProfessionalID uuid.UUID
-	StartAt        time.Time
-	EndAt          time.Time
-	OccupiedUntil  time.Time
-	Status         string
-	CancelledAt    *time.Time
-	CancelReason   *string
-	CancelledBy    *string
-	UpdatedAt      time.Time
-	ID             uuid.UUID
-	Version        int32
+	ProfessionalID      uuid.UUID
+	StartAt             time.Time
+	EndAt               time.Time
+	OccupiedUntil       time.Time
+	Status              string
+	CancelledAt         *time.Time
+	CancelReason        *string
+	CancelledBy         *string
+	CustomerReschedules int16
+	UpdatedAt           time.Time
+	ID                  uuid.UUID
+	Version             int32
 }
 
 // Writes a change; the version guard makes a lost update impossible (0 rows = changed meanwhile).
@@ -826,6 +833,7 @@ func (q *Queries) UpdateAppointment(ctx context.Context, arg UpdateAppointmentPa
 		arg.CancelledAt,
 		arg.CancelReason,
 		arg.CancelledBy,
+		arg.CustomerReschedules,
 		arg.UpdatedAt,
 		arg.ID,
 		arg.Version,

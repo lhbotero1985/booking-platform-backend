@@ -55,6 +55,9 @@ var (
 	ErrAlreadyStarted = errors.New("scheduling: the appointment time has passed")
 	// ErrCutoffPassed means the customer is past the business's cut-off to cancel or move.
 	ErrCutoffPassed = errors.New("scheduling: past the cut-off for the customer")
+	// ErrRescheduleLimit means the customer already moved the appointment as many times as the
+	// business allows (T7.8).
+	ErrRescheduleLimit = errors.New("scheduling: the customer's reschedule limit was reached")
 	// ErrInvalidReason means the cancel reason is too long or has control characters.
 	ErrInvalidReason = errors.New("scheduling: invalid reason")
 )
@@ -160,7 +163,8 @@ func (a *Appointment) MarkNoShow(now time.Time) error {
 }
 
 // CanMove tells whether the appointment may be rescheduled or reassigned now by that actor.
-func (a *Appointment) CanMove(by ActorRole, cutoff time.Duration, now time.Time) error {
+// maxByCustomer limits the customer's moves (0 = no limit); the business always may.
+func (a *Appointment) CanMove(by ActorRole, cutoff time.Duration, maxByCustomer int, now time.Time) error {
 	switch {
 	case a.Status != StatusPendingConfirmation && a.Status != StatusConfirmed:
 		return ErrInvalidTransition
@@ -168,6 +172,8 @@ func (a *Appointment) CanMove(by ActorRole, cutoff time.Duration, now time.Time)
 		return ErrAlreadyStarted
 	case by == ActorCustomer && now.Add(cutoff).After(a.Start):
 		return ErrCutoffPassed
+	case by == ActorCustomer && maxByCustomer > 0 && a.CustomerReschedules >= maxByCustomer:
+		return ErrRescheduleLimit
 	}
 	return nil
 }
@@ -181,6 +187,9 @@ func (a *Appointment) MoveTo(professionalID uuid.UUID, start time.Time, by Actor
 	a.Start = start.UTC()
 	a.End = a.Start.Add(time.Duration(a.Service.DurationMinutes) * time.Minute)
 	status := a.Status
+	if by == ActorCustomer {
+		a.CustomerReschedules++
+	}
 	if by == ActorBusiness {
 		status = StatusConfirmed
 		if a.Customer.UserID != uuid.Nil {

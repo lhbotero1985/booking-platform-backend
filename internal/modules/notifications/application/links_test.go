@@ -196,3 +196,44 @@ func TestLinkReschedule(t *testing.T) {
 		t.Error("a failure must surface")
 	}
 }
+
+// TestLinkRescheduleLimit (T7.8): at the business's limit the email has no "Reagendar" link;
+// an older link says so without being spent (it may still cancel), also when scheduling refuses.
+func TestLinkRescheduleLimit(t *testing.T) {
+	w := newLinksWorld(t) // limit 0: no limit
+	if _, ok := w.links[domain.ActionReschedule]; !ok {
+		t.Fatal("no limit: no reschedule link")
+	}
+	w.rs.pol.MaxCustomerReschedules, w.appts.state.CustomerReschedules = 2, 2
+	v := w.look(t, domain.ActionReschedule)
+	if v.Outcome != domain.OutcomeRescheduleLimit || v.Content.MaxReschedules != 2 || v.Content.Reschedules != 2 {
+		t.Errorf("look at the limit: %+v", v)
+	}
+	if got := w.use(t, domain.ActionReschedule); got != domain.OutcomeRescheduleLimit || len(w.replies.moves) != 0 {
+		t.Errorf("use at the limit: %s, moves %v", got, w.replies.moves)
+	}
+	if got := w.use(t, domain.ActionCancel); got != domain.OutcomeCancelled {
+		t.Errorf("cancel after: %s", got)
+	}
+	// Scheduling refuses (moved by another way meanwhile): not spent.
+	w = newLinksWorld(t)
+	w.replies.err = errors.Join(scheduling.ErrRescheduleLimit, errors.New("limit"))
+	if got := w.use(t, domain.ActionReschedule); got != domain.OutcomeRescheduleLimit {
+		t.Errorf("refused: %s", got)
+	}
+	w.replies.err = nil
+	if got := w.use(t, domain.ActionConfirm); got != domain.OutcomeConfirmed {
+		t.Errorf("confirm after: %s", got)
+	}
+	// A new email at the limit: confirm and cancel only.
+	w2 := newLinksWorld(t)
+	w2.rs.pol.MaxCustomerReschedules, w2.appts.state.CustomerReschedules = 1, 1
+	w2.sendEmail(t, event("RESCHEDULED", "CUSTOMER"), domain.RecipientCustomer)
+	l := w2.mails.sent[len(w2.mails.sent)-1].Links
+	if len(l) != 2 || l[domain.ActionReschedule] != "" {
+		t.Errorf("email at the limit: %v", l)
+	}
+	if c := w2.mails.sent[len(w2.mails.sent)-1].Content; c.MaxReschedules != 1 || c.Reschedules != 1 {
+		t.Errorf("content %+v", c)
+	}
+}

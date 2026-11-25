@@ -232,7 +232,7 @@ func (s *Service) move(ctx context.Context, who actor, id uuid.UUID, start time.
 			who.p.UserID = a.Customer.UserID // the event's actor: the customer's account, if any
 		}
 		now := s.d.Clock.Now()
-		if err := a.CanMove(who.role, time.Duration(pol.RescheduleCutoffHours)*time.Hour, now); err != nil {
+		if err := a.CanMove(who.role, time.Duration(pol.RescheduleCutoffHours)*time.Hour, pol.MaxCustomerReschedules, now); err != nil {
 			return err
 		}
 		if _, err := s.bookableService(ctx, a.BusinessID, a.Service.ServiceID, target); err != nil {

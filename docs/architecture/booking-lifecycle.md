@@ -53,7 +53,7 @@ devuelve `ErrInvalidTransition` → HTTP 409.
 | Reservar | Sí (para sí mismo) | Sí (manual) | Sí (manual) | No |
 | Confirmar | Sí | Sí | Sí | No |
 | Cancelar | Sí, hasta `cancellationCutoffHours` | Sí | Sí | No |
-| Reprogramar | Sí, hasta `rescheduleCutoffHours` | Sí | Sí | No |
+| Reprogramar | Sí, hasta `rescheduleCutoffHours` y hasta `maxCustomerReschedules` veces por cita (T7.8) | Sí (sin límite; no cuenta) | Sí (sin límite; no cuenta) | No |
 | Iniciar / Completar / No-show | No | Sí | Sí | No |
 | Ver historial | Propio | De sus citas | Del negocio | Auditoría |
 

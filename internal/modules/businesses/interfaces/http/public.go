@@ -23,6 +23,7 @@ type publicPolicyDTO struct {
 	MaxAdvanceDays          int `json:"maxAdvanceDays"`
 	CancellationCutoffHours int `json:"cancellationCutoffHours"`
 	RescheduleCutoffHours   int `json:"rescheduleCutoffHours"`
+	MaxCustomerReschedules  int `json:"maxCustomerReschedules"`
 }
 
 // publicBusinessDTO is what customers see: no status, internal settings or timestamps.
@@ -51,6 +52,7 @@ func toPublicDTO(b *domain.Business) publicBusinessDTO {
 		BookingPolicy: publicPolicyDTO{
 			MinLeadMinutes: p.MinLeadMinutes, MaxAdvanceDays: p.MaxAdvanceDays,
 			CancellationCutoffHours: p.CancellationCutoffHours, RescheduleCutoffHours: p.RescheduleCutoffHours,
+			MaxCustomerReschedules: p.MaxCustomerReschedules,
 		},
 	}
 }

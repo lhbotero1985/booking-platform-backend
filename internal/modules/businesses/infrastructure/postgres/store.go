@@ -73,6 +73,7 @@ func (t *txStore) InsertBusiness(ctx context.Context, b *domain.Business) error 
 		CancellationCutoffHours: int16(p.CancellationCutoffHours), RescheduleCutoffHours: int16(p.RescheduleCutoffHours), //nolint:gosec // validated ranges
 		RequireCustomerConfirmation: p.RequireCustomerConfirmation, RemindersEnabled: r.Enabled,
 		ReminderHoursBefore: int16(r.HoursBefore), CreatedAt: b.CreatedAt(), //nolint:gosec // validated range
+		MaxCustomerReschedules: int16(p.MaxCustomerReschedules), //nolint:gosec // validated range
 	})
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "businesses_slug_unique" {
@@ -93,6 +94,7 @@ func (t *txStore) UpdateBusiness(ctx context.Context, b *domain.Business) error 
 		CancellationCutoffHours: int16(p.CancellationCutoffHours), RescheduleCutoffHours: int16(p.RescheduleCutoffHours), //nolint:gosec // validated ranges
 		RequireCustomerConfirmation: p.RequireCustomerConfirmation, RemindersEnabled: r.Enabled,
 		ReminderHoursBefore: int16(r.HoursBefore), UpdatedAt: b.UpdatedAt(), //nolint:gosec // validated range
+		MaxCustomerReschedules: int16(p.MaxCustomerReschedules), //nolint:gosec // validated range
 	})
 }
 
@@ -165,7 +167,7 @@ func (t *txStore) SearchActive(ctx context.Context, f application.SearchFilter) 
 			MaxAdvanceDays: r.MaxAdvanceDays, CancellationCutoffHours: r.CancellationCutoffHours,
 			RescheduleCutoffHours: r.RescheduleCutoffHours, RequireCustomerConfirmation: r.RequireCustomerConfirmation,
 			RemindersEnabled: r.RemindersEnabled, ReminderHoursBefore: r.ReminderHoursBefore,
-			CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+			MaxCustomerReschedules: r.MaxCustomerReschedules, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
 		})
 		if err != nil {
 			return nil, err
@@ -219,7 +221,7 @@ func toDomain(r sqlcgen.BusinessByIDRow) (*domain.Business, error) {
 			SlotIntervalMinutes: int(r.SlotIntervalMinutes), BufferMinutes: int(r.BufferMinutes),
 			MinLeadMinutes: int(r.MinLeadMinutes), MaxAdvanceDays: int(r.MaxAdvanceDays),
 			CancellationCutoffHours: int(r.CancellationCutoffHours), RescheduleCutoffHours: int(r.RescheduleCutoffHours),
-			RequireCustomerConfirmation: r.RequireCustomerConfirmation,
+			RequireCustomerConfirmation: r.RequireCustomerConfirmation, MaxCustomerReschedules: int(r.MaxCustomerReschedules),
 		},
 		Reminders: domain.Reminders{Enabled: r.RemindersEnabled, HoursBefore: int(r.ReminderHoursBefore)},
 		Now:       r.CreatedAt,

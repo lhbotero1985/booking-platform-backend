@@ -122,23 +122,26 @@ type bookRequest struct {
 
 // appointmentDTO is an appointment as its customer sees it.
 type appointmentDTO struct {
-	ID              uuid.UUID  `json:"id"`
-	BusinessID      uuid.UUID  `json:"businessId"`
-	ProfessionalID  uuid.UUID  `json:"professionalId"`
-	ServiceID       uuid.UUID  `json:"serviceId"`
-	ServiceName     string     `json:"serviceName"`
-	DurationMinutes int        `json:"durationMinutes"`
-	PriceMinor      int64      `json:"priceMinor"`
-	Currency        string     `json:"currency"`
-	StartAt         time.Time  `json:"startAt"`
-	EndAt           time.Time  `json:"endAt"`
-	Status          string     `json:"status"`
-	CustomerName    string     `json:"customerName"`
-	Version         int        `json:"version"`
-	CancelledAt     *time.Time `json:"cancelledAt"`
-	CancelReason    *string    `json:"cancelReason"`
-	CancelledBy     *string    `json:"cancelledBy"`
-	CreatedAt       time.Time  `json:"createdAt"`
+	ID              uuid.UUID `json:"id"`
+	BusinessID      uuid.UUID `json:"businessId"`
+	ProfessionalID  uuid.UUID `json:"professionalId"`
+	ServiceID       uuid.UUID `json:"serviceId"`
+	ServiceName     string    `json:"serviceName"`
+	DurationMinutes int       `json:"durationMinutes"`
+	PriceMinor      int64     `json:"priceMinor"`
+	Currency        string    `json:"currency"`
+	StartAt         time.Time `json:"startAt"`
+	EndAt           time.Time `json:"endAt"`
+	Status          string    `json:"status"`
+	CustomerName    string    `json:"customerName"`
+	Version         int       `json:"version"`
+	// CustomerReschedules: times the customer moved it (T7.8; the business's
+	// maxCustomerReschedules limits them).
+	CustomerReschedules int        `json:"customerReschedules"`
+	CancelledAt         *time.Time `json:"cancelledAt"`
+	CancelReason        *string    `json:"cancelReason"`
+	CancelledBy         *string    `json:"cancelledBy"`
+	CreatedAt           time.Time  `json:"createdAt"`
 }
 
 func toAppointmentDTO(a domain.Appointment) appointmentDTO {
@@ -146,7 +149,7 @@ func toAppointmentDTO(a domain.Appointment) appointmentDTO {
 		ID: a.ID, BusinessID: a.BusinessID, ProfessionalID: a.ProfessionalID, ServiceID: a.Service.ServiceID,
 		ServiceName: a.Service.Name, DurationMinutes: a.Service.DurationMinutes, PriceMinor: a.Service.PriceMinor,
 		Currency: a.Service.Currency, StartAt: a.Start, EndAt: a.End, Status: string(a.Status),
-		CustomerName: a.Customer.Name, Version: a.Version, CancelReason: optional(a.CancelReason),
+		CustomerName: a.Customer.Name, Version: a.Version, CustomerReschedules: a.CustomerReschedules, CancelReason: optional(a.CancelReason),
 		CancelledBy: optional(string(a.CancelledBy)), CreatedAt: a.CreatedAt,
 	}
 	if !a.CancelledAt.IsZero() {
@@ -232,6 +235,8 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeAlreadyStarted, "the appointment time has passed: it can only be completed or marked as no-show"))
 	case errors.Is(err, domain.ErrCutoffPassed):
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeCutoffPassed, "too close to the appointment to change it from the app; contact the business"))
+	case errors.Is(err, domain.ErrRescheduleLimit):
+		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeRescheduleLimit, "the appointment was already moved as many times as the business allows; contact the business"))
 	case errors.Is(err, application.ErrAppointmentChanged):
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeAppointmentChanged, "the appointment changed meanwhile; read it again"))
 	case errors.Is(err, application.ErrBusy):

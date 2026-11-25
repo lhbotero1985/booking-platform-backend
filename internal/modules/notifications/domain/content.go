@@ -23,6 +23,14 @@ type Content struct {
 	Latitude, Longitude   *float64 // nil without coordinates
 	CancelCutoffHours     int      // 0: no cut-off shown
 	RescheduleCutoffHours int
+
+	// T7.8: the business's limit of moves by the customer (0 = no limit) and those done.
+	MaxReschedules, Reschedules int
+}
+
+// CanReschedule tells whether the customer still may move the appointment (within the business's limit).
+func (c Content) CanReschedule() bool {
+	return c.MaxReschedules == 0 || c.Reschedules < c.MaxReschedules
 }
 
 var (
@@ -66,4 +74,26 @@ func (c Content) loc() *time.Location {
 		return time.UTC
 	}
 	return c.Location
+}
+
+// RescheduleLimitES tells the customer how many moves are left (T7.8); "" without a limit.
+func (c Content) RescheduleLimitES() string {
+	if c.MaxReschedules == 0 {
+		return ""
+	}
+	switch left := c.MaxReschedules - c.Reschedules; {
+	case left <= 0:
+		return "Ya usaste los cambios de hora que permite el negocio para esta cita (" + times(c.MaxReschedules) + ")."
+	case left == 1:
+		return "Te queda 1 cambio de hora para esta cita (máximo " + times(c.MaxReschedules) + ")."
+	default:
+		return fmt.Sprintf("Te quedan %d cambios de hora para esta cita (máximo %s).", left, times(c.MaxReschedules))
+	}
+}
+
+func times(n int) string {
+	if n == 1 {
+		return "1 vez"
+	}
+	return fmt.Sprintf("%d veces", n)
 }

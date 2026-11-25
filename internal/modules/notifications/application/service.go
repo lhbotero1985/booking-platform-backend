@@ -247,7 +247,7 @@ func (s *Service) Send(ctx context.Context, id uuid.UUID, lastAttempt bool) erro
 			return err
 		}
 	}
-	if actions := emailActions(m.Kind, m.RecipientRole, st.Status); m.Channel == domain.ChannelEmail && len(actions) > 0 {
+	if actions := emailActions(m.Kind, m.RecipientRole, out.Content); m.Channel == domain.ChannelEmail && len(actions) > 0 {
 		raws, err := s.issueTokens(ctx, m, actions)
 		if err != nil {
 			return err
@@ -289,7 +289,7 @@ func contentOf(st scheduling.AppointmentState) domain.Content {
 		CustomerName: st.CustomerName, BusinessName: st.BusinessName, ServiceName: st.ServiceName,
 		ProfessionalName: st.ProfessionalName, Start: st.Start, Location: loc, CancelReason: st.CancelReason,
 		Status: st.Status, BusinessAddress: st.BusinessAddress, BusinessPhone: st.BusinessPhone,
-		Latitude: st.BusinessLatitude, Longitude: st.BusinessLongitude,
+		Latitude: st.BusinessLatitude, Longitude: st.BusinessLongitude, Reschedules: st.CustomerReschedules,
 	}
 }
 
@@ -319,6 +319,7 @@ func (s *Service) addPolicy(ctx context.Context, businessID uuid.UUID, c *domain
 		return err
 	}
 	c.CancelCutoffHours, c.RescheduleCutoffHours = pol.CancellationCutoffHours, pol.RescheduleCutoffHours
+	c.MaxReschedules = pol.MaxCustomerReschedules
 	return nil
 }
 

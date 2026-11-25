@@ -34,6 +34,8 @@ type BookingPolicy struct {
 	// Cut-offs for the customer to cancel or reschedule (T6.6).
 	CancellationCutoffHours int
 	RescheduleCutoffHours   int
+	// MaxCustomerReschedules: times the customer may move one appointment; 0 = no limit (T7.8).
+	MaxCustomerReschedules int
 	// Reminder before each appointment (T7.4): on/off and how many hours before (1–72).
 	RemindersEnabled    bool
 	ReminderHoursBefore int
