@@ -118,6 +118,62 @@ func (q *Queries) ClaimWebhookEvent(ctx context.Context, arg ClaimWebhookEventPa
 	return items, nil
 }
 
+const countWhatsAppSent = `-- name: CountWhatsAppSent :one
+SELECT count(*) FROM notification_messages
+WHERE channel = 'WHATSAPP' AND sent_at >= $1 AND sent_at < $2
+`
+
+type CountWhatsAppSentParams struct {
+	FromAt *time.Time
+	ToAt   *time.Time
+}
+
+func (q *Queries) CountWhatsAppSent(ctx context.Context, arg CountWhatsAppSentParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countWhatsAppSent, arg.FromAt, arg.ToAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countWhatsAppSentByBusiness = `-- name: CountWhatsAppSentByBusiness :one
+SELECT count(*) FROM notification_messages
+WHERE business_id = $1 AND channel = 'WHATSAPP' AND sent_at >= $2 AND sent_at < $3
+`
+
+type CountWhatsAppSentByBusinessParams struct {
+	BusinessID uuid.UUID
+	FromAt     *time.Time
+	ToAt       *time.Time
+}
+
+// WhatsApp messages of a business sent in [from_at, to_at) (any later status counts: the
+// message was paid for).
+func (q *Queries) CountWhatsAppSentByBusiness(ctx context.Context, arg CountWhatsAppSentByBusinessParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countWhatsAppSentByBusiness, arg.BusinessID, arg.FromAt, arg.ToAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const customerPreferences = `-- name: CustomerPreferences :one
+
+SELECT whatsapp, email, reminders FROM customer_notification_preferences WHERE user_id = $1
+`
+
+type CustomerPreferencesRow struct {
+	Whatsapp  bool
+	Email     bool
+	Reminders bool
+}
+
+// T7.9: preferences and the WhatsApp cap.
+func (q *Queries) CustomerPreferences(ctx context.Context, userID uuid.UUID) (CustomerPreferencesRow, error) {
+	row := q.db.QueryRow(ctx, customerPreferences, userID)
+	var i CustomerPreferencesRow
+	err := row.Scan(&i.Whatsapp, &i.Email, &i.Reminders)
+	return i, err
+}
+
 const finishMessage = `-- name: FinishMessage :exec
 UPDATE notification_messages
 SET status = $1, recipient = $2, skip_reason = $3, error_code = $4,
@@ -305,6 +361,89 @@ func (q *Queries) MessageByID(ctx context.Context, id uuid.UUID) (NotificationMe
 	return i, err
 }
 
+const professionalEmailEnabled = `-- name: ProfessionalEmailEnabled :one
+SELECT email FROM professional_notification_preferences
+WHERE business_id = $1 AND professional_id = $2
+`
+
+type ProfessionalEmailEnabledParams struct {
+	BusinessID     uuid.UUID
+	ProfessionalID uuid.UUID
+}
+
+func (q *Queries) ProfessionalEmailEnabled(ctx context.Context, arg ProfessionalEmailEnabledParams) (bool, error) {
+	row := q.db.QueryRow(ctx, professionalEmailEnabled, arg.BusinessID, arg.ProfessionalID)
+	var email bool
+	err := row.Scan(&email)
+	return email, err
+}
+
+const setCustomerPreferences = `-- name: SetCustomerPreferences :exec
+INSERT INTO customer_notification_preferences (user_id, whatsapp, email, reminders, updated_at)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (user_id) DO UPDATE
+SET whatsapp = EXCLUDED.whatsapp, email = EXCLUDED.email, reminders = EXCLUDED.reminders, updated_at = EXCLUDED.updated_at
+`
+
+type SetCustomerPreferencesParams struct {
+	UserID    uuid.UUID
+	Whatsapp  bool
+	Email     bool
+	Reminders bool
+	UpdatedAt time.Time
+}
+
+func (q *Queries) SetCustomerPreferences(ctx context.Context, arg SetCustomerPreferencesParams) error {
+	_, err := q.db.Exec(ctx, setCustomerPreferences,
+		arg.UserID,
+		arg.Whatsapp,
+		arg.Email,
+		arg.Reminders,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
+const setProfessionalEmailEnabled = `-- name: SetProfessionalEmailEnabled :exec
+INSERT INTO professional_notification_preferences (business_id, professional_id, email, updated_at)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (business_id, professional_id) DO UPDATE SET email = EXCLUDED.email, updated_at = EXCLUDED.updated_at
+`
+
+type SetProfessionalEmailEnabledParams struct {
+	BusinessID     uuid.UUID
+	ProfessionalID uuid.UUID
+	Email          bool
+	UpdatedAt      time.Time
+}
+
+func (q *Queries) SetProfessionalEmailEnabled(ctx context.Context, arg SetProfessionalEmailEnabledParams) error {
+	_, err := q.db.Exec(ctx, setProfessionalEmailEnabled,
+		arg.BusinessID,
+		arg.ProfessionalID,
+		arg.Email,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
+const setWhatsAppMonthlyLimit = `-- name: SetWhatsAppMonthlyLimit :exec
+INSERT INTO business_whatsapp_limits (business_id, monthly_limit, updated_at)
+VALUES ($1, $2, $3)
+ON CONFLICT (business_id) DO UPDATE SET monthly_limit = EXCLUDED.monthly_limit, updated_at = EXCLUDED.updated_at
+`
+
+type SetWhatsAppMonthlyLimitParams struct {
+	BusinessID   uuid.UUID
+	MonthlyLimit int32
+	UpdatedAt    time.Time
+}
+
+func (q *Queries) SetWhatsAppMonthlyLimit(ctx context.Context, arg SetWhatsAppMonthlyLimitParams) error {
+	_, err := q.db.Exec(ctx, setWhatsAppMonthlyLimit, arg.BusinessID, arg.MonthlyLimit, arg.UpdatedAt)
+	return err
+}
+
 const updateDeliveryStatus = `-- name: UpdateDeliveryStatus :execrows
 UPDATE notification_messages
 SET status = $1, error_code = COALESCE($2, error_code), updated_at = $3
@@ -363,4 +502,15 @@ type UseMessageTokensParams struct {
 func (q *Queries) UseMessageTokens(ctx context.Context, arg UseMessageTokensParams) error {
 	_, err := q.db.Exec(ctx, useMessageTokens, arg.UsedAt, arg.MessageID)
 	return err
+}
+
+const whatsAppMonthlyLimit = `-- name: WhatsAppMonthlyLimit :one
+SELECT monthly_limit FROM business_whatsapp_limits WHERE business_id = $1
+`
+
+func (q *Queries) WhatsAppMonthlyLimit(ctx context.Context, businessID uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, whatsAppMonthlyLimit, businessID)
+	var monthly_limit int32
+	err := row.Scan(&monthly_limit)
+	return monthly_limit, err
 }

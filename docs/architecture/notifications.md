@@ -1,6 +1,6 @@
 # Notificaciones: WhatsApp, correo y push
 
-Estado: **Fase 7 en curso** (T7.1–T7.8 implementadas: §7–§13). ADR-0008, ADR-0009, ADR-0010 (push
+Estado: **Fase 7 en curso** (T7.1–T7.9 implementadas: §7–§14). ADR-0008, ADR-0009, ADR-0010 (push
 aplazada por ADR-0019).
 
 ## 1. Principios
@@ -299,3 +299,22 @@ sale de inmediato**.
   `maxCustomerReschedules` y `customerReschedules`.
 - **Configuración:** `PUBLIC_API_URL` (origen público de la API; https en QA/PROD; en QA sale de
   `SITE_DOMAIN`) y `APPOINTMENT_RESCHEDULE_URL` (opcional, https).
+
+## 14. Preferencias y control de costos (T7.9, P16)
+
+- **Cliente** (por cuenta, en todos los negocios): WhatsApp y/o correo (**al menos uno**: 400
+  `AT_LEAST_ONE_CHANNEL`) y recordatorios sí/no. `GET/PUT /api/v1/me/notification-preferences`.
+  Sin elegir, todo activo. Los clientes agendados a mano sin cuenta reciben ambos canales.
+- **Especialista**: correos de citas sí/no por perfil; lo cambian **el propio especialista o el
+  dueño** (otro especialista 403; quien no es miembro 404).
+  `GET/PUT /api/v1/business/{id}/professionals/{pid}/notification-preferences`.
+- **Tope de WhatsApp** (lo paga la plataforma): mensajes enviados por negocio en el mes calendario
+  (UTC). El administrador de Booka fija el de cada negocio (0–100000; 0 = sin WhatsApp) en
+  `GET/PUT /api/v1/admin/businesses/{id}/whatsapp-limit`, que también muestra el consumo del mes;
+  sin tope propio rige `WHATSAPP_MONTHLY_LIMIT` (500; 0 = sin tope por defecto). Tope diario de
+  toda la plataforma opcional: `WHATSAPP_DAILY_LIMIT` (0 = sin tope). Los topes son
+  **aproximados**: dos envíos simultáneos pueden pasarlo por los mensajes en curso.
+- **Cuándo se aplica:** al enviar cada mensaje (también a los recordatorios ya planificados). Un
+  mensaje no deseado queda `SKIPPED` con motivo visible en el historial: `CUSTOMER_OPTED_OUT`,
+  `REMINDERS_OFF`, `PROFESSIONAL_OPTED_OUT`, `MONTHLY_LIMIT_REACHED`, `DAILY_LIMIT_REACHED`.
+  Llegar al tope no detiene los correos.

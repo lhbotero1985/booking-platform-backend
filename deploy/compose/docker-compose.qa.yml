@@ -39,6 +39,10 @@ x-app-env: &app-env
   # (T7.2), the simulated sender otherwise; only the allowlisted test numbers receive messages.
   WHATSAPP_ENABLED: "true"
   WHATSAPP_ALLOWLIST: ${WHATSAPP_ALLOWLIST:-}
+  # T7.9: WhatsApp caps (the platform pays): per business and month unless the admin set one,
+  # and for the whole platform per day (0 = none).
+  WHATSAPP_MONTHLY_LIMIT: ${WHATSAPP_MONTHLY_LIMIT:-500}
+  WHATSAPP_DAILY_LIMIT: ${WHATSAPP_DAILY_LIMIT:-0}
 
 services:
   postgres:

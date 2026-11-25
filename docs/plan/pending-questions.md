@@ -29,7 +29,7 @@ la Fase 0, se adopta la propuesta.
 | P13 | Proveedor de email para PROD | **QA usa Mailpit** (decisión 2026-11-19). Para PROD elegir proveedor con SMTP+TLS antes de la Fase 13 (p. ej. Amazon SES, Resend, Postmark, Brevo); requiere dominio con SPF/DKIM. |
 | P14 | ¿Los portales Next.js llaman a la API directamente (cookie + CORS) o mediante BFF? | Directamente con cookie `__Host-` en subdominio común; reevaluar en Fase 8. |
 | P15 | Dominio para QA/PROD | A definir antes de Fase 3. |
-| P16 | ¿Quién asume el costo de WhatsApp? ¿Tope por negocio? | Plataforma, con tope mensual por negocio configurable. |
+| P16 | ¿Quién asume el costo de WhatsApp? ¿Tope por negocio? | ✅ 2026-11-25 (T7.9): la plataforma; tope mensual por negocio que fija el administrador de Booka (por defecto 500, `WHATSAPP_MONTHLY_LIMIT`) y tope diario global opcional (`WHATSAPP_DAILY_LIMIT`). Al llegar al tope no sale WhatsApp; el correo sí. |
 | P17 | ¿Meta Business Manager verificado disponible? | 2026-11-25: app "booking-platform" creada, número de prueba funcionando ("Hello World" recibido), token permanente de usuario del sistema cargado en QA. **Pendiente:** verificación del negocio (RUT / Cámara de Comercio) y número real. 2026-11-24: el usuario **no tenía** cuenta de Meta Business; se le explicaron los pasos. Iniciar el trámite antes de la Fase 7 (la verificación puede tardar). |
 | P18 | PROD: PostgreSQL en Droplet o DO Managed PostgreSQL | Decidir en Fase 13; recomendación: Managed. |
 | P19 | ¿Commits firmados obligatorios? | Recomendado (SSH signing), no bloqueante. |

@@ -421,3 +421,24 @@ func TestEmailLinksConfig(t *testing.T) {
 		}
 	}
 }
+
+// TestWhatsAppLimitsConfig (T7.9): 500 a month per business and no daily cap by default.
+func TestWhatsAppLimitsConfig(t *testing.T) {
+	cfg, err := Load(envFrom(map[string]string{"APP_ENV": "development"}))
+	if err != nil || cfg.Notifications.WhatsAppMonthlyLimit != 500 || cfg.Notifications.WhatsAppDailyLimit != 0 {
+		t.Fatalf("defaults: %+v %v", cfg.Notifications, err)
+	}
+	cfg, err = Load(envFrom(map[string]string{"APP_ENV": "development", "WHATSAPP_MONTHLY_LIMIT": "0", "WHATSAPP_DAILY_LIMIT": "2000"}))
+	if err != nil || cfg.Notifications.WhatsAppMonthlyLimit != 0 || cfg.Notifications.WhatsAppDailyLimit != 2000 {
+		t.Errorf("set: %+v %v", cfg.Notifications, err)
+	}
+	for _, env := range []map[string]string{
+		{"APP_ENV": "development", "WHATSAPP_MONTHLY_LIMIT": "-1"},
+		{"APP_ENV": "development", "WHATSAPP_MONTHLY_LIMIT": "100001"},
+		{"APP_ENV": "development", "WHATSAPP_DAILY_LIMIT": "muchos"},
+	} {
+		if _, err := Load(envFrom(env)); err == nil {
+			t.Errorf("%v accepted", env)
+		}
+	}
+}

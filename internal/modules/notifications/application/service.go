@@ -37,6 +37,7 @@ type Store interface {
 	// UpdateDeliveryStatus moves a sent message forward with a status from the provider; false
 	// when it changed nothing (unknown id, late or repeated status).
 	UpdateDeliveryStatus(ctx context.Context, providerMessageID string, status domain.Status, errorCode string, at time.Time) (bool, error)
+	PreferencesStore
 }
 
 // Tx is the persistence inside a transaction.
@@ -91,6 +92,10 @@ type Policy struct {
 	WhatsAppEnabled bool
 	// WhatsAppAllowlist, when not empty, is the only numbers WhatsApp may write to (QA).
 	WhatsAppAllowlist []string
+	// T7.9 (P16): WhatsApp messages a business may send per month unless the platform set its
+	// own cap (0 here = no default cap), and the platform's cap per day (0 = none).
+	WhatsAppMonthlyLimit int
+	WhatsAppDailyLimit   int
 }
 
 func (p Policy) gate(m domain.Message) domain.SkipReason {
@@ -114,6 +119,9 @@ func (p Policy) gate(m domain.Message) domain.SkipReason {
 type Recipients interface {
 	AccountEmail(ctx context.Context, userID uuid.UUID) (string, error)
 	ProfessionalEmail(ctx context.Context, businessID, professionalID uuid.UUID) (string, error)
+	// ProfessionalAccount is the account of a professional profile (T7.9: it sets its own
+	// preferences); uuid.Nil when the profile does not exist in the business.
+	ProfessionalAccount(ctx context.Context, businessID, professionalID uuid.UUID) (uuid.UUID, error)
 }
 
 // ReminderSettings reads the booking policy of a business: its reminder setting (T7.4) and the
@@ -138,6 +146,8 @@ type Deps struct {
 	Senders    map[domain.Channel]Sender
 	Policy     Policy
 	Clock      clock.Clock
+	// Authz authorizes the preference endpoints (T7.9).
+	Authz identity.Authorizer
 }
 
 // Service implements the notification use cases.
@@ -199,7 +209,8 @@ func (s *Service) reminders(ctx context.Context, e scheduling.AppointmentEvent) 
 }
 
 // Send delivers a pending message (worker). It is skipped when its channel is off, the number is
-// not allowed, or the appointment changed since; a temporary failure is returned for a retry
+// not allowed, the appointment changed since, the recipient does not want it or the WhatsApp cap
+// was reached (T7.9); a temporary failure is returned for a retry
 // unless lastAttempt, a permanent one or the last attempt marks it FAILED. A message that is no
 // longer pending is left alone, so a repeated job sends nothing twice.
 func (s *Service) Send(ctx context.Context, id uuid.UUID, lastAttempt bool) error {
@@ -230,6 +241,12 @@ func (s *Service) Send(ctx context.Context, id uuid.UUID, lastAttempt bool) erro
 	}
 	now := s.d.Clock.Now()
 	if reason := domain.Stale(m, domain.Appointment{Status: st.Status, ProfessionalID: st.ProfessionalID, Start: st.Start}, now); reason != "" {
+		return s.skip(ctx, m, reason)
+	}
+	if reason, err := s.unwanted(ctx, m, st); err != nil || reason != "" {
+		if err != nil {
+			return err
+		}
 		return s.skip(ctx, m, reason)
 	}
 	sender, ok := s.d.Senders[m.Channel]

@@ -64,3 +64,41 @@ UPDATE appointment_action_tokens SET used_at = @used_at WHERE message_id = @mess
 -- name: UseActionToken :exec
 -- T7.7: a confirmation from an email spends only its own link (the email's cancel link still works).
 UPDATE appointment_action_tokens SET used_at = @used_at WHERE token_hash = @token_hash AND used_at IS NULL;
+
+-- T7.9: preferences and the WhatsApp cap.
+
+-- name: CustomerPreferences :one
+SELECT whatsapp, email, reminders FROM customer_notification_preferences WHERE user_id = @user_id;
+
+-- name: SetCustomerPreferences :exec
+INSERT INTO customer_notification_preferences (user_id, whatsapp, email, reminders, updated_at)
+VALUES (@user_id, @whatsapp, @email, @reminders, @updated_at)
+ON CONFLICT (user_id) DO UPDATE
+SET whatsapp = EXCLUDED.whatsapp, email = EXCLUDED.email, reminders = EXCLUDED.reminders, updated_at = EXCLUDED.updated_at;
+
+-- name: ProfessionalEmailEnabled :one
+SELECT email FROM professional_notification_preferences
+WHERE business_id = @business_id AND professional_id = @professional_id;
+
+-- name: SetProfessionalEmailEnabled :exec
+INSERT INTO professional_notification_preferences (business_id, professional_id, email, updated_at)
+VALUES (@business_id, @professional_id, @email, @updated_at)
+ON CONFLICT (business_id, professional_id) DO UPDATE SET email = EXCLUDED.email, updated_at = EXCLUDED.updated_at;
+
+-- name: WhatsAppMonthlyLimit :one
+SELECT monthly_limit FROM business_whatsapp_limits WHERE business_id = @business_id;
+
+-- name: SetWhatsAppMonthlyLimit :exec
+INSERT INTO business_whatsapp_limits (business_id, monthly_limit, updated_at)
+VALUES (@business_id, @monthly_limit, @updated_at)
+ON CONFLICT (business_id) DO UPDATE SET monthly_limit = EXCLUDED.monthly_limit, updated_at = EXCLUDED.updated_at;
+
+-- WhatsApp messages of a business sent in [from_at, to_at) (any later status counts: the
+-- message was paid for).
+-- name: CountWhatsAppSentByBusiness :one
+SELECT count(*) FROM notification_messages
+WHERE business_id = @business_id AND channel = 'WHATSAPP' AND sent_at >= @from_at AND sent_at < @to_at;
+
+-- name: CountWhatsAppSent :one
+SELECT count(*) FROM notification_messages
+WHERE channel = 'WHATSAPP' AND sent_at >= @from_at AND sent_at < @to_at;

@@ -74,6 +74,12 @@ const (
 	SkipNoRecipient     SkipReason = "NO_RECIPIENT"
 	// SkipConfirmed: a reminder whose appointment is no longer pending confirmation.
 	SkipConfirmed SkipReason = "APPOINTMENT_CONFIRMED"
+	// T7.9: the recipient's preferences and the WhatsApp caps.
+	SkipCustomerOptedOut     SkipReason = "CUSTOMER_OPTED_OUT"     // the customer turned the channel off
+	SkipRemindersOff         SkipReason = "REMINDERS_OFF"          // the customer wants no reminders
+	SkipProfessionalOptedOut SkipReason = "PROFESSIONAL_OPTED_OUT" // the specialist's emails are off
+	SkipMonthlyLimit         SkipReason = "MONTHLY_LIMIT_REACHED"  // the business's WhatsApp cap
+	SkipDailyLimit           SkipReason = "DAILY_LIMIT_REACHED"    // the platform's daily WhatsApp cap
 )
 
 // Values of the scheduling module's events (the domain imports no other module).

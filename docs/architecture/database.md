@@ -148,6 +148,12 @@ notification_messages(id, business_id, appointment_id, event_id → appointment_
 --   appointments.customer_reschedules smallint ≥ 0 (veces que el cliente la movió; se lee y
 --   escribe bajo el bloqueo de la fila). La migración lo reconstruye desde appointment_events
 --   (RESCHEDULED con actor_role CUSTOMER).
+-- 00026 (T7.9): customer_notification_preferences(user_id pk → users, whatsapp, email, reminders,
+--   CHECK whatsapp OR email); professional_notification_preferences((business_id,
+--   professional_id) pk → professionals, email); business_whatsapp_limits(business_id pk →
+--   businesses, monthly_limit 0–100000). Sin fila = valores por defecto (todo activo; tope del
+--   ambiente). Índice parcial notification_messages(business_id, sent_at) WHERE WHATSAPP enviado
+--   para contar el consumo del mes y del día.
 appointment_action_tokens(token_hash bytea pk, appointment_id, appointment_version, action,
                           phone, expires_at, used_at)
 webhook_events(provider text, event_id text, received_at, processed_at, payload_hash bytea,

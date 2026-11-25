@@ -669,6 +669,176 @@ paths:
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
 
+  /api/v1/me/notification-preferences:
+    get:
+      tags: [Notifications]
+      operationId: getMyNotificationPreferences
+      summary: Which appointment messages the current account wants
+      description: |
+        T7.9. Per account, in every business: WhatsApp and/or email (at least one) and the
+        reminders. Everything is on until the account changes it.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The preferences.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomerNotificationPreferences" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    put:
+      tags: [Notifications]
+      operationId: setMyNotificationPreferences
+      summary: Choose the channels and the reminders
+      description: |
+        Every field is required. Without WhatsApp and email → 400 `AT_LEAST_ONE_CHANNEL`. Applies
+        to the messages not sent yet (also the reminders already planned).
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomerNotificationPreferences" }
+      responses:
+        "200":
+          description: The preferences stored.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomerNotificationPreferences" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+
+  /api/v1/business/{businessId}/professionals/{professionalId}/notification-preferences:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: professionalId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Notifications]
+      operationId: getProfessionalNotificationPreferences
+      summary: Whether a specialist receives its appointment emails (OWNER, the specialist)
+      description: T7.9. On until changed. Another PROFESSIONAL gets 403; a non-member 404.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The preference.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProfessionalNotificationPreferences" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [Notifications]
+      operationId: setProfessionalNotificationPreferences
+      summary: Turn a specialist's appointment emails on or off (OWNER, the specialist)
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProfessionalNotificationPreferences" }
+      responses:
+        "200":
+          description: The preference stored.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProfessionalNotificationPreferences" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+
+  /api/v1/admin/businesses/{id}/whatsapp-limit:
+    parameters:
+      - $ref: "#/components/parameters/ResourceID"
+    get:
+      tags: [Notifications]
+      operationId: getBusinessWhatsAppLimit
+      summary: A business's monthly WhatsApp cap and this month's usage (PLATFORM_ADMIN)
+      description: |
+        T7.9 (P16: the platform pays WhatsApp). Messages sent in the calendar month (UTC). At the
+        cap, WhatsApp messages are skipped (`MONTHLY_LIMIT_REACHED`) and emails still go out.
+        Without a cap of its own the business has the environment's default
+        (`WHATSAPP_MONTHLY_LIMIT`, 500; `limited` false when that default is 0).
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The cap and the usage.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WhatsAppLimit" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [Notifications]
+      operationId: setBusinessWhatsAppLimit
+      summary: Set a business's monthly WhatsApp cap (PLATFORM_ADMIN)
+      description: 0–100000; 0 = no WhatsApp for the business. Field code `OUT_OF_RANGE`.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [monthlyLimit]
+              properties:
+                monthlyLimit: { type: integer, minimum: 0, maximum: 100000 }
+      responses:
+        "200":
+          description: The cap stored and the usage.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WhatsAppLimit" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+
   /api/v1/me/password:
     post:
       tags: [Auth]
@@ -5026,6 +5196,30 @@ components:
         createdAt:
           type: string
           format: date-time
+    CustomerNotificationPreferences:
+      type: object
+      additionalProperties: false
+      required: [whatsapp, email, reminders]
+      properties:
+        whatsapp: { type: boolean }
+        email: { type: boolean }
+        reminders: { type: boolean, description: Reminders before the appointment, on each wanted channel. }
+    ProfessionalNotificationPreferences:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email: { type: boolean, description: "Emails about the customers' bookings, moves and cancellations." }
+    WhatsAppLimit:
+      type: object
+      additionalProperties: false
+      required: [monthlyLimit, isDefault, limited, usedThisMonth, monthStart]
+      properties:
+        monthlyLimit: { type: integer, minimum: 0 }
+        isDefault: { type: boolean, description: The business has no cap of its own (the environment's default). }
+        limited: { type: boolean, description: false when the default is 0 (no cap). }
+        usedThisMonth: { type: integer, minimum: 0 }
+        monthStart: { type: string, format: date-time }
     AppointmentLink:
       type: object
       additionalProperties: false
@@ -5094,7 +5288,7 @@ components:
                 enum: [PENDING, SENT, DELIVERED, READ, FAILED, SKIPPED]
               skipReason:
                 type: [string, "null"]
-                enum: [CHANNEL_DISABLED, NOT_ALLOWLISTED, APPOINTMENT_CANCELLED, APPOINTMENT_CHANGED, APPOINTMENT_PASSED, APPOINTMENT_NOT_FOUND, NO_RECIPIENT, APPOINTMENT_CONFIRMED, null]
+                enum: [CHANNEL_DISABLED, NOT_ALLOWLISTED, APPOINTMENT_CANCELLED, APPOINTMENT_CHANGED, APPOINTMENT_PASSED, APPOINTMENT_NOT_FOUND, NO_RECIPIENT, APPOINTMENT_CONFIRMED, CUSTOMER_OPTED_OUT, REMINDERS_OFF, PROFESSIONAL_OPTED_OUT, MONTHLY_LIMIT_REACHED, DAILY_LIMIT_REACHED, null]
               errorCode:
                 type: [string, "null"]
                 description: Code of the last failed attempt.

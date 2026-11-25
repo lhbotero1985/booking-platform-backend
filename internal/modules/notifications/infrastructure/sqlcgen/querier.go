@@ -15,6 +15,12 @@ type Querier interface {
 	AppointmentMessages(ctx context.Context, arg AppointmentMessagesParams) ([]NotificationMessage, error)
 	// Returns the row only the first time the event arrives.
 	ClaimWebhookEvent(ctx context.Context, arg ClaimWebhookEventParams) ([]string, error)
+	CountWhatsAppSent(ctx context.Context, arg CountWhatsAppSentParams) (int64, error)
+	// WhatsApp messages of a business sent in [from_at, to_at) (any later status counts: the
+	// message was paid for).
+	CountWhatsAppSentByBusiness(ctx context.Context, arg CountWhatsAppSentByBusinessParams) (int64, error)
+	// T7.9: preferences and the WhatsApp cap.
+	CustomerPreferences(ctx context.Context, userID uuid.UUID) (CustomerPreferencesRow, error)
 	// Records the outcome of one delivery attempt and the recipient it went to (an email address is
 	// resolved when sent); a message that is no longer pending is left alone.
 	FinishMessage(ctx context.Context, arg FinishMessageParams) error
@@ -24,12 +30,17 @@ type Querier interface {
 	// Locks every token of a message: its buttons answer once, in order.
 	LockMessageTokens(ctx context.Context, messageID uuid.UUID) ([][]byte, error)
 	MessageByID(ctx context.Context, id uuid.UUID) (NotificationMessage, error)
+	ProfessionalEmailEnabled(ctx context.Context, arg ProfessionalEmailEnabledParams) (bool, error)
+	SetCustomerPreferences(ctx context.Context, arg SetCustomerPreferencesParams) error
+	SetProfessionalEmailEnabled(ctx context.Context, arg SetProfessionalEmailEnabledParams) error
+	SetWhatsAppMonthlyLimit(ctx context.Context, arg SetWhatsAppMonthlyLimitParams) error
 	// A status from Meta only moves a sent message forward: SENT → DELIVERED → READ, or SENT /
 	// DELIVERED → FAILED. Late or repeated statuses change nothing.
 	UpdateDeliveryStatus(ctx context.Context, arg UpdateDeliveryStatusParams) (int64, error)
 	// T7.7: a confirmation from an email spends only its own link (the email's cancel link still works).
 	UseActionToken(ctx context.Context, arg UseActionTokenParams) error
 	UseMessageTokens(ctx context.Context, arg UseMessageTokensParams) error
+	WhatsAppMonthlyLimit(ctx context.Context, businessID uuid.UUID) (int32, error)
 }
 
 var _ Querier = (*Queries)(nil)

@@ -429,6 +429,30 @@ check "  the email's cancel link is spent" "200 1" "$(status GET "${lk_cancel#"$
 check "frees the slot (customer cancels)" 200 "$(status POST "/api/v1/me/appointments/$lk_appt/cancel" "" "$T1")"
 check "a cancelled one cannot be confirmed" 409 "$(status POST "$st_appt/confirm" "" "$TS")"
 
+# --- notification preferences (T7.9): read when each message is sent -----------------------------
+prefs=/api/v1/me/notification-preferences
+check "customer preferences: everything on" "true true true" "$(status GET "$prefs" "" "$T1" >/dev/null; json '"\(.whatsapp) \(.email) \(.reminders)"')"
+check "  without any channel -> 400" "400 AT_LEAST_ONE_CHANNEL" "$(status PUT "$prefs" '{"whatsapp":false,"email":false,"reminders":true}' "$T1") $(json .code)"
+check "  WhatsApp only, no reminders" "200 true false false" "$(status PUT "$prefs" '{"whatsapp":true,"email":false,"reminders":false}' "$T1") $(json '"\(.whatsapp) \(.email) \(.reminders)"')"
+bpref="/api/v1/business/$mine/professionals/$pbarber/notification-preferences"
+check "barber turns its emails off" "200 false" "$(status PUT "$bpref" '{"email":false}' "$TS") $(json .email)"
+check "  the owner sees it" false "$(status GET "$bpref" "" "$T1" >/dev/null; json .email)"
+pf_start=$(status GET "$av&date=$tue" >/dev/null; json '.slots[0].startAt')
+check "customer books (preferences applied)" 201 "$(book "$pf_start" "e2e-$(date +%s)-prefs" "$T1")"
+pf_appt=$(json .id)
+pf_notif="/api/v1/business/$mine/appointments/$pf_appt/notifications"
+for _ in $(seq 1 30); do # the worker sends (or skips) the notices within seconds
+  [[ $(status GET "$pf_notif" "" "$T1" >/dev/null; json '[.items[] | select(.status == "PENDING" and .kind != "APPOINTMENT_REMINDER")] | length') == 0 ]] && break
+  sleep 1
+done
+check "  customer's email skipped: opted out" "SKIPPED CUSTOMER_OPTED_OUT" "$(json '.items[] | select(.channel == "EMAIL" and .recipientRole == "CUSTOMER" and .kind == "APPOINTMENT_CREATED") | "\(.status) \(.skipReason)"')"
+check "  barber's email skipped: turned off" "SKIPPED PROFESSIONAL_OPTED_OUT" "$(json '.items[] | select(.channel == "EMAIL" and .recipientRole == "PROFESSIONAL") | "\(.status) \(.skipReason)"')"
+check "  its WhatsApp not blocked by the preferences" "(SENT|SKIPPED NOT_ALLOWLISTED)" "$(json '.items[] | select(.channel == "WHATSAPP" and .kind == "APPOINTMENT_CREATED") | "\(.status)\(if .skipReason then " " + .skipReason else "" end)"')"
+check "  frees the slot" 200 "$(status POST "/api/v1/me/appointments/$pf_appt/cancel" "" "$T1")"
+check "everything on again" 200 "$(status PUT "$prefs" '{"whatsapp":true,"email":true,"reminders":true}' "$T1")"
+check "barber's emails on again" 200 "$(status PUT "$bpref" '{"email":true}' "$TS")"
+check "the WhatsApp cap is for the platform admin" 403 "$(status GET "/api/v1/admin/businesses/$mine/whatsapp-limit" "" "$T1")"
+
 # --- coherence of the agenda (T6.7) ------------------------------------------------------------
 free3=$(status GET "$av&date=$tue" >/dev/null; json '.slots[0].startAt')
 check "customer books again" 201 "$(book "$free3" "e2e-$(date +%s)-t67" "$T1")"
@@ -456,6 +480,9 @@ if [[ -n ${ADMIN_EMAIL:-} && -n ${ADMIN_PASSWORD:-} ]]; then
   check "reactivate business" ACTIVE "$(status POST "/api/v1/admin/businesses/$biz/activate" "" "$TA" >/dev/null; json .status)"
   check "suspend again (left suspended)" SUSPENDED "$(status POST "/api/v1/admin/businesses/$biz/suspend" "" "$TA" >/dev/null; json .status)"
   check "unverified owner rejected" 400 "$(status POST /api/v1/admin/businesses "{\"name\":\"QA E2E bad\",\"contactPhone\":\"3001234567\",\"cityId\":\"$cali\",\"addressLine\":\"Calle 1\",\"ownerEmail\":\"nobody-$EMAIL\"}" "$TA")"
+  # T7.9: the WhatsApp cap of a business (the platform pays): the default, then its own.
+  check "WhatsApp cap of a business (default)" "200 true" "$(status GET "/api/v1/admin/businesses/$mine/whatsapp-limit" "" "$TA") $(json .isDefault)"
+  check "  its own cap" "200 800 false" "$(status PUT "/api/v1/admin/businesses/$mine/whatsapp-limit" '{"monthlyLimit":800}' "$TA") $(json '"\(.monthlyLimit) \(.isDefault)"')"
   status POST /api/v1/auth/logout "" "$TA" >/dev/null
 else
   echo "SKIP  business onboarding (set ADMIN_EMAIL and ADMIN_PASSWORD)"

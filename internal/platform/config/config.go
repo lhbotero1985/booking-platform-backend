@@ -109,6 +109,11 @@ type Notifications struct {
 	WhatsAppEnabled bool
 	// WhatsAppAllowlist: when set, the only numbers (E.164) WhatsApp may write to (QA).
 	WhatsAppAllowlist []string
+	// T7.9 (P16, the platform pays WhatsApp): messages a business may send per month unless the
+	// platform administrator set its own cap (default 500; 0 = no default cap), and messages the
+	// whole platform may send per day (default 0 = no cap).
+	WhatsAppMonthlyLimit int
+	WhatsAppDailyLimit   int
 	// WhatsApp Cloud API (T7.2). Without an access token the simulated sender is used. Outside
 	// production a token requires WhatsAppAllowlist, so QA never writes to a synthetic number.
 	WhatsAppAccessToken       string // secret: never logged nor echoed in errors
@@ -209,6 +214,8 @@ func Load(getenv func(string) string) (Config, error) {
 			EmailEnabled:               p.boolean("NOTIFICATIONS_EMAIL_ENABLED", true),
 			WhatsAppEnabled:            p.boolean("WHATSAPP_ENABLED", false),
 			WhatsAppAllowlist:          p.phones("WHATSAPP_ALLOWLIST"),
+			WhatsAppMonthlyLimit:       int(p.intRange("WHATSAPP_MONTHLY_LIMIT", 500, 0, 100000)),
+			WhatsAppDailyLimit:         int(p.intRange("WHATSAPP_DAILY_LIMIT", 0, 0, 1000000)),
 			WhatsAppAccessToken:        strings.TrimSpace(p.getenv("WHATSAPP_ACCESS_TOKEN")),
 			WhatsAppPhoneNumberID:      p.str("WHATSAPP_PHONE_NUMBER_ID", ""),
 			WhatsAppBusinessAccountID:  p.str("WHATSAPP_BUSINESS_ACCOUNT_ID", ""),

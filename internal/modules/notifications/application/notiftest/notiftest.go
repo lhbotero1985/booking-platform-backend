@@ -28,6 +28,10 @@ type Store struct {
 	items    []domain.WebhookItem
 	replies  []Reply
 	outbox   []application.Outgoing
+	// T7.9: preferences and WhatsApp caps.
+	customerPrefs map[uuid.UUID]domain.CustomerPreferences
+	proEmails     map[[2]uuid.UUID]bool
+	waLimits      map[uuid.UUID]int
 	// FailCommit, when set, makes every transaction fail after its function ran.
 	FailCommit error
 }
@@ -200,14 +204,22 @@ func (s *Sender) Send(_ context.Context, m application.Outgoing) (string, error)
 // recording senders.
 // When appointments also applies the customer's answers (scheduling.CustomerReplies), the links
 // and buttons work too.
-func NewService(appointments scheduling.Appointments, reminders application.ReminderSettings, clk clock.Clock) (*application.Service, *Store) {
+// Options change the dependencies (e.g. T7.9: the authorizer and the recipients of the
+// preference endpoints, as in cmd/api).
+func NewService(appointments scheduling.Appointments, reminders application.ReminderSettings, clk clock.Clock,
+	options ...func(*application.Deps),
+) (*application.Service, *Store) {
 	st := NewStore()
 	replies, _ := appointments.(scheduling.CustomerReplies)
-	return application.NewService(application.Deps{
+	d := application.Deps{
 		Store: st, Appointments: appointments, Reminders: reminders, Replies: replies,
 		Senders: map[domain.Channel]application.Sender{domain.ChannelWhatsApp: &Sender{Store: st}, domain.ChannelEmail: &Sender{Store: st}},
 		Policy:  application.Policy{WhatsAppEnabled: true, EmailEnabled: true}, Clock: clk,
-	}), st
+	}
+	for _, o := range options {
+		o(&d)
+	}
+	return application.NewService(d), st
 }
 
 func (t *tx) ClaimWebhookEvent(_ context.Context, id string, _ time.Time) (bool, error) {
@@ -326,4 +338,77 @@ func (s *Sender) Delivered() []application.Outgoing {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return slices.Clone(s.Sent)
+}
+
+// CustomerPreferences implements application.PreferencesStore.
+func (s *Store) CustomerPreferences(_ context.Context, userID uuid.UUID) (domain.CustomerPreferences, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if p, ok := s.customerPrefs[userID]; ok {
+		return p, nil
+	}
+	return domain.DefaultCustomerPreferences(), nil
+}
+
+// SetCustomerPreferences implements application.PreferencesStore.
+func (s *Store) SetCustomerPreferences(_ context.Context, userID uuid.UUID, p domain.CustomerPreferences, _ time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.customerPrefs == nil {
+		s.customerPrefs = map[uuid.UUID]domain.CustomerPreferences{}
+	}
+	s.customerPrefs[userID] = p
+	return nil
+}
+
+// ProfessionalEmailEnabled implements application.PreferencesStore.
+func (s *Store) ProfessionalEmailEnabled(_ context.Context, businessID, professionalID uuid.UUID) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	on, ok := s.proEmails[[2]uuid.UUID{businessID, professionalID}]
+	return on || !ok, nil
+}
+
+// SetProfessionalEmailEnabled implements application.PreferencesStore.
+func (s *Store) SetProfessionalEmailEnabled(_ context.Context, businessID, professionalID uuid.UUID, on bool, _ time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.proEmails == nil {
+		s.proEmails = map[[2]uuid.UUID]bool{}
+	}
+	s.proEmails[[2]uuid.UUID{businessID, professionalID}] = on
+	return nil
+}
+
+// WhatsAppMonthlyLimit implements application.PreferencesStore.
+func (s *Store) WhatsAppMonthlyLimit(_ context.Context, businessID uuid.UUID) (int, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	l, ok := s.waLimits[businessID]
+	return l, ok, nil
+}
+
+// SetWhatsAppMonthlyLimit implements application.PreferencesStore.
+func (s *Store) SetWhatsAppMonthlyLimit(_ context.Context, businessID uuid.UUID, limit int, _ time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.waLimits == nil {
+		s.waLimits = map[uuid.UUID]int{}
+	}
+	s.waLimits[businessID] = limit
+	return nil
+}
+
+// CountWhatsAppSent implements application.PreferencesStore.
+func (s *Store) CountWhatsAppSent(_ context.Context, businessID uuid.UUID, from, to time.Time) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for _, m := range s.msgs {
+		if m.Channel == domain.ChannelWhatsApp && (businessID == uuid.Nil || m.BusinessID == businessID) &&
+			!m.SentAt.IsZero() && !m.SentAt.Before(from) && m.SentAt.Before(to) {
+			n++
+		}
+	}
+	return n, nil
 }

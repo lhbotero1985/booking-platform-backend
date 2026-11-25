@@ -138,3 +138,59 @@ func TestContractAppointmentLinks(t *testing.T) {
 		t.Errorf("after the move: %s", got)
 	}
 }
+
+// TestContractNotificationPreferences (T7.9) against OpenAPI: the customer's channels, the
+// specialist's emails (owner or the specialist; another specialist 403) and the WhatsApp cap
+// (platform administrators).
+func TestContractNotificationPreferences(t *testing.T) {
+	c := loadContract(t)
+	e := newGeoServer(t)
+	owner := e.signIn(t, "dueno@example.com")
+	pedroTok := e.signIn(t, "pedro@example.com")
+	lauraTok := e.signIn(t, "laura@example.com")
+	ana := e.signIn(t, "ana@example.com")
+	adminTok := e.signIn(t, "admin@example.com")
+	if err := e.identity.SetPlatformAdmin(context.Background(), "admin@example.com", true); err != nil {
+		t.Fatal(err)
+	}
+	idOf := func(s string) string { return regexp.MustCompile(`"id":"([^"]+)"`).FindStringSubmatch(s)[1] }
+
+	me := "/api/v1/me/notification-preferences"
+	if got := c.callAuth(t, e.srv, http.MethodGet, me, "", ana, http.StatusOK); !strings.Contains(got, `"whatsapp":true,"email":true,"reminders":true`) {
+		t.Errorf("defaults: %s", got)
+	}
+	c.callAuth(t, e.srv, http.MethodPut, me, `{"whatsapp":false,"email":false,"reminders":true}`, ana, http.StatusBadRequest)
+	c.callAuth(t, e.srv, http.MethodPut, me, `{"whatsapp":false}`, ana, http.StatusBadRequest)
+	c.callAuth(t, e.srv, http.MethodPut, me, `{"whatsapp":false,"email":true,"reminders":false}`, ana, http.StatusOK)
+	if got := c.callAuth(t, e.srv, http.MethodGet, me, "", ana, http.StatusOK); !strings.Contains(got, `"whatsapp":false,"email":true,"reminders":false`) {
+		t.Errorf("stored: %s", got)
+	}
+	c.callAuth(t, e.srv, http.MethodGet, me, "", "", http.StatusUnauthorized)
+
+	biz := idOf(c.callAuth(t, e.srv, http.MethodPost, "/api/v1/businesses", `{"name":"Barbería Preferencias","contactPhone":"3001234567","cityId":"`+geotest.CaliID.String()+`","addressLine":"Calle 1"}`, owner, http.StatusCreated))
+	base := "/api/v1/business/" + biz
+	pedro := idOf(c.callAuth(t, e.srv, http.MethodPost, base+"/professionals", `{"email":"pedro@example.com","displayName":"Pedro"}`, owner, http.StatusCreated))
+	idOf(c.callAuth(t, e.srv, http.MethodPost, base+"/professionals", `{"email":"laura@example.com","displayName":"Laura"}`, owner, http.StatusCreated))
+	pref := base + "/professionals/" + pedro + "/notification-preferences"
+	if got := c.callAuth(t, e.srv, http.MethodGet, pref, "", pedroTok, http.StatusOK); !strings.Contains(got, `"email":true`) {
+		t.Errorf("default: %s", got)
+	}
+	c.callAuth(t, e.srv, http.MethodPut, pref, `{"email":false}`, pedroTok, http.StatusOK)
+	c.callAuth(t, e.srv, http.MethodPut, pref, `{}`, owner, http.StatusBadRequest)
+	if got := c.callAuth(t, e.srv, http.MethodGet, pref, "", owner, http.StatusOK); !strings.Contains(got, `"email":false`) {
+		t.Errorf("the owner reads: %s", got)
+	}
+	c.callAuth(t, e.srv, http.MethodPut, pref, `{"email":true}`, lauraTok, http.StatusForbidden)
+	c.callAuth(t, e.srv, http.MethodGet, pref, "", ana, http.StatusNotFound)
+
+	limit := "/api/v1/admin/businesses/" + biz + "/whatsapp-limit"
+	if got := c.callAuth(t, e.srv, http.MethodGet, limit, "", adminTok, http.StatusOK); !strings.Contains(got, `"monthlyLimit":0,"isDefault":true,"limited":false,"usedThisMonth":0`) {
+		t.Errorf("no default cap in the test environment: %s", got)
+	}
+	c.callAuth(t, e.srv, http.MethodPut, limit, `{"monthlyLimit":100001}`, adminTok, http.StatusBadRequest)
+	if got := c.callAuth(t, e.srv, http.MethodPut, limit, `{"monthlyLimit":200}`, adminTok, http.StatusOK); !strings.Contains(got, `"monthlyLimit":200,"isDefault":false,"limited":true`) {
+		t.Errorf("own cap: %s", got)
+	}
+	c.callAuth(t, e.srv, http.MethodGet, limit, "", owner, http.StatusForbidden)
+	c.callAuth(t, e.srv, http.MethodGet, "/api/v1/admin/businesses/01900000-0000-7000-8000-000000000999/whatsapp-limit", "", adminTok, http.StatusNotFound)
+}
