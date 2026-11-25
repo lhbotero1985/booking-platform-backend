@@ -140,6 +140,9 @@ notification_messages(id, business_id, appointment_id, event_id → appointment_
                       channel, recipient_role, recipient, professional_id, start_at, status,
                       skip_reason, error_code, provider_message_id, attempts, created_at,
                       updated_at, sent_at, unique(event_id, channel, recipient_role))
+-- 00020–00022: tipos nuevos, send_at, unique(event_id, kind, channel, recipient_role).
+-- 00023 (T7.6): canal EMAIL, tipo APPOINTMENT_CANCELLED_BY_CUSTOMER; recipient vacío solo para
+-- EMAIL hasta enviarlo (la dirección se resuelve al enviar), hasta 254 caracteres.
 appointment_action_tokens(token_hash bytea pk, appointment_id, appointment_version, action,
                           phone, expires_at, used_at)
 webhook_events(provider text, event_id text, received_at, processed_at, payload_hash bytea,

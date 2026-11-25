@@ -146,6 +146,11 @@ usuario: agendar una cita es la aceptación del cliente a recibir WhatsApp sobre
 cuando el barbero lo agenda a mano); el enlace de descarga de la app es configurable (P40); push se
 construye ahora y se valida con la app real cuando exista.
 
+**Replanificación del 2026-11-25 (decisión del usuario, ADR-0019):** la push se aplaza a la fase de
+las apps móviles; en su lugar, correo con la marca **Booka** al cliente y al barbero, con acciones
+(confirmar, cancelar, reagendar) en **dos toques**; los canales los configura cada persona (el
+cliente conserva al menos uno); límite de reprogramaciones por negocio.
+
 | ID | Tarea | Criterio de aceptación principal |
 |---|---|---|
 | T7.1 ✅ | Base: módulo `notifications`, mensajes encolados en la transacción del cambio, envío por River con proveedor simulado, revalidación de la cita, interruptor y lista blanca | Un mensaje por cambio; nunca dos veces; si el cambio se deshace, el mensaje también |
@@ -153,9 +158,12 @@ construye ahora y se valida con la app real cuando exista.
 | T7.3 ✅ | Mensajes al cliente: cita creada, cancelada por el negocio, reprogramada; P40: enlace de la app en la cita manual | Textos aprobados por el usuario |
 | T7.4 ✅ | Recordatorios según el negocio, con botones Confirmar / Cancelar | Un recordatorio viejo se descarta |
 | T7.5 ✅ | Webhook de Meta: firma, duplicados, estados de entrega y respuestas de los botones (token de un solo uso) | Firma falsa → rechazo; botón reusado → sin efecto |
-| T7.6 | Push (Expo): registro de dispositivos y avisos al barbero | Token inválido → se revoca |
-| T7.7 | Control de costos (P16): tope mensual por negocio, tope diario global, consumo visible; el cliente apaga los recordatorios | Tope alcanzado → no se envía |
-| T7.8 | E2E en QA con mensajes reales, pruebas de seguridad del webhook, cierre | Aprobación del usuario |
+| T7.6 ✅ | Correos de citas (Booka): HTML + texto, al cliente (los mismos avisos que WhatsApp, además del WhatsApp) y al barbero (reservas, cancelaciones y cambios); datos, política del negocio, dirección con mapa, contacto | Correo con diseño aprobado por el usuario, visto en Mailpit QA |
+| T7.7 | Acciones desde el correo en dos toques: confirmar y cancelar (página con botón, código de un solo uso); reagendar: servicios para el frontend, con el código | Abrir el enlace no cambia nada; código reusado → sin efecto |
+| T7.8 | Límite de reprogramaciones por cita, configurable por negocio | Superado el límite → rechazo, para cliente y botones |
+| T7.9 | Preferencias de notificación: el cliente elige WhatsApp y/o correo (al menos uno) y apaga los recordatorios; el barbero activa o apaga sus correos. Control de costos (P16) | Sin canal → rechazo; tope alcanzado → no se envía |
+| T7.10 | E2E en QA con mensajes reales, pruebas de seguridad del webhook y de los enlaces, cierre | Aprobación del usuario |
+| — | Push (Expo, ADR-0010): **aplazada** a la fase de las apps móviles | — |
 
 Las fases 8–13 se desglosarán en tareas al iniciar cada una.
 

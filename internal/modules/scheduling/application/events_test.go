@@ -97,6 +97,20 @@ func TestAppointmentsContract(t *testing.T) {
 		st.BusinessName != "Barbería Centro" || st.TimeZone != "America/Bogota" || st.ProfessionalName != "Juan" || st.CancelReason != "" {
 		t.Fatalf("state: %+v %v", st, err)
 	}
+	if st.CustomerUserID != e.bookingEnv.ana.UserID {
+		t.Errorf("customer account %s", st.CustomerUserID)
+	}
+	// T7.6: the email the business registered for a customer it books by hand.
+	m, err := e.svc.BookManual(ctx, e.owner, e.biz, application.ManualInput{
+		ProfessionalID: e.pro, ServiceID: e.svcID, Start: e.day(10, 0), IdempotencyKey: "contrato-manual-1",
+		Customer: &application.CustomerInput{FullName: "Carla Ruiz", Phone: "+573005550101", Email: "carla@example.com"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st, err := e.svc.AppointmentState(ctx, e.biz, m.ID); err != nil || st.CustomerEmail != "carla@example.com" || st.CustomerUserID != uuid.Nil {
+		t.Errorf("manual: %+v %v", st, err)
+	}
 	if _, err := e.svc.AppointmentState(ctx, uuid.Must(uuid.NewV7()), a.ID); !errors.Is(err, contract.ErrAppointmentNotFound) {
 		t.Errorf("another business: %v", err)
 	}

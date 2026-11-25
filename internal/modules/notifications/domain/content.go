@@ -2,6 +2,7 @@ package domain
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -14,6 +15,14 @@ type Content struct {
 	Start            time.Time      // UTC
 	Location         *time.Location // zone of the business
 	CancelReason     string
+
+	// T7.6: what the emails also show.
+	Status                string // of the appointment
+	BusinessAddress       string
+	BusinessPhone         string   // E.164
+	Latitude, Longitude   *float64 // nil without coordinates
+	CancelCutoffHours     int      // 0: no cut-off shown
+	RescheduleCutoffHours int
 }
 
 var (
@@ -38,4 +47,23 @@ func (c Content) WhenES() string {
 		h = 12
 	}
 	return fmt.Sprintf("%s %d de %s, %d:%02d %s", weekdaysES[t.Weekday()], t.Day(), monthsES[t.Month()-1], h, t.Minute(), suffix)
+}
+
+// DateES is the day of the start in the business's zone: "martes 2 de diciembre de 2026".
+func (c Content) DateES() string {
+	t := c.Start.In(c.loc())
+	return fmt.Sprintf("%s %d de %s de %d", weekdaysES[t.Weekday()], t.Day(), monthsES[t.Month()-1], t.Year())
+}
+
+// TimeES is the hour of the start in the business's zone: "10:00 a. m.".
+func (c Content) TimeES() string {
+	when := c.WhenES()
+	return when[strings.LastIndex(when, ", ")+2:]
+}
+
+func (c Content) loc() *time.Location {
+	if c.Location == nil {
+		return time.UTC
+	}
+	return c.Location
 }

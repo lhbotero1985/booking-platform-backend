@@ -1,7 +1,7 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T7.5 — Webhook de WhatsApp (2026-11-25), en `feature/t7.5-whatsapp-webhook` (commit y push; PR y
+T7.6 — Correos de citas (2026-11-25), en `feature/t7.6-appointment-emails` (commit y push; PR y
 merge pendientes de autorización).
 
 ## Flujo de ramas (ADR-0017)
@@ -11,8 +11,8 @@ solo al pasar a producción.
 
 ## Próxima tarea
 
-1. PR de T7.5 a `qa` y E2E en QA (requiere autorización).
-2. Parte B: el usuario registra el webhook en Meta (URL, token de verificación, campo `messages`).
-3. Cuando Meta apruebe las plantillas: prueba real — reserva con el celular de prueba, el
-   recordatorio llega con botones, "Confirmar cita" confirma y responde.
-4. T7.6 — Push (Expo): registro de dispositivos y avisos al barbero.
+1. PR de T7.6 a `qa`, merge y E2E en QA (requiere autorización); el usuario aprueba el diseño
+   viendo el correo en Mailpit.
+2. T7.7 — Acciones desde el correo en dos toques (confirmar, cancelar; reagendar con servicios
+   para el frontend).
+3. Cuando Meta apruebe las plantillas: prueba real de los botones de WhatsApp.

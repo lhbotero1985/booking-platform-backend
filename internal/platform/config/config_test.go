@@ -271,6 +271,13 @@ func TestNotificationsConfig(t *testing.T) {
 	if err != nil || cfg.Notifications.WhatsAppEnabled || len(cfg.Notifications.WhatsAppAllowlist) != 0 {
 		t.Fatalf("defaults: %+v %v", cfg.Notifications, err)
 	}
+	// T7.6: the appointment emails are on unless turned off.
+	if !cfg.Notifications.EmailEnabled {
+		t.Error("emails off by default")
+	}
+	if cfg, err := Load(envFrom(map[string]string{"APP_ENV": "development", "NOTIFICATIONS_EMAIL_ENABLED": "false"})); err != nil || cfg.Notifications.EmailEnabled {
+		t.Errorf("emails off: %v %v", cfg.Notifications.EmailEnabled, err)
+	}
 	cfg, err = Load(envFrom(map[string]string{"APP_ENV": "qa", "PUBLIC_APP_URL": "https://app.example.com", "SMTP_TLS": "starttls",
 		"WHATSAPP_ENABLED": "true", "WHATSAPP_ALLOWLIST": " +573001234567, +12125550100 "}))
 	if err != nil {

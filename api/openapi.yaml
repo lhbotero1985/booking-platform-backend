@@ -4872,16 +4872,20 @@ components:
                 format: uuid
               kind:
                 type: string
-                enum: [APPOINTMENT_CREATED, APPOINTMENT_CREATED_BY_BUSINESS, APPOINTMENT_CANCELLED, APPOINTMENT_RESCHEDULED, APPOINTMENT_REASSIGNED, APPOINTMENT_REMINDER]
+                enum: [APPOINTMENT_CREATED, APPOINTMENT_CREATED_BY_BUSINESS, APPOINTMENT_CANCELLED, APPOINTMENT_CANCELLED_BY_CUSTOMER, APPOINTMENT_RESCHEDULED, APPOINTMENT_REASSIGNED, APPOINTMENT_REMINDER]
+                description: APPOINTMENT_CANCELLED is canceled by the business; APPOINTMENT_CANCELLED_BY_CUSTOMER (T7.6) only by email.
               channel:
                 type: string
-                enum: [WHATSAPP, PUSH]
+                enum: [WHATSAPP, PUSH, EMAIL]
               recipientRole:
                 type: string
                 enum: [CUSTOMER, PROFESSIONAL]
               to:
                 type: string
-                description: The number masked (country prefix and last four digits).
+                description: >-
+                  The recipient masked: a number keeps its country prefix and last four digits; an
+                  email its first character and domain. Empty for an email not sent yet (its address
+                  is resolved when sent).
                 example: "+57••••••4567"
               status:
                 type: string

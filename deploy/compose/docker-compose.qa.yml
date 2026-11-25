@@ -32,7 +32,7 @@ x-app-env: &app-env
   SMTP_HOST: mailpit
   SMTP_PORT: "1025"
   SMTP_TLS: none
-  SMTP_FROM: Reservas QA <no-reply@booking-platform-col.duckdns.org>
+  SMTP_FROM: Booka QA <no-reply@booking-platform-col.duckdns.org>
   # Notifications (T7.1): WhatsApp on. The worker uses Meta when its credentials are set in .env
   # (T7.2), the simulated sender otherwise; only the allowlisted test numbers receive messages.
   WHATSAPP_ENABLED: "true"

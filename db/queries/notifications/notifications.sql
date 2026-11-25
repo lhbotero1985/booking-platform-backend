@@ -14,9 +14,10 @@ RETURNING id;
 SELECT * FROM notification_messages WHERE id = @id;
 
 -- name: FinishMessage :exec
--- Records the outcome of one delivery attempt; a message that is no longer pending is left alone.
+-- Records the outcome of one delivery attempt and the recipient it went to (an email address is
+-- resolved when sent); a message that is no longer pending is left alone.
 UPDATE notification_messages
-SET status = @status, skip_reason = sqlc.narg(skip_reason), error_code = sqlc.narg(error_code),
+SET status = @status, recipient = @recipient, skip_reason = sqlc.narg(skip_reason), error_code = sqlc.narg(error_code),
     provider_message_id = sqlc.narg(provider_message_id), sent_at = sqlc.narg(sent_at),
     attempts = attempts + @attempted::integer, updated_at = @updated_at
 WHERE id = @id AND status = 'PENDING';

@@ -4,6 +4,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	"github.com/google/uuid"
@@ -62,4 +63,23 @@ func (s *Service) CustomerProfile(ctx context.Context, userID uuid.UUID) (contra
 		return contract.Customer{}, contract.ErrPhoneRequired
 	}
 	return contract.Customer{UserID: u.ID(), FullName: u.FullName(), Phone: u.Phone(), Email: u.Email().String()}, nil
+}
+
+// AccountEmail implements contract.Accounts.
+func (s *Service) AccountEmail(ctx context.Context, userID uuid.UUID) (string, error) {
+	var u *domain.User
+	err := s.store.WithinTx(ctx, func(tx Tx) (err error) {
+		u, err = tx.UserByID(ctx, userID)
+		return err
+	})
+	if errors.Is(err, ErrNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if u.CanAuthenticate() != nil {
+		return "", nil //nolint:nilerr // a disabled account gets no email
+	}
+	return u.Email().String(), nil
 }

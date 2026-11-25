@@ -176,13 +176,14 @@ func (s *Sender) Send(_ context.Context, m application.Outgoing) (string, error)
 	return "test-" + m.MessageID.String(), nil
 }
 
-// NewService is the notifications service over an in-memory store, with WhatsApp on and a
-// recording sender.
+// NewService is the notifications service over an in-memory store, with WhatsApp and email on and
+// recording senders.
 func NewService(appointments scheduling.Appointments, reminders application.ReminderSettings, clk clock.Clock) (*application.Service, *Store) {
 	st := NewStore()
 	return application.NewService(application.Deps{
-		Store: st, Appointments: appointments, Reminders: reminders, Senders: map[domain.Channel]application.Sender{domain.ChannelWhatsApp: &Sender{}},
-		Policy: application.Policy{WhatsAppEnabled: true}, Clock: clk,
+		Store: st, Appointments: appointments, Reminders: reminders,
+		Senders: map[domain.Channel]application.Sender{domain.ChannelWhatsApp: &Sender{}, domain.ChannelEmail: &Sender{}},
+		Policy:  application.Policy{WhatsAppEnabled: true, EmailEnabled: true}, Clock: clk,
 	}), st
 }
 

@@ -103,6 +103,8 @@ type SMTP struct {
 
 // Notifications switches the delivery channels per environment (notifications.md §3, T7.1).
 type Notifications struct {
+	// EmailEnabled: false skips every appointment email (T7.6; default true).
+	EmailEnabled bool
 	// WhatsAppEnabled: false skips every WhatsApp message (default; DEV).
 	WhatsAppEnabled bool
 	// WhatsAppAllowlist: when set, the only numbers (E.164) WhatsApp may write to (QA).
@@ -179,7 +181,7 @@ func Load(getenv func(string) string) (Config, error) {
 		SMTP: SMTP{
 			Host:     p.str("SMTP_HOST", "localhost"),
 			Port:     int(p.intRange("SMTP_PORT", 1025, 1, 65535)),
-			From:     p.str("SMTP_FROM", "Reservas <no-reply@booking.local>"),
+			From:     p.str("SMTP_FROM", "Booka <no-reply@booking.local>"),
 			Username: p.str("SMTP_USERNAME", ""),
 			Password: p.str("SMTP_PASSWORD", ""),
 			TLSMode:  p.str("SMTP_TLS", "none"),
@@ -196,6 +198,7 @@ func Load(getenv func(string) string) (Config, error) {
 		PublicAppURL:   p.str("PUBLIC_APP_URL", "http://localhost:3000"),
 		AppDownloadURL: p.str("APP_DOWNLOAD_URL", ""),
 		Notifications: Notifications{
+			EmailEnabled:               p.boolean("NOTIFICATIONS_EMAIL_ENABLED", true),
 			WhatsAppEnabled:            p.boolean("WHATSAPP_ENABLED", false),
 			WhatsAppAllowlist:          p.phones("WHATSAPP_ALLOWLIST"),
 			WhatsAppAccessToken:        strings.TrimSpace(p.getenv("WHATSAPP_ACCESS_TOKEN")),

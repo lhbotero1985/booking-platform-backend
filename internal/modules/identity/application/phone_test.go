@@ -83,3 +83,23 @@ func TestPhoneAndCustomerProfile(t *testing.T) {
 		t.Errorf("suspended: %v", err)
 	}
 }
+
+// TestAccountEmail (T7.6): the address of the appointment emails; "" for unknown or disabled
+// accounts, and no phone needed (professionals).
+func TestAccountEmail(t *testing.T) {
+	ctx := context.Background()
+	e := newEnv()
+	e.verifiedUser(t, "juan@example.com")
+	u := e.store.User("juan@example.com")
+	u.WithPhone("")
+	if got, err := e.svc.AccountEmail(ctx, u.ID()); err != nil || got != "juan@example.com" {
+		t.Errorf("active: %q %v", got, err)
+	}
+	if got, err := e.svc.AccountEmail(ctx, uuid.Must(uuid.NewV7())); err != nil || got != "" {
+		t.Errorf("unknown: %q %v", got, err)
+	}
+	e.store.User("juan@example.com").Suspend(e.clock.Now()) // the store keeps a fresh copy per transaction
+	if got, err := e.svc.AccountEmail(ctx, u.ID()); err != nil || got != "" {
+		t.Errorf("suspended: %q %v", got, err)
+	}
+}

@@ -15,7 +15,8 @@ type Querier interface {
 	AppointmentMessages(ctx context.Context, arg AppointmentMessagesParams) ([]NotificationMessage, error)
 	// Returns the row only the first time the event arrives.
 	ClaimWebhookEvent(ctx context.Context, arg ClaimWebhookEventParams) ([]string, error)
-	// Records the outcome of one delivery attempt; a message that is no longer pending is left alone.
+	// Records the outcome of one delivery attempt and the recipient it went to (an email address is
+	// resolved when sent); a message that is no longer pending is left alone.
 	FinishMessage(ctx context.Context, arg FinishMessageParams) error
 	InsertActionToken(ctx context.Context, arg InsertActionTokenParams) error
 	// Returns the row only when it was inserted (a repeated event inserts nothing).

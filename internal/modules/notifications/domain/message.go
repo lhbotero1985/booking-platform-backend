@@ -18,8 +18,11 @@ const (
 	// KindCreatedByBusiness: booked by the staff for the customer (P40: carries the app link).
 	KindCreatedByBusiness Kind = "APPOINTMENT_CREATED_BY_BUSINESS"
 	KindCancelled         Kind = "APPOINTMENT_CANCELLED" //nolint:misspell // stored value
-	KindRescheduled       Kind = "APPOINTMENT_RESCHEDULED"
-	KindReassigned        Kind = "APPOINTMENT_REASSIGNED"
+	// KindCancelledByCustomer: the customer canceled (T7.6: an email receipt to the customer and a
+	// notice to the professional; no WhatsApp).
+	KindCancelledByCustomer Kind = "APPOINTMENT_CANCELLED_BY_CUSTOMER" //nolint:misspell // stored value
+	KindRescheduled         Kind = "APPOINTMENT_RESCHEDULED"
+	KindReassigned          Kind = "APPOINTMENT_REASSIGNED"
 	// KindReminder asks the customer to confirm before the appointment (T7.4).
 	KindReminder Kind = "APPOINTMENT_REMINDER"
 )
@@ -31,6 +34,8 @@ type Channel string
 const (
 	ChannelWhatsApp Channel = "WHATSAPP"
 	ChannelPush     Channel = "PUSH"
+	// ChannelEmail (T7.6, ADR-0019): the address is resolved when the message is sent.
+	ChannelEmail Channel = "EMAIL"
 )
 
 // Role of the recipient.
@@ -80,6 +85,7 @@ const (
 	eventRescheduled = "RESCHEDULED"
 	eventReassigned  = "REASSIGNED"
 	actorBusiness    = "BUSINESS"
+	actorCustomer    = "CUSTOMER"
 )
 
 // Message is one notification to one recipient through one channel.
@@ -88,7 +94,8 @@ type Message struct {
 	Kind                                   Kind
 	Channel                                Channel
 	RecipientRole                          Role
-	Recipient                              string // E.164 phone for WhatsApp
+	// Recipient is the E.164 phone for WhatsApp; for email the address, "" until it is sent.
+	Recipient string
 	// ProfessionalID and Start are what the message announces.
 	ProfessionalID uuid.UUID
 	Start          time.Time
@@ -120,52 +127,76 @@ type Reminders struct {
 	Before  time.Duration
 }
 
-// Plan returns the messages a change produces (notifications.md §2): to the customer by
-// WhatsApp when the appointment is created (by the customer or by the staff), moved to another
-// time or professional, or canceled by the business (a customer who cancels knows it).
-// Confirmations and the changes of the service itself (start, completion, no-show) send nothing.
-// Push to the professional: T7.6.
+// Plan returns the messages a change produces (notifications.md §2, §12).
 //
-// Reminder (T7.4, decisions of the user 2026-11-25): when the change leaves the appointment
-// pending confirmation, a reminder is due r.Before the start; if that moment already passed it
-// goes at once. Confirmed appointments (manual ones are, by default) get no reminder.
+// To the customer, by WhatsApp and by email (T7.6, ADR-0019): when the appointment is created (by
+// the customer or by the staff), moved to another time or professional, or canceled by the
+// business. When the customer cancels, only an email receipt (a WhatsApp would cost for nothing).
+// Confirmations and the changes of the service itself (start, completion, no-show) send nothing.
+//
+// To the professional, by email, only what the customer did (decision of the user 2026-11-25): a
+// new booking, a cancellation or a new time.
+//
+// Reminder (T7.4, decisions of the user 2026-11-25), by both channels: when the change leaves the
+// appointment pending confirmation, a reminder is due r.Before the start; if that moment already
+// passed it goes at once. Confirmed appointments (manual ones are, by default) get no reminder.
 func Plan(c Change, r Reminders, newID func() uuid.UUID) []Message {
-	var kind Kind
-	switch c.Type {
-	case eventCreated:
-		kind = KindCreated
-		if c.ActorRole == actorBusiness {
-			kind = KindCreatedByBusiness
-		}
-	case eventRescheduled:
-		kind = KindRescheduled
-	case eventReassigned:
-		kind = KindReassigned
-	case eventCancelled:
-		if c.ActorRole != actorBusiness {
-			return nil
-		}
-		kind = KindCancelled
-	default:
-		return nil
-	}
 	at, start := c.At.UTC(), c.Start.UTC()
-	msg := func(k Kind, sendAt time.Time) Message {
+	msg := func(k Kind, ch Channel, role Role, to string, sendAt time.Time) Message {
 		return Message{
 			ID: newID(), BusinessID: c.BusinessID, AppointmentID: c.AppointmentID, EventID: c.EventID,
-			Kind: k, Channel: ChannelWhatsApp, RecipientRole: RecipientCustomer, Recipient: c.CustomerPhone,
+			Kind: k, Channel: ch, RecipientRole: role, Recipient: to,
 			ProfessionalID: c.ProfessionalID, Start: start, Status: StatusPending, SendAt: sendAt, CreatedAt: at, UpdatedAt: at,
 		}
 	}
-	out := []Message{msg(kind, at)}
-	if kind != KindCancelled && c.Status == statusPending && r.Enabled && at.Before(start) {
+	var out []Message
+	kind, notify := customerKind(c)
+	if notify {
+		if kind != KindCancelledByCustomer {
+			out = append(out, msg(kind, ChannelWhatsApp, RecipientCustomer, c.CustomerPhone, at))
+		}
+		out = append(out, msg(kind, ChannelEmail, RecipientCustomer, "", at))
+	}
+	if notify && kind != KindCancelled && kind != KindCancelledByCustomer && c.Status == statusPending && r.Enabled && at.Before(start) {
 		due := start.Add(-r.Before)
 		if due.Before(at) {
 			due = at
 		}
-		out = append(out, msg(KindReminder, due))
+		out = append(out, msg(KindReminder, ChannelWhatsApp, RecipientCustomer, c.CustomerPhone, due),
+			msg(KindReminder, ChannelEmail, RecipientCustomer, "", due))
+	}
+	if c.ActorRole == actorCustomer {
+		switch c.Type {
+		case eventCreated:
+			out = append(out, msg(KindCreated, ChannelEmail, RecipientProfessional, "", at))
+		case eventCancelled:
+			out = append(out, msg(KindCancelledByCustomer, ChannelEmail, RecipientProfessional, "", at))
+		case eventRescheduled:
+			out = append(out, msg(KindRescheduled, ChannelEmail, RecipientProfessional, "", at))
+		}
 	}
 	return out
+}
+
+// customerKind is what the customer is told of a change, if anything.
+func customerKind(c Change) (Kind, bool) {
+	switch c.Type {
+	case eventCreated:
+		if c.ActorRole == actorBusiness {
+			return KindCreatedByBusiness, true
+		}
+		return KindCreated, true
+	case eventRescheduled:
+		return KindRescheduled, true
+	case eventReassigned:
+		return KindReassigned, true
+	case eventCancelled:
+		if c.ActorRole == actorBusiness {
+			return KindCancelled, true
+		}
+		return KindCancelledByCustomer, true
+	}
+	return "", false
 }
 
 // Appointment is the current state of the appointment a message is about.
@@ -185,7 +216,7 @@ func Stale(m Message, current Appointment, now time.Time) SkipReason {
 		return SkipNoRecipient
 	case !now.Before(m.Start):
 		return SkipPassed
-	case m.Kind == KindCancelled:
+	case m.Kind == KindCancelled, m.Kind == KindCancelledByCustomer:
 		return ""
 	case current.Status == statusCancelled:
 		return SkipCancelled
@@ -205,4 +236,21 @@ func MaskPhone(phone string) string {
 		return strings.Repeat("•", len(phone))
 	}
 	return phone[:3] + strings.Repeat("•", len(phone)-3-visible) + phone[len(phone)-visible:]
+}
+
+// MaskEmail keeps the first character of the local part and the domain: "l•••@gmail.com".
+func MaskEmail(email string) string {
+	local, domain, ok := strings.Cut(email, "@")
+	if !ok || local == "" {
+		return strings.Repeat("•", len(email))
+	}
+	return local[:1] + "•••@" + domain
+}
+
+// MaskRecipient masks the recipient of a message for its channel.
+func (m Message) MaskRecipient() string {
+	if m.Channel == ChannelEmail {
+		return MaskEmail(m.Recipient)
+	}
+	return MaskPhone(m.Recipient)
 }

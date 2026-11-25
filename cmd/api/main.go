@@ -121,7 +121,11 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	app.LinkPublicCatalog(businessesSvc, catalogSvc, professionalsSvc, businessesSvc)
 	schedulingSvc := app.NewSchedulingService(pool, identitySvc, businessesSvc, catalogSvc, professionalsSvc, identitySvc)
 	app.LinkAgendaGuard(professionalsSvc, schedulingSvc)
-	notificationsSvc := app.NewNotificationsService(cfg.Notifications, pool, jobClient, schedulingSvc, businessesSvc, logger)
+	notificationsSvc, err := app.NewNotificationsService(cfg, pool, jobClient, schedulingSvc, businessesSvc,
+		app.NewEmailRecipients(identitySvc, professionalsSvc), logger)
+	if err != nil {
+		return err
+	}
 	app.LinkNotifications(schedulingSvc, notificationsSvc)
 
 	handler := app.NewHTTPHandler(cfg, logger, app.Deps{

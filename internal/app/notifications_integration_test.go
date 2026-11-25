@@ -36,18 +36,23 @@ type notifWorld struct {
 	sender *notiftest.Sender
 }
 
-func newNotifWorld(t *testing.T) notifWorld {
+// newNotifWorld: WhatsApp through a recording sender; options change the dependencies.
+func newNotifWorld(t *testing.T, options ...func(*notifWorld, *notifapp.Deps)) notifWorld {
 	t.Helper()
 	w := notifWorld{bookingWorld: newBookingWorld(t), sender: &notiftest.Sender{}}
 	inserter, err := jobs.NewInsertClient(w.pool, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	w.notif = notifapp.NewService(notifapp.Deps{
+	deps := notifapp.Deps{
 		Store: notifpg.NewStore(w.pool, inserter), Appointments: w.sched, Reminders: w.bizSvc,
 		Senders: map[notifdomain.Channel]notifapp.Sender{notifdomain.ChannelWhatsApp: w.sender},
 		Policy:  notifapp.Policy{WhatsAppEnabled: true}, Clock: w.clk,
-	})
+	}
+	for _, o := range options {
+		o(&w, &deps)
+	}
+	w.notif = notifapp.NewService(deps)
 	LinkNotifications(w.sched, w.notif)
 	return w
 }
@@ -69,6 +74,18 @@ func (w notifWorld) messages(t *testing.T, appointmentID uuid.UUID) []notifdomai
 		}
 	}
 	return ms
+}
+
+// onWhatsApp keeps the WhatsApp messages: T7.6 added emails to every change; the tests of T7.1–T7.5
+// are about WhatsApp (the emails have their own test).
+func onWhatsApp(ms []notifdomain.Message) []notifdomain.Message {
+	var out []notifdomain.Message
+	for _, m := range ms {
+		if m.Channel == notifdomain.ChannelWhatsApp {
+			out = append(out, m)
+		}
+	}
+	return out
 }
 
 // byKind returns the messages of one kind, in order.
@@ -103,7 +120,7 @@ func TestNotificationsOnPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ms := w.messages(t, a.ID)
+	ms := onWhatsApp(w.messages(t, a.ID))
 	if len(ms) != 2 || ms[0].Kind != notifdomain.KindCreated || ms[0].Status != notifdomain.StatusPending || ms[0].Recipient != "+573001234567" ||
 		ms[1].Kind != notifdomain.KindReminder {
 		t.Fatalf("after booking (notice and reminder): %+v", ms)
@@ -111,7 +128,7 @@ func TestNotificationsOnPostgres(t *testing.T) {
 	if err := w.notif.Send(ctx, ms[0].ID, false); err != nil {
 		t.Fatal(err)
 	}
-	ms = w.messages(t, a.ID)
+	ms = onWhatsApp(w.messages(t, a.ID))
 	if ms[0].Status != notifdomain.StatusSent || ms[0].ProviderMessageID != "test-"+ms[0].ID.String() || ms[0].Attempts != 1 || ms[0].SentAt.IsZero() {
 		t.Errorf("after sending: %+v", ms[0])
 	}
@@ -127,7 +144,7 @@ func TestNotificationsOnPostgres(t *testing.T) {
 	if _, err := w.sched.StaffReschedule(ctx, w.owner, w.biz, b.ID, w.at(11, 0), w.pro); err != nil {
 		t.Fatal(err)
 	}
-	ms = w.messages(t, b.ID)
+	ms = onWhatsApp(w.messages(t, b.ID))
 	created, moved := byKind(ms, notifdomain.KindCreated), byKind(ms, notifdomain.KindRescheduled)
 	reminders := byKind(ms, notifdomain.KindReminder)
 	if len(created) != 1 || len(moved) != 1 || len(reminders) != 2 { // one reminder per time
@@ -138,7 +155,7 @@ func TestNotificationsOnPostgres(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	ms = w.messages(t, b.ID)
+	ms = onWhatsApp(w.messages(t, b.ID))
 	created, moved, reminders = byKind(ms, notifdomain.KindCreated), byKind(ms, notifdomain.KindRescheduled), byKind(ms, notifdomain.KindReminder)
 	if created[0].Status != notifdomain.StatusSkipped || created[0].SkipReason != notifdomain.SkipChanged || moved[0].Status != notifdomain.StatusSent ||
 		reminders[0].SkipReason != notifdomain.SkipChanged || reminders[1].Status != notifdomain.StatusSent {
@@ -182,7 +199,7 @@ func TestNotificationsWorkerOnPostgres(t *testing.T) {
 	}
 	deadline := time.Now().Add(15 * time.Second)
 	for {
-		ms := w.messages(t, a.ID)
+		ms := onWhatsApp(w.messages(t, a.ID))
 		if len(ms) == 2 && ms[0].Status == notifdomain.StatusSent && ms[1].Status == notifdomain.StatusPending { // the reminder waits
 			break
 		}
@@ -253,11 +270,11 @@ func TestWhatsAppClientOnPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := w.messages(t, a.ID)[0]
+	m := onWhatsApp(w.messages(t, a.ID))[0]
 	if err := w.notif.Send(ctx, m.ID, false); err != nil {
 		t.Fatal(err)
 	}
-	if got := w.messages(t, a.ID)[0]; got.Status != notifdomain.StatusSent || got.ProviderMessageID != "wamid.REAL1" {
+	if got := onWhatsApp(w.messages(t, a.ID))[0]; got.Status != notifdomain.StatusSent || got.ProviderMessageID != "wamid.REAL1" {
 		t.Errorf("sent: %+v", got)
 	}
 	// T7.3: the approved template with the real names, the start in Bogota and in Spanish.
@@ -274,7 +291,7 @@ func TestWhatsAppClientOnPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := w.notif.Send(ctx, w.messages(t, manual.ID)[0].ID, false); err != nil {
+	if err := w.notif.Send(ctx, onWhatsApp(w.messages(t, manual.ID))[0].ID, false); err != nil {
 		t.Fatal(err)
 	}
 	if got := params(); got != "cita_agendada_negocio/es: Laura Gómez | Barbería Reservas | Corte | Juan | martes 5 de marzo, 11:00 a. m." {
@@ -286,11 +303,11 @@ func TestWhatsAppClientOnPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m = w.messages(t, b.ID)[0]
+	m = onWhatsApp(w.messages(t, b.ID))[0]
 	if err := w.notif.Send(ctx, m.ID, false); err != nil {
 		t.Fatalf("a permanent failure is not retried: %v", err)
 	}
-	if got := w.messages(t, b.ID)[0]; got.Status != notifdomain.StatusFailed || got.ErrorCode != "RECIPIENT_NOT_ALLOWED" || got.Attempts != 1 {
+	if got := onWhatsApp(w.messages(t, b.ID))[0]; got.Status != notifdomain.StatusFailed || got.ErrorCode != "RECIPIENT_NOT_ALLOWED" || got.Attempts != 1 {
 		t.Errorf("refused: %+v", got)
 	}
 }
@@ -309,7 +326,7 @@ func TestRemindersOnPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ms := w.messages(t, a.ID)
+	ms := onWhatsApp(w.messages(t, a.ID))
 	if len(ms) != 2 || ms[1].Kind != notifdomain.KindReminder {
 		t.Fatalf("messages %+v", ms)
 	}
@@ -330,7 +347,7 @@ func TestRemindersOnPostgres(t *testing.T) {
 	if err := w.notif.Send(ctx, ms[1].ID, false); err != nil {
 		t.Fatal(err)
 	}
-	if got := w.messages(t, a.ID)[1]; got.Status != notifdomain.StatusSkipped || got.SkipReason != notifdomain.SkipConfirmed {
+	if got := onWhatsApp(w.messages(t, a.ID))[1]; got.Status != notifdomain.StatusSkipped || got.SkipReason != notifdomain.SkipConfirmed {
 		t.Errorf("confirmed meanwhile: %+v", got)
 	}
 
@@ -341,7 +358,7 @@ func TestRemindersOnPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ms := w.messages(t, m.ID); len(ms) != 1 || ms[0].Kind != notifdomain.KindCreatedByBusiness {
+	if ms := onWhatsApp(w.messages(t, m.ID)); len(ms) != 1 || ms[0].Kind != notifdomain.KindCreatedByBusiness {
 		t.Errorf("manual confirmed booking: %+v", ms)
 	}
 }

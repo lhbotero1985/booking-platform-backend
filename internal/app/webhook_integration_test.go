@@ -89,7 +89,7 @@ func (w buttonsWorld) remind(t *testing.T, hour int, key string) (uuid.UUID, not
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := byKind(w.messages(t, a.ID), notifdomain.KindReminder)[0]
+	r := byKind(onWhatsApp(w.messages(t, a.ID)), notifdomain.KindReminder)[0]
 	if err := w.notif.Send(t.Context(), r.ID, false); err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +98,7 @@ func (w buttonsWorld) remind(t *testing.T, hour int, key string) (uuid.UUID, not
 	if len(w.meta.payloads) != 2 {
 		t.Fatalf("buttons %v", w.meta.payloads)
 	}
-	return a.ID, w.messages(t, a.ID)[1], append([]string(nil), w.meta.payloads...)
+	return a.ID, onWhatsApp(w.messages(t, a.ID))[1], append([]string(nil), w.meta.payloads...)
 }
 
 func (w buttonsWorld) status(t *testing.T, id uuid.UUID) string {
@@ -163,7 +163,7 @@ func TestWhatsAppButtonsOnPostgres(t *testing.T) {
 	if got := w.status(t, id); got != "CONFIRMED" {
 		t.Errorf("after Confirmar: %s", got)
 	}
-	if got := w.messages(t, id)[1]; got.Status != notifdomain.StatusRead {
+	if got := onWhatsApp(w.messages(t, id))[1]; got.Status != notifdomain.StatusRead {
 		t.Errorf("reminder status %s", got.Status)
 	}
 	if rs := w.replies(t); len(rs) != 1 || !strings.Contains(rs[0], "quedó confirmada") {

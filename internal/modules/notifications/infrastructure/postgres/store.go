@@ -63,7 +63,7 @@ func (s *Store) FinishAttempt(ctx context.Context, m domain.Message, attempted b
 		sent = &m.SentAt
 	}
 	return sqlcgen.New(s.pool).FinishMessage(ctx, sqlcgen.FinishMessageParams{
-		ID: m.ID, Status: string(m.Status), SkipReason: text(string(m.SkipReason)), ErrorCode: text(m.ErrorCode),
+		ID: m.ID, Status: string(m.Status), Recipient: m.Recipient, SkipReason: text(string(m.SkipReason)), ErrorCode: text(m.ErrorCode),
 		ProviderMessageID: text(m.ProviderMessageID), SentAt: sent, Attempted: n, UpdatedAt: m.UpdatedAt,
 	})
 }

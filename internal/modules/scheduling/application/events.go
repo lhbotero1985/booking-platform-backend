@@ -43,9 +43,17 @@ func (s *Service) AppointmentState(ctx context.Context, businessID, id uuid.UUID
 		}
 		out = contract.AppointmentState{
 			ID: a.ID, BusinessID: a.BusinessID, ProfessionalID: a.ProfessionalID, Status: string(a.Status), Start: a.Start, Version: a.Version,
-			CustomerName: a.Customer.Name, ServiceName: a.Service.Name, CancelReason: a.CancelReason,
+			CustomerName: a.Customer.Name, ServiceName: a.Service.Name, CancelReason: a.CancelReason, CustomerUserID: a.Customer.UserID,
 		}
-		return nil
+		if a.Customer.CustomerID == uuid.Nil {
+			return nil
+		}
+		c, err := tx.CustomerByID(ctx, a.BusinessID, a.Customer.CustomerID)
+		if errors.Is(err, ErrCustomerNotFound) {
+			return nil
+		}
+		out.CustomerEmail = c.Email
+		return err
 	})
 	if err != nil {
 		return out, contractError(err)
@@ -60,7 +68,9 @@ func (s *Service) describeState(ctx context.Context, st *contract.AppointmentSta
 		if err != nil {
 			return err
 		}
-		st.BusinessName, st.TimeZone = sums[st.BusinessID].Name, sums[st.BusinessID].TimeZone
+		b := sums[st.BusinessID]
+		st.BusinessName, st.TimeZone = b.Name, b.TimeZone
+		st.BusinessAddress, st.BusinessPhone, st.BusinessLatitude, st.BusinessLongitude = b.AddressLine, b.ContactPhone, b.Latitude, b.Longitude
 	}
 	if s.d.Professionals != nil {
 		roster, err := s.d.Professionals.Roster(ctx, st.BusinessID)

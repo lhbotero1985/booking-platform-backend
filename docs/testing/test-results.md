@@ -1033,4 +1033,20 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Mutación: sin el bloqueo de los códigos del recordatorio | ✅ detectada | Se aplicaron los dos (cancelada y luego "ya no está activa") en la 1.ª ronda; código restaurado |
 | `TestContractWhatsAppWebhook` | ✅ | Contra OpenAPI; **85 rutas documentadas** |
 | `task check` (lint 0 tras corregir G705, sin vulnerabilidades) / `sqlc:check` / `shellcheck` / integración completa (migración 00022) | ✅ | |
-| Despliegue y E2E en QA | ⏳ | Tras el merge (token equivocado → 403, sin firma → 401) |
+| Despliegue y E2E en QA (PR #60, `8363924`) | ✅ 203/203 | CI 6/6 (incl. `-race` e integración); release-qa ✅; `scripts/e2e-qa.sh` 203 PASS, 0 FAIL: webhook con token equivocado → 403, sin firma → 401 `INVALID_SIGNATURE`; recordatorios 2; worker: avisos SKIPPED `NOT_ALLOWLISTED` (cliente de prueba fuera de la lista blanca) |
+| Registro del webhook en Meta (parte B) | ✅ | `GET /webhooks/whatsapp` desde Meta → 200 (12:56 UTC); suscripción a `messages` |
+
+## 2026-11-25 · Fase 7 · T7.6 — Correos de citas (Booka)
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestPlan` / `TestPlanReminder` / `TestMaskEmail` / `TestDateAndTimeES` (dominio) | ✅ 100 % | Cada cambio: WhatsApp y correo al cliente; al barbero solo lo que hizo el cliente; la cancelación del cliente: comprobante por correo, sin WhatsApp; recordatorio por los dos canales |
+| `TestEmailRecipients` / `TestEmailSwitchAndFailures` / `TestEmailReminderHasNoButtons` (aplicación) | ✅ 91,6 % | Correo de la ficha antes que el de la cuenta; barbero por su cuenta; sin dirección → `NO_RECIPIENT`; canal apagado → `CHANNEL_DISABLED`; fallas del directorio o de la política → reintento; el recordatorio por correo no emite códigos |
+| `TestRenderEveryEmail` / `TestRenderEscapes` / `TestSender` (plantillas) | ✅ 95 % | Asuntos y textos aprobados; `<script>`, `<img onerror>` y saltos de línea en el asunto neutralizados; mapa por coordenadas o dirección; SMTP 5xx y dirección inválida → permanentes, el resto se reintenta |
+| `TestBuildHTMLMessage` (SMTP) | ✅ | `multipart/alternative`: texto primero y HTML después, UTF-8 |
+| `TestAccountEmail` (identity), `TestAppointmentsContract` (scheduling), `TestNotificationsConfig` | ✅ | Cuenta suspendida o inexistente → sin dirección; correo de la ficha de una cita manual |
+| `TestAppointmentEmailsOnPostgres` | ✅ | Reserva del cliente → correo al cliente (dirección de su cuenta) y al barbero, direcciones guardadas, contenido real (estado, fecha, políticas, Booka); cancelación del cliente → correo a los dos, sin WhatsApp; recordatorio por correo de la cita cancelada → `SKIPPED` |
+| Mutaciones: al barbero todo cambio / códigos también en el recordatorio por correo | ✅ detectadas | `TestPlan` y `TestEmailReminderHasNoButtons` fallaron; código restaurado |
+| Vista previa en Chrome sin interfaz (correo del cliente y del barbero) | ✅ | Revisión visual del diseño |
+| `task check` (lint 0, sin vulnerabilidades) / `sqlc:check` / `shellcheck` / integración completa (migración 00023) / gitleaks | ✅ | |
+| Despliegue y E2E en QA | ⏳ | Tras el merge: correos en Mailpit (comprobante del cliente, aviso al barbero) |

@@ -294,7 +294,15 @@ func (s *Service) BusinessSummaries(ctx context.Context, ids []uuid.UUID) (map[u
 			if err != nil {
 				return err
 			}
-			out[id] = bizcontract.BusinessSummary{ID: b.ID(), Name: b.Name(), Slug: string(b.Slug()), TimeZone: b.TimeZone()}
+			sum := bizcontract.BusinessSummary{
+				ID: b.ID(), Name: b.Name(), Slug: string(b.Slug()), TimeZone: b.TimeZone(),
+				AddressLine: b.Location().AddressLine, ContactPhone: b.ContactPhone(),
+			}
+			if c := b.Location().Coordinates; c != nil {
+				lat, lng := c.Lat, c.Lng
+				sum.Latitude, sum.Longitude = &lat, &lng
+			}
+			out[id] = sum
 		}
 		return nil
 	})

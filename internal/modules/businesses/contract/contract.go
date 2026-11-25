@@ -60,4 +60,9 @@ type BusinessSummary struct {
 	Name     string
 	Slug     string
 	TimeZone string
+	// Contact shown in the appointment emails (T7.6).
+	AddressLine  string
+	ContactPhone string   // E.164
+	Latitude     *float64 // nil when the business has no coordinates
+	Longitude    *float64
 }
