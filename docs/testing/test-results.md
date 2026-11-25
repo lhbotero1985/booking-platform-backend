@@ -970,3 +970,17 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | PR #56 — ci + security | ✅ 6/6 | Squash `20ed86f`; `-race` en CI |
 | `release-qa` | ✅ | Smoke test ✅ |
 | `scripts/e2e-qa.sh` (admin) en QA | ✅ **197/197** | Mensajes de la cita: creada y las dos reprogramaciones (la cancelación del cliente no genera); WhatsApp al cliente con el número enmascarado; el worker los procesó y el último quedó `SENT` (envío simulado). Dos corridas previas tuvieron fallos `000` (DNS intermitente de la máquina local, la petición no salió); con `CURL_EXTRA=--resolve …` 0 fallos |
+
+## 2026-11-25 · Fase 7 · T7.2 — Cliente de WhatsApp Cloud API
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestSendTemplate` (Meta falso) | ✅ | Ruta `/v23.0/{phone-number-id}/messages`, `Bearer`, plantilla `hello_world` `en_US`, número sin `+`; devuelve el wamid |
+| `TestSendFailures` | ✅ | 11 respuestas de Meta → código y reintento esperados (token, límites, destinatario no permitido, no disponible, plantilla, caída, permiso, parámetro, 200 sin id); ningún error contiene el token ni el número aunque Meta lo cite |
+| `TestSendUnreachable` | ✅ | Sin conexión y timeout → reintento, sin la URL en el error; endpoint inválido y tipo sin plantilla → permanentes. Cobertura 94,1 % |
+| `TestWhatsAppCloudAPIConfig` | ✅ | Valores por defecto; QA con token sin lista blanca → error; PROD sin lista → OK; formatos inválidos reportados sin repetir el token; http solo fuera de QA/PROD |
+| `TestWhatsAppSenderChoice` | ✅ | Sin credenciales → simulado; con credenciales → Meta; el log no tiene token ni número |
+| `TestWhatsAppClientOnPostgres` | ✅ | Reserva → mensaje → cliente de Meta (falso) → `SENT` con el wamid; Meta rechaza al destinatario → `FAILED RECIPIENT_NOT_ALLOWED` en el primer intento |
+| `docker compose config` (QA) | ✅ | Credenciales solo en el worker |
+| `task check` (lint 0, sin vulnerabilidades) / `shellcheck` / integración completa | ✅ | |
+| Despliegue y E2E en QA (envío real) | ⏳ | Tras el merge |

@@ -8,6 +8,8 @@
 #                (ssh -N -L 18025:127.0.0.1:8025 deploy@HOST)
 #   CURL_EXTRA   optional extra curl options (e.g. --resolve host:443:IP when local DNS fails)
 #   SKIP_RATE_LIMIT=1 skips the rate-limit check (it blocks auth endpoints for this IP ~1 min)
+#   WHATSAPP_TEST_PHONE (optional) E.164 test recipient of Meta (and in WHATSAPP_ALLOWLIST): one
+#                real WhatsApp is sent to it through the worker
 #   ADMIN_EMAIL / ADMIN_PASSWORD (optional) run the business onboarding checks as PLATFORM_ADMIN;
 #                each run leaves one SUSPENDED business "QA E2E <timestamp>" behind
 # Each run also leaves one self-service business "QA E2E propia <timestamp>" whose 7-day demo
@@ -330,7 +332,26 @@ for _ in $(seq 1 30); do # the worker delivers within seconds (simulated sender 
   [[ $(status GET "$notif" "" "$TS" >/dev/null; json '[.items[] | select(.status == "PENDING")] | length') == 0 ]] && break
   sleep 1
 done
-check "the worker processed them; the last move was sent" "0 SENT"   "$(json '"\([.items[] | select(.status == "PENDING")] | length) \(.items[-1].status)"')"
+# QA writes only to WHATSAPP_ALLOWLIST: a synthetic number is skipped (simulated sender: sent).
+check "the worker processed them (sent, or skipped: not allowlisted)" "0 (SENT|SKIPPED NOT_ALLOWLISTED)"   "$(json '"\([.items[] | select(.status == "PENDING")] | length) \(.items[-1].status)\(if .items[-1].skipReason then " " + .items[-1].skipReason else "" end)"')"
+
+# --- real WhatsApp through Meta (T7.2, optional) ------------------------------------------------
+# WHATSAPP_TEST_PHONE: a number registered as a test recipient in Meta and in WHATSAPP_ALLOWLIST.
+# It receives exactly one message; the number is never printed.
+if [[ -n ${WHATSAPP_TEST_PHONE:-} ]]; then
+  check "customer uses the test phone" 200 "$(status PUT /api/v1/me/phone "{\"phone\":\"$WHATSAPP_TEST_PHONE\"}" "$T1")"
+  wa_start=$(status GET "$av&date=$tue" >/dev/null; json '.slots[0].startAt')
+  check "books with it" 201 "$(book "$wa_start" "e2e-$(date +%s)-wa" "$T1")"
+  wa_appt=$(json .id)
+  for _ in $(seq 1 45); do
+    [[ $(status GET "/api/v1/business/$mine/appointments/$wa_appt/notifications" "" "$TS" >/dev/null; json '.items[0].status') != PENDING ]] && break
+    sleep 1
+  done
+  check "Meta accepted the WhatsApp" "SENT null 1" "$(json '.items[0] | "\(.status) \(.errorCode) \(.attempts)"')"
+  check "customer cancels it (no second message)" 200 "$(status POST "/api/v1/me/appointments/$wa_appt/cancel" "" "$T1")"
+  check "  still one message" 1 "$(status GET "/api/v1/business/$mine/appointments/$wa_appt/notifications" "" "$TS" >/dev/null; json '.items | length')"
+  check "customer phone restored" 200 "$(status PUT /api/v1/me/phone '{"phone":"300 111 2233"}' "$T1")"
+fi
 check "a cancelled one cannot be confirmed" 409 "$(status POST "$st_appt/confirm" "" "$TS")"
 
 # --- coherence of the agenda (T6.7) ------------------------------------------------------------

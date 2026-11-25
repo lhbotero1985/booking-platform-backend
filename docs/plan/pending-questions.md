@@ -30,7 +30,7 @@ la Fase 0, se adopta la propuesta.
 | P14 | ¿Los portales Next.js llaman a la API directamente (cookie + CORS) o mediante BFF? | Directamente con cookie `__Host-` en subdominio común; reevaluar en Fase 8. |
 | P15 | Dominio para QA/PROD | A definir antes de Fase 3. |
 | P16 | ¿Quién asume el costo de WhatsApp? ¿Tope por negocio? | Plataforma, con tope mensual por negocio configurable. |
-| P17 | ¿Meta Business Manager verificado disponible? | 2026-11-24: el usuario **no tiene** cuenta de Meta Business; se le explicaron los pasos. Iniciar el trámite antes de la Fase 7 (la verificación puede tardar). |
+| P17 | ¿Meta Business Manager verificado disponible? | 2026-11-25: app "booking-platform" creada, número de prueba funcionando ("Hello World" recibido), token permanente de usuario del sistema cargado en QA. **Pendiente:** verificación del negocio (RUT / Cámara de Comercio) y número real. 2026-11-24: el usuario **no tenía** cuenta de Meta Business; se le explicaron los pasos. Iniciar el trámite antes de la Fase 7 (la verificación puede tardar). |
 | P18 | PROD: PostgreSQL en Droplet o DO Managed PostgreSQL | Decidir en Fase 13; recomendación: Managed. |
 | P19 | ¿Commits firmados obligatorios? | Recomendado (SSH signing), no bloqueante. |
 | P20 | ~~¿`booking-platform.code-workspace` en la raíz?~~ | ✅ Creado en la raíz del workspace, sin versionar. |

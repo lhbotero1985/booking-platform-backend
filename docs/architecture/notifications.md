@@ -1,6 +1,6 @@
 # Notificaciones: WhatsApp y push
 
-Estado: **Fase 7 en curso** (T7.1 implementada: §7). ADR-0008, ADR-0009, ADR-0010.
+Estado: **Fase 7 en curso** (T7.1 y T7.2 implementadas: §7 y §8). ADR-0008, ADR-0009, ADR-0010.
 
 ## 1. Principios
 
@@ -104,3 +104,33 @@ El cliente puede desactivar recordatorios por canal. Las notificaciones transacc
 - **Vista del personal:** `GET /api/v1/business/{businessId}/appointments/{appointmentId}/notifications`
   con el mismo acceso que el historial (responsable todas; barbero solo su agenda, 403; otro
   negocio 404). El número se muestra enmascarado.
+
+## 8. WhatsApp Cloud API (T7.2)
+
+- **Cliente** `infrastructure/whatsapp`: `POST {WHATSAPP_API_BASE_URL}/{WHATSAPP_GRAPH_VERSION}/{WHATSAPP_PHONE_NUMBER_ID}/messages`
+  con `Authorization: Bearer <token>`, cuerpo de plantilla (`messaging_product: whatsapp`, número sin
+  `+`), respuesta → `messages[0].id` (wamid) como `provider_message_id`. Timeout 15 s.
+- **Plantillas en el código** (`templates.go`): por ahora todos los tipos envían `hello_world`
+  (`en_US`), la plantilla que Meta da aprobada, para probar la conexión de punta a punta. T7.3 la
+  reemplaza por las plantillas de la cita, con parámetros, cuando Meta las apruebe.
+- **Clasificación de errores de Meta:**
+
+| Situación | Código guardado | ¿Reintenta? |
+|---|---|---|
+| Token inválido o vencido (190, 401) | `AUTH_FAILED` | Sí: al reemplazar el token salen los pendientes |
+| Límite de envío (4, 80007, 130429, 131048, 131056, 429) | `RATE_LIMITED` | Sí |
+| Falla de Meta (1, 2, 131000, 5xx) o sin conexión | `PROVIDER_ERROR` / `PROVIDER_UNREACHABLE` | Sí |
+| Sin permiso (10, 200, 403) | `PERMISSION_DENIED` | Sí (es configuración) |
+| No es destinatario registrado del número de prueba (131030) | `RECIPIENT_NOT_ALLOWED` | No |
+| El número no puede recibir (131026) | `RECIPIENT_UNAVAILABLE` | No |
+| Plantilla inexistente o mal formada (132xxx) | `TEMPLATE_INVALID` | No |
+| Otro 4xx | `META_<código>` | No |
+
+- **Secretos:** el token solo viaja en la cabecera. Los errores guardan el código numérico y el
+  `fbtrace_id` de Meta, nunca su texto (puede citar el número) ni la URL. Al arrancar se registra
+  solo qué proveedor se usa (`meta` o `simulated`), la versión y cuántos números hay en la lista
+  blanca.
+- **Configuración:** sin `WHATSAPP_ACCESS_TOKEN` → envío simulado. Con token: el identificador del
+  número es obligatorio y numérico, y **fuera de producción `WHATSAPP_ALLOWLIST` es obligatorio**
+  (la aplicación no arranca sin ella). En QA las credenciales están en `/opt/booking/qa/.env` y el
+  compose solo se las pasa al **worker** (la API no envía).

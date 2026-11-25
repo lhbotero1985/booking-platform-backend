@@ -466,6 +466,23 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-25 · Fase 7 · T7.2 — Cliente de WhatsApp Cloud API
+
+- **Previo:** el usuario creó la app de Meta "booking-platform", registró su celular como
+  destinatario de prueba (recibió el "Hello World"), generó un token permanente de usuario del
+  sistema y cargó las 4 variables en `/opt/booking/qa/.env` (verificadas sin ver valores:
+  formato correcto, archivo `600`). Decidió dejar el token en el servidor (no en GitHub) y no rotar
+  las contraseñas de la base expuestas en una captura (riesgo aceptado).
+- **Estado:** ✅ en `feature/t7.2-whatsapp-cloud-api` (commit y push; PR pendiente de autorización).
+- **Hecho:** cliente `infrastructure/whatsapp` (plantilla `hello_world` hasta T7.3, clasificación de
+  errores de Meta, sin datos sensibles en errores); configuración `WHATSAPP_ACCESS_TOKEN`,
+  `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_BUSINESS_ACCOUNT_ID`, `WHATSAPP_API_BASE_URL`,
+  `WHATSAPP_GRAPH_VERSION` con validación (lista blanca obligatoria fuera de PROD); elección
+  Meta/simulado en el composition root; credenciales solo al worker en QA; E2E adaptado a la lista
+  blanca y sección opcional con envío real; guía en `qa-deployment.md`.
+- **Próximo:** PR a `qa` (requiere autorización) y E2E en QA con `WHATSAPP_TEST_PHONE`: el usuario
+  debe recibir un WhatsApp real.
+
 ## 2026-11-24 · Fase 7 · T7.1 — Base de notificaciones
 
 - **Previo:** PR #55 (T6.8) → `qa`: CI 6/6 ✅, squash `f7ce6f9`, rama borrada; `release-qa` ✅;

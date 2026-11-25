@@ -7,6 +7,8 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/application/notiftest"
 	notifdomain "github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/domain"
 	notifpg "github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/infrastructure/postgres"
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/infrastructure/whatsapp"
 	notifworker "github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/infrastructure/worker"
 	schedcontract "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/jobs"
@@ -176,4 +179,56 @@ func countRows(t *testing.T, w notifWorld, q string) int {
 		t.Fatal(err)
 	}
 	return n
+}
+
+// TestWhatsAppClientOnPostgres (T7.2): the Meta client behind the service, against a fake Cloud
+// API: Meta's id is stored; a recipient Meta refuses is FAILED with its code at once.
+func TestWhatsAppClientOnPostgres(t *testing.T) {
+	ctx := t.Context()
+	w := newNotifWorld(t)
+	reply := `{"messages":[{"id":"wamid.REAL1"}]}`
+	status := http.StatusOK
+	meta := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, _ *http.Request) {
+		rw.WriteHeader(status)
+		_, _ = io.WriteString(rw, reply)
+	}))
+	t.Cleanup(meta.Close)
+	inserter, err := jobs.NewInsertClient(w.pool, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.notif = notifapp.NewService(notifapp.Deps{
+		Store: notifpg.NewStore(w.pool, inserter), Appointments: w.sched,
+		Senders: map[notifdomain.Channel]notifapp.Sender{notifdomain.ChannelWhatsApp: whatsapp.New(whatsapp.Config{
+			BaseURL: meta.URL, GraphVersion: "v23.0", PhoneNumberID: "106540352242922", AccessToken: "EAAtest1234567890abcdef",
+		})},
+		Policy: notifapp.Policy{WhatsAppEnabled: true}, Clock: w.clk,
+	})
+	LinkNotifications(w.sched, w.notif)
+	ana := w.customer(t)
+
+	a, err := w.sched.Book(ctx, ana, w.in(w.at(9, 0), "meta-ana-0001"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := w.messages(t, a.ID)[0]
+	if err := w.notif.Send(ctx, m.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := w.messages(t, a.ID)[0]; got.Status != notifdomain.StatusSent || got.ProviderMessageID != "wamid.REAL1" {
+		t.Errorf("sent: %+v", got)
+	}
+
+	status, reply = http.StatusBadRequest, `{"error":{"code":131030,"fbtrace_id":"X"}}`
+	b, err := w.sched.Book(ctx, ana, w.in(w.at(10, 0), "meta-ana-0002"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m = w.messages(t, b.ID)[0]
+	if err := w.notif.Send(ctx, m.ID, false); err != nil {
+		t.Fatalf("a permanent failure is not retried: %v", err)
+	}
+	if got := w.messages(t, b.ID)[0]; got.Status != notifdomain.StatusFailed || got.ErrorCode != "RECIPIENT_NOT_ALLOWED" || got.Attempts != 1 {
+		t.Errorf("refused: %+v", got)
+	}
 }
