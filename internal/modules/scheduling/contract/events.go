@@ -84,3 +84,22 @@ type Appointments interface {
 	// own). Otherwise the identity authorization error or ErrAppointmentNotFound.
 	AuthorizeAppointmentView(ctx context.Context, p identity.Principal, businessID, appointmentID uuid.UUID) error
 }
+
+// Errors of CustomerReplies.
+var (
+	// ErrCutoffPassed: too close to the appointment for the customer to cancel it.
+	ErrCutoffPassed = errors.New("scheduling: the cancellation cut-off passed")
+	// ErrNotActive: the appointment no longer allows that change (canceled, finished…).
+	ErrNotActive = errors.New("scheduling: the appointment does not allow that change")
+)
+
+// CustomerReplies applies the answer of a customer to a message about its appointment (T7.5: the
+// buttons of the WhatsApp reminder), as that customer and with the customer's rules (cancellation
+// cut-off). The caller has already authenticated the answer (single-use token of the message and
+// the sender's number); no other authorization. Call it inside the caller's transaction.
+type CustomerReplies interface {
+	// ConfirmAsCustomer and CancelAsCustomer are no-ops when already done; ErrNotActive when the
+	// status does not allow it; CancelAsCustomer: ErrCutoffPassed; ErrAppointmentNotFound.
+	ConfirmAsCustomer(ctx context.Context, businessID, appointmentID uuid.UUID) error
+	CancelAsCustomer(ctx context.Context, businessID, appointmentID uuid.UUID) error
+}

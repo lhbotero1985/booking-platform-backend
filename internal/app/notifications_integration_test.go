@@ -10,7 +10,9 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -206,6 +208,7 @@ func TestWhatsAppClientOnPostgres(t *testing.T) {
 	ctx := t.Context()
 	w := newNotifWorld(t)
 	reply := `{"messages":[{"id":"wamid.REAL1"}]}`
+	var sends atomic.Int64
 	status := http.StatusOK
 	var sent struct {
 		Template struct {
@@ -219,7 +222,8 @@ func TestWhatsAppClientOnPostgres(t *testing.T) {
 	meta := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&sent)
 		rw.WriteHeader(status)
-		_, _ = io.WriteString(rw, reply)
+		// Meta's ids are unique: wamid.REAL1, wamid.REAL2…
+		_, _ = io.WriteString(rw, strings.Replace(reply, "REAL1", "REAL"+strconv.FormatInt(sends.Add(1), 10), 1))
 	}))
 	params := func() string {
 		var ps []string

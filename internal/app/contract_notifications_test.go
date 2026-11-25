@@ -1,6 +1,9 @@
 package app
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"regexp"
 	"strings"
@@ -33,4 +36,20 @@ func TestContractAppointmentNotifications(t *testing.T) {
 	}
 	c.callAuth(t, e.srv, http.MethodGet, path, "", ana, http.StatusNotFound) // not a member
 	c.callAuth(t, e.srv, http.MethodGet, base+"/appointments/"+biz+"/notifications", "", owner, http.StatusNotFound)
+}
+
+// TestContractWhatsAppWebhook (T7.5): verification and signed deliveries against the contract.
+func TestContractWhatsAppWebhook(t *testing.T) {
+	c := loadContract(t)
+	e := newGeoServer(t)
+	path := "/webhooks/whatsapp"
+	if got := c.callWith(t, e.srv, http.MethodGet, path+"?hub.mode=subscribe&hub.verify_token="+testWebhookVerifyToken+"&hub.challenge=987654", "", "", nil, http.StatusOK); got != "987654" {
+		t.Errorf("challenge = %q", got)
+	}
+	c.callWith(t, e.srv, http.MethodGet, path+"?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=1", "", "", nil, http.StatusForbidden)
+	body := `{"object":"whatsapp_business_account","entry":[{"changes":[{"field":"messages","value":{"statuses":[{"id":"wamid.X","status":"read"}]}}]}]}`
+	mac := hmac.New(sha256.New, []byte(testWebhookSecret))
+	mac.Write([]byte(body))
+	c.callWith(t, e.srv, http.MethodPost, path, body, "", map[string]string{"X-Hub-Signature-256": "sha256=" + hex.EncodeToString(mac.Sum(nil))}, http.StatusOK)
+	c.callWith(t, e.srv, http.MethodPost, path, body, "", map[string]string{"X-Hub-Signature-256": "sha256=" + strings.Repeat("0", 64)}, http.StatusUnauthorized)
 }

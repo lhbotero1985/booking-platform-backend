@@ -88,3 +88,25 @@ func contractError(err error) error {
 	}
 	return err
 }
+
+// ConfirmAsCustomer implements contract.CustomerReplies.
+func (s *Service) ConfirmAsCustomer(ctx context.Context, businessID, id uuid.UUID) error {
+	_, err := s.change(ctx, actor{role: domain.ActorCustomer, businessID: businessID, onBehalf: true}, id, ActionConfirm, "")
+	return replyError(err)
+}
+
+// CancelAsCustomer implements contract.CustomerReplies (with the customer's cut-off).
+func (s *Service) CancelAsCustomer(ctx context.Context, businessID, id uuid.UUID) error {
+	_, err := s.change(ctx, actor{role: domain.ActorCustomer, businessID: businessID, onBehalf: true}, id, ActionCancel, "")
+	return replyError(err)
+}
+
+func replyError(err error) error {
+	switch {
+	case errors.Is(err, domain.ErrCutoffPassed):
+		return errors.Join(contract.ErrCutoffPassed, err)
+	case errors.Is(err, domain.ErrInvalidTransition), errors.Is(err, domain.ErrAlreadyStarted):
+		return errors.Join(contract.ErrNotActive, err)
+	}
+	return contractError(err)
+}

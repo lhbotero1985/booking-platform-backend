@@ -23,22 +23,37 @@ import (
 // NewNotificationsService wires the notification use cases (T7.1). WhatsApp goes through the
 // Cloud API of Meta when its credentials are configured (T7.2); otherwise through the simulated
 // sender, and nothing leaves the server.
-func NewNotificationsService(cfg config.Notifications, pool *pgxpool.Pool, jobs postgres.JobInserter, appointments scheduling.Appointments,
+func NewNotificationsService(cfg config.Notifications, pool *pgxpool.Pool, jobs postgres.JobInserter, appointments SchedulingForNotifications,
 	reminders application.ReminderSettings, logger *slog.Logger,
 ) *application.Service {
+	wa := WhatsAppSender(cfg, logger)
 	return application.NewService(application.Deps{
 		Store:        postgres.NewStore(pool, jobs),
 		Appointments: appointments,
+		Replies:      appointments,
+		TextSender:   wa,
 		Reminders:    reminders,
-		Senders:      map[domain.Channel]application.Sender{domain.ChannelWhatsApp: WhatsAppSender(cfg, logger)},
+		Senders:      map[domain.Channel]application.Sender{domain.ChannelWhatsApp: wa},
 		Policy:       application.Policy{WhatsAppEnabled: cfg.WhatsAppEnabled, WhatsAppAllowlist: cfg.WhatsAppAllowlist},
 		Clock:        clock.System{},
 	})
 }
 
+// SchedulingForNotifications is what notifications reads and does in scheduling.
+type SchedulingForNotifications interface {
+	scheduling.Appointments
+	scheduling.CustomerReplies
+}
+
+// WhatsAppDelivery sends templates and free-text answers.
+type WhatsAppDelivery interface {
+	application.Sender
+	application.TextSender
+}
+
 // WhatsAppSender is the Meta client when the credentials are set, the simulated sender otherwise.
 // Only the choice is logged, never the token.
-func WhatsAppSender(cfg config.Notifications, logger *slog.Logger) application.Sender {
+func WhatsAppSender(cfg config.Notifications, logger *slog.Logger) WhatsAppDelivery {
 	if !cfg.WhatsAppConfigured() {
 		logger.Info("whatsapp sender", slog.String("provider", "simulated"), slog.Bool("enabled", cfg.WhatsAppEnabled))
 		return simulated.New(logger)
@@ -60,7 +75,8 @@ func LinkNotifications(sched interface {
 }
 
 // NewSchedulingReader is the part of scheduling the worker needs: the current state of an
-// appointment with the names of its business and professional (T7.3).
-func NewSchedulingReader(pool *pgxpool.Pool, authz identity.Authorizer, biz businesses.PublicBooking, profs professionals.Agenda) scheduling.Appointments {
+// appointment with the names of its business and professional (T7.3), and the customer's answers
+// to the reminder's buttons (T7.5).
+func NewSchedulingReader(pool *pgxpool.Pool, authz identity.Authorizer, biz businesses.PublicBooking, profs professionals.Agenda) *schedapp.Service {
 	return schedapp.NewService(schedapp.Deps{Store: schedpg.NewStore(pool), Authz: authz, Businesses: biz, Professionals: profs, Clock: clock.System{}})
 }

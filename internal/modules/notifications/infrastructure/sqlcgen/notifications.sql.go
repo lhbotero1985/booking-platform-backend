@@ -12,6 +12,27 @@ import (
 	"github.com/google/uuid"
 )
 
+const actionTokenByHash = `-- name: ActionTokenByHash :one
+SELECT token_hash, message_id, business_id, appointment_id, action, recipient, expires_at, used_at, created_at FROM appointment_action_tokens WHERE token_hash = $1
+`
+
+func (q *Queries) ActionTokenByHash(ctx context.Context, tokenHash []byte) (AppointmentActionToken, error) {
+	row := q.db.QueryRow(ctx, actionTokenByHash, tokenHash)
+	var i AppointmentActionToken
+	err := row.Scan(
+		&i.TokenHash,
+		&i.MessageID,
+		&i.BusinessID,
+		&i.AppointmentID,
+		&i.Action,
+		&i.Recipient,
+		&i.ExpiresAt,
+		&i.UsedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const appointmentMessages = `-- name: AppointmentMessages :many
 SELECT id, business_id, appointment_id, event_id, kind, channel, recipient_role, recipient, professional_id, start_at, status, skip_reason, error_code, provider_message_id, attempts, created_at, updated_at, sent_at, send_at FROM notification_messages
 WHERE business_id = $1 AND appointment_id = $2
@@ -63,6 +84,40 @@ func (q *Queries) AppointmentMessages(ctx context.Context, arg AppointmentMessag
 	return items, nil
 }
 
+const claimWebhookEvent = `-- name: ClaimWebhookEvent :many
+INSERT INTO webhook_events (provider, event_id, received_at)
+VALUES ($1, $2, $3)
+ON CONFLICT DO NOTHING
+RETURNING event_id
+`
+
+type ClaimWebhookEventParams struct {
+	Provider   string
+	EventID    string
+	ReceivedAt time.Time
+}
+
+// Returns the row only the first time the event arrives.
+func (q *Queries) ClaimWebhookEvent(ctx context.Context, arg ClaimWebhookEventParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, claimWebhookEvent, arg.Provider, arg.EventID, arg.ReceivedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var event_id string
+		if err := rows.Scan(&event_id); err != nil {
+			return nil, err
+		}
+		items = append(items, event_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const finishMessage = `-- name: FinishMessage :exec
 UPDATE notification_messages
 SET status = $1, skip_reason = $2, error_code = $3,
@@ -93,6 +148,39 @@ func (q *Queries) FinishMessage(ctx context.Context, arg FinishMessageParams) er
 		arg.Attempted,
 		arg.UpdatedAt,
 		arg.ID,
+	)
+	return err
+}
+
+const insertActionToken = `-- name: InsertActionToken :exec
+INSERT INTO appointment_action_tokens (
+    token_hash, message_id, business_id, appointment_id, action, recipient, expires_at, created_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8
+)
+`
+
+type InsertActionTokenParams struct {
+	TokenHash     []byte
+	MessageID     uuid.UUID
+	BusinessID    uuid.UUID
+	AppointmentID uuid.UUID
+	Action        string
+	Recipient     string
+	ExpiresAt     time.Time
+	CreatedAt     time.Time
+}
+
+func (q *Queries) InsertActionToken(ctx context.Context, arg InsertActionTokenParams) error {
+	_, err := q.db.Exec(ctx, insertActionToken,
+		arg.TokenHash,
+		arg.MessageID,
+		arg.BusinessID,
+		arg.AppointmentID,
+		arg.Action,
+		arg.Recipient,
+		arg.ExpiresAt,
+		arg.CreatedAt,
 	)
 	return err
 }
@@ -158,6 +246,31 @@ func (q *Queries) InsertMessage(ctx context.Context, arg InsertMessageParams) ([
 	return items, nil
 }
 
+const lockMessageTokens = `-- name: LockMessageTokens :many
+SELECT token_hash FROM appointment_action_tokens WHERE message_id = $1 ORDER BY token_hash FOR UPDATE
+`
+
+// Locks every token of a message: its buttons answer once, in order.
+func (q *Queries) LockMessageTokens(ctx context.Context, messageID uuid.UUID) ([][]byte, error) {
+	rows, err := q.db.Query(ctx, lockMessageTokens, messageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := [][]byte{}
+	for rows.Next() {
+		var token_hash []byte
+		if err := rows.Scan(&token_hash); err != nil {
+			return nil, err
+		}
+		items = append(items, token_hash)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const messageByID = `-- name: MessageByID :one
 SELECT id, business_id, appointment_id, event_id, kind, channel, recipient_role, recipient, professional_id, start_at, status, skip_reason, error_code, provider_message_id, attempts, created_at, updated_at, sent_at, send_at FROM notification_messages WHERE id = $1
 `
@@ -187,4 +300,49 @@ func (q *Queries) MessageByID(ctx context.Context, id uuid.UUID) (NotificationMe
 		&i.SendAt,
 	)
 	return i, err
+}
+
+const updateDeliveryStatus = `-- name: UpdateDeliveryStatus :execrows
+UPDATE notification_messages
+SET status = $1, error_code = COALESCE($2, error_code), updated_at = $3
+WHERE provider_message_id = $4
+  AND (($1 = 'DELIVERED' AND status = 'SENT')
+    OR ($1 = 'READ' AND status IN ('SENT', 'DELIVERED'))
+    OR ($1 = 'FAILED' AND status IN ('SENT', 'DELIVERED')))
+`
+
+type UpdateDeliveryStatusParams struct {
+	Status            string
+	ErrorCode         *string
+	UpdatedAt         time.Time
+	ProviderMessageID *string
+}
+
+// A status from Meta only moves a sent message forward: SENT → DELIVERED → READ, or SENT /
+// DELIVERED → FAILED. Late or repeated statuses change nothing.
+func (q *Queries) UpdateDeliveryStatus(ctx context.Context, arg UpdateDeliveryStatusParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateDeliveryStatus,
+		arg.Status,
+		arg.ErrorCode,
+		arg.UpdatedAt,
+		arg.ProviderMessageID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const useMessageTokens = `-- name: UseMessageTokens :exec
+UPDATE appointment_action_tokens SET used_at = $1 WHERE message_id = $2 AND used_at IS NULL
+`
+
+type UseMessageTokensParams struct {
+	UsedAt    *time.Time
+	MessageID uuid.UUID
+}
+
+func (q *Queries) UseMessageTokens(ctx context.Context, arg UseMessageTokensParams) error {
+	_, err := q.db.Exec(ctx, useMessageTokens, arg.UsedAt, arg.MessageID)
+	return err
 }

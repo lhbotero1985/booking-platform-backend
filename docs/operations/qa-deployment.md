@@ -200,6 +200,13 @@ WHATSAPP_ALLOWLIST=+57XXXXXXXXXX[,+57…]   # obligatorio fuera de PROD; máx. 5
 - El log del worker dice al arrancar `whatsapp sender` con `provider=meta` o `simulated`.
 - Token comprometido: revocarlo en el usuario del sistema de Meta, generar otro y reemplazarlo.
 - **Nunca enviar capturas del `.env`** (contiene también las contraseñas de la base).
+- Webhook (T7.5): `WHATSAPP_APP_SECRET` (Configuración de la app → Básica → Clave secreta) con
+  `nano`, y el token de verificación generado en el servidor:
+  `echo "WHATSAPP_WEBHOOK_VERIFY_TOKEN=$(openssl rand -hex 24)" >> /opt/booking/qa/.env`.
+  Registro en Meta (caso de uso WhatsApp → Configuración → Webhook): URL
+  `https://booking-platform-col.duckdns.org/webhooks/whatsapp`, el token de verificación
+  (`grep '^WHATSAPP_WEBHOOK_VERIFY_TOKEN=' /opt/booking/qa/.env | cut -d= -f2`), "Verificar y
+  guardar" y suscribirse al campo `messages`. Solo después de desplegar T7.5.
 - Enlace de la app (`GET /app`, botón de `cita_agendada_negocio`): sin `APP_DOWNLOAD_URL` muestra
   "muy pronto"; cuando la app esté en las tiendas, agregar `APP_DOWNLOAD_URL=https://…` al `.env`
   (y al compose de la API) y redesplegar.

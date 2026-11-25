@@ -15,6 +15,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -59,20 +60,29 @@ type templateRef struct {
 
 type component struct {
 	Type       string      `json:"type"`
+	SubType    string      `json:"sub_type,omitempty"` // buttons: quick_reply
+	Index      string      `json:"index,omitempty"`    // buttons: "0", "1"…
 	Parameters []parameter `json:"parameters"`
 }
 
 type parameter struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
+	Type    string `json:"type"`
+	Text    string `json:"text,omitempty"`
+	Payload string `json:"payload,omitempty"`
+}
+
+type textBody struct {
+	PreviewURL bool   `json:"preview_url"`
+	Body       string `json:"body"`
 }
 
 type sendRequest struct {
-	MessagingProduct string      `json:"messaging_product"`
-	RecipientType    string      `json:"recipient_type"`
-	To               string      `json:"to"`
-	Type             string      `json:"type"`
-	Template         templateRef `json:"template"`
+	MessagingProduct string       `json:"messaging_product"`
+	RecipientType    string       `json:"recipient_type"`
+	To               string       `json:"to"`
+	Type             string       `json:"type"`
+	Template         *templateRef `json:"template,omitempty"`
+	Text             *textBody    `json:"text,omitempty"`
 }
 
 type sendResponse struct {
@@ -95,10 +105,28 @@ func (c *Client) Send(ctx context.Context, m application.Outgoing) (string, erro
 	if !ok {
 		return "", &application.DeliveryError{Code: "TEMPLATE_MISSING", Permanent: true, Err: fmt.Errorf("whatsapp: no template for %s", m.Kind)}
 	}
-	body, err := json.Marshal(sendRequest{
-		MessagingProduct: "whatsapp", RecipientType: "individual", To: strings.TrimPrefix(m.To, "+"), Type: "template",
-		Template: t.ref(m.Content),
+	ref := t.ref(m.Content)
+	for i, p := range m.ButtonPayloads {
+		ref.Components = append(ref.Components, component{
+			Type: "button", SubType: "quick_reply", Index: strconv.Itoa(i), Parameters: []parameter{{Type: "payload", Payload: p}},
+		})
+	}
+	return c.post(ctx, sendRequest{
+		MessagingProduct: "whatsapp", RecipientType: "individual", To: strings.TrimPrefix(m.To, "+"), Type: "template", Template: &ref,
 	})
+}
+
+// SendText implements application.TextSender: a free-text answer, allowed within 24 hours of the
+// customer's last message.
+func (c *Client) SendText(ctx context.Context, to, text string) (string, error) {
+	return c.post(ctx, sendRequest{
+		MessagingProduct: "whatsapp", RecipientType: "individual", To: strings.TrimPrefix(to, "+"), Type: "text",
+		Text: &textBody{Body: text},
+	})
+}
+
+func (c *Client) post(ctx context.Context, msg sendRequest) (string, error) {
+	body, err := json.Marshal(msg)
 	if err != nil {
 		return "", err
 	}

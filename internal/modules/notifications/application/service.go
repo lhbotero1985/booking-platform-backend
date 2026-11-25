@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"slices"
 	"time"
 
@@ -33,6 +34,9 @@ type Store interface {
 	// attempted adds one to its attempts.
 	FinishAttempt(ctx context.Context, m domain.Message, attempted bool) error
 	AppointmentMessages(ctx context.Context, businessID, appointmentID uuid.UUID) ([]domain.Message, error)
+	// UpdateDeliveryStatus moves a sent message forward with a status from the provider; false
+	// when it changed nothing (unknown id, late or repeated status).
+	UpdateDeliveryStatus(ctx context.Context, providerMessageID string, status domain.Status, errorCode string, at time.Time) (bool, error)
 }
 
 // Tx is the persistence inside a transaction.
@@ -42,6 +46,7 @@ type Tx interface {
 	InsertMessage(ctx context.Context, m domain.Message) (bool, error)
 	// EnqueueSend queues the delivery job of a message in the transaction, due at at (zero: now).
 	EnqueueSend(ctx context.Context, messageID uuid.UUID, at time.Time) error
+	WebhookTx
 }
 
 // Outgoing is what a Sender delivers.
@@ -51,6 +56,9 @@ type Outgoing struct {
 	Channel   domain.Channel
 	To        string
 	Content   domain.Content
+	// ButtonPayloads are the payloads of the quick-reply buttons, in order (T7.5: the reminder's
+	// single-use tokens for "Confirmar cita" and "Cancelar cita").
+	ButtonPayloads []string
 }
 
 // Sender delivers a message through its channel and returns the provider's message id.
@@ -102,6 +110,11 @@ type ReminderSettings interface {
 type Deps struct {
 	Store        Store
 	Appointments scheduling.Appointments
+	// Replies applies the answers to the reminder's buttons (T7.5); TextSender answers back.
+	Replies    scheduling.CustomerReplies
+	TextSender TextSender
+	// Random is the source of the buttons' tokens (crypto/rand.Reader when nil).
+	Random io.Reader
 	// Reminders: nil sends no reminders.
 	Reminders ReminderSettings
 	Senders   map[domain.Channel]Sender
@@ -200,15 +213,13 @@ func (s *Service) Send(ctx context.Context, id uuid.UUID, lastAttempt bool) erro
 	if !ok {
 		return s.skip(ctx, m, domain.SkipChannelDisabled)
 	}
-	loc, err := time.LoadLocation(st.TimeZone)
-	if err != nil || st.TimeZone == "" {
-		loc = time.UTC // never expected: the zone is validated when the business is created
+	out := Outgoing{MessageID: m.ID, Kind: m.Kind, Channel: m.Channel, To: m.Recipient, Content: contentOf(st)}
+	if m.Kind == domain.KindReminder {
+		if out.ButtonPayloads, err = s.issueTokens(ctx, m); err != nil {
+			return err
+		}
 	}
-	content := domain.Content{
-		CustomerName: st.CustomerName, BusinessName: st.BusinessName, ServiceName: st.ServiceName,
-		ProfessionalName: st.ProfessionalName, Start: st.Start, Location: loc, CancelReason: st.CancelReason,
-	}
-	providerID, sendErr := sender.Send(ctx, Outgoing{MessageID: m.ID, Kind: m.Kind, Channel: m.Channel, To: m.Recipient, Content: content})
+	providerID, sendErr := sender.Send(ctx, out)
 	m.UpdatedAt = s.d.Clock.Now()
 	if sendErr != nil {
 		m.ErrorCode = "UNKNOWN"
@@ -228,6 +239,18 @@ func (s *Service) Send(ctx context.Context, id uuid.UUID, lastAttempt bool) erro
 	}
 	m.Status, m.ProviderMessageID, m.SentAt, m.ErrorCode = domain.StatusSent, providerID, m.UpdatedAt, ""
 	return s.d.Store.FinishAttempt(ctx, m, true)
+}
+
+// contentOf is what a message says about an appointment.
+func contentOf(st scheduling.AppointmentState) domain.Content {
+	loc, err := time.LoadLocation(st.TimeZone)
+	if err != nil || st.TimeZone == "" {
+		loc = time.UTC // never expected: the zone is validated when the business is created
+	}
+	return domain.Content{
+		CustomerName: st.CustomerName, BusinessName: st.BusinessName, ServiceName: st.ServiceName,
+		ProfessionalName: st.ProfessionalName, Start: st.Start, Location: loc, CancelReason: st.CancelReason,
+	}
 }
 
 func (s *Service) skip(ctx context.Context, m domain.Message, reason domain.SkipReason) error {

@@ -110,6 +110,85 @@ paths:
                 type: string
                 format: uri
 
+  /webhooks/whatsapp:
+    get:
+      tags: [Notifications]
+      operationId: verifyWhatsAppWebhook
+      summary: Verification of the WhatsApp webhook (Meta)
+      description: |
+        Meta calls it when the webhook URL is registered. Answers the challenge when hub.mode is
+        subscribe and hub.verify_token matches WHATSAPP_WEBHOOK_VERIFY_TOKEN. 404 when the webhook
+        is not configured.
+      security: []
+      parameters:
+        - name: hub.mode
+          in: query
+          schema:
+            type: string
+        - name: hub.verify_token
+          in: query
+          schema:
+            type: string
+        - name: hub.challenge
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The challenge, as plain text.
+          content:
+            text/plain:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Notifications]
+      operationId: receiveWhatsAppWebhook
+      summary: Events of the WhatsApp Cloud API (Meta)
+      description: |
+        Delivery statuses (delivered, read, failed) of the messages sent and the answers to the
+        quick-reply buttons of the reminder (T7.5). Only bodies signed by Meta are accepted:
+        X-Hub-Signature-256 = "sha256=" + HMAC-SHA256(App Secret, raw body). Each item is
+        processed once, asynchronously; the answer is immediate. 404 when not configured.
+      security: []
+      parameters:
+        - name: X-Hub-Signature-256
+          in: header
+          required: true
+          schema:
+            type: string
+            pattern: "^sha256=[0-9a-f]{64}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Received.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: The signature is missing or wrong (code INVALID_SIGNATURE).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          description: Body too large.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+
   /readyz:
     get:
       tags: [Operations]

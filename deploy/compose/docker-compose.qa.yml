@@ -111,6 +111,9 @@ services:
       # below the container limit.
       ARGON2_MAX_CONCURRENT: "1"
       GOMEMLIMIT: 180MiB
+      # WhatsApp webhook (T7.5): only the API receives it.
+      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
+      WHATSAPP_WEBHOOK_VERIFY_TOKEN: ${WHATSAPP_WEBHOOK_VERIFY_TOKEN:-}
     ports:
       # Host-only, for deployment smoke tests; public traffic goes through Caddy.
       - "127.0.0.1:8080:8080"

@@ -27,3 +27,14 @@ func TestSimulatedSenderLogsWithoutTheFullNumber(t *testing.T) {
 		t.Errorf("log = %s", log)
 	}
 }
+
+func TestSimulatedReplyLogsWithoutTheText(t *testing.T) {
+	var buf bytes.Buffer
+	s := simulated.New(slog.New(slog.NewJSONHandler(&buf, nil)))
+	if id, err := s.SendText(context.Background(), "+573001234567", "¡Listo, Laura!"); err != nil || id == "" {
+		t.Fatalf("%q %v", id, err)
+	}
+	if log := buf.String(); strings.Contains(log, "3001234567") || strings.Contains(log, "Laura") || !strings.Contains(log, "reply simulated") {
+		t.Errorf("log = %s", log)
+	}
+}

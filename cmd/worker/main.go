@@ -96,8 +96,10 @@ func run() error {
 	// Messages name the business and the professional (T7.3).
 	businessesSvc := app.NewBusinessesService(pool, identitySvc, app.NewGeographyService(pool, identitySvc), subscriptionsSvc)
 	professionalsSvc := app.NewProfessionalsService(pool, identitySvc)
-	notificationsSvc := app.NewNotificationsService(cfg.Notifications, pool, inserter,
-		app.NewSchedulingReader(pool, identitySvc, businessesSvc, professionalsSvc), businessesSvc, logger)
+	schedulingReader := app.NewSchedulingReader(pool, identitySvc, businessesSvc, professionalsSvc)
+	notificationsSvc := app.NewNotificationsService(cfg.Notifications, pool, inserter, schedulingReader, businessesSvc, logger)
+	// A confirmation or cancellation from WhatsApp (T7.5) is recorded like any other change.
+	app.LinkNotifications(schedulingReader, notificationsSvc)
 	if err := notificationsworker.Register(workers, notificationsSvc); err != nil {
 		return err
 	}

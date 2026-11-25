@@ -1,6 +1,6 @@
 # Notificaciones: WhatsApp y push
 
-Estado: **Fase 7 en curso** (T7.1–T7.4 implementadas: §7–§10). ADR-0008, ADR-0009, ADR-0010.
+Estado: **Fase 7 en curso** (T7.1–T7.5 implementadas: §7–§11). ADR-0008, ADR-0009, ADR-0010.
 
 ## 1. Principios
 
@@ -179,3 +179,40 @@ sale de inmediato**.
   (T7.5), que agregará los códigos de un solo uso.
 - Unicidad: `UNIQUE (event_id, kind, channel, recipient_role)` (migración 00021): el aviso y el
   recordatorio de un mismo cambio son mensajes distintos.
+
+## 11. Webhook de WhatsApp (T7.5)
+
+- **`GET /webhooks/whatsapp`**: verificación de Meta. Responde el `hub.challenge` (solo un número)
+  si `hub.mode=subscribe` y `hub.verify_token` coincide (comparación en tiempo constante); si no,
+  403. Sin configurar → 404.
+- **`POST /webhooks/whatsapp`**: solo cuerpos firmados por Meta: `X-Hub-Signature-256 = sha256=` +
+  HMAC-SHA256(App Secret, cuerpo crudo), comparado en tiempo constante; si no, 401
+  `INVALID_SIGNATURE` (se registra sin el cuerpo). Máximo 1 MiB. Del campo `messages` se toman:
+  estados `delivered`, `read`, `failed` (con su código) y respuestas de botón (`type=button`);
+  lo demás se ignora. Cada elemento se inserta en `webhook_events` (`status:<wamid>:<estado>`,
+  `message:<wamid>`): un reintento de Meta no se procesa dos veces. Se encola un job
+  `notifications.process_webhook_item` y se responde 200 de inmediato; un error interno → 500
+  (Meta reintenta).
+- **Estados de entrega:** solo hacia adelante (`SENT → DELIVERED → READ`; `SENT/DELIVERED → FAILED`).
+  Índice único en `provider_message_id`.
+- **Botones del recordatorio:** al enviar el recordatorio se emiten dos códigos aleatorios de 32
+  bytes (43 caracteres) como `payload` de "Confirmar cita" y "Cancelar cita"; se guarda solo su
+  SHA-256 en `appointment_action_tokens`, con el número destino y vencimiento = inicio de la cita.
+  Al responder, en una sola transacción: el código existe, el número que respondió es el destino
+  del recordatorio, se bloquean los códigos de ese recordatorio (orden fijo), no está usado ni
+  vencido, la cita sigue en la misma hora y barbero; luego se confirma o cancela **como el cliente**
+  (`scheduling.CustomerReplies`, con su límite de cancelación) y se gastan los dos códigos. Un
+  segundo toque, el otro botón o un número ajeno → "Este botón ya no es válido".
+- **Respuesta al cliente** (mensaje de sesión, sin plantilla, dentro de las 24 h que abrió el
+  cliente; job `notifications.send_reply`, misma lista blanca):
+
+| Resultado | Texto |
+|---|---|
+| Confirmada | "¡Listo, {cliente}! Tu cita de {servicio} en {negocio} quedó confirmada para el {fecha}. Te esperamos." |
+| Cancelada | "Tu cita de {servicio} en {negocio} del {fecha} quedó cancelada. Si quieres, puedes agendar otra desde la app." |
+| Límite de cancelación | "Ya no es posible cancelar tu cita por aquí porque falta muy poco para la hora. Por favor comunícate con {negocio}." |
+| Cita no activa | "Esta cita ya no está activa. Si quieres, puedes agendar una nueva desde la app." |
+| Código inválido / usado / vencido / cita movida | "Este botón ya no es válido: ya respondiste o tu cita cambió. Revisa tu cita en la app o comunícate con el negocio." |
+
+- **Configuración:** `WHATSAPP_APP_SECRET` (32 hex) y `WHATSAPP_WEBHOOK_VERIFY_TOKEN` (16–200),
+  los dos o ninguno; en QA solo los recibe la API.

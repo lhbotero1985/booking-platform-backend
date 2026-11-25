@@ -10,6 +10,18 @@ import (
 	"github.com/google/uuid"
 )
 
+type AppointmentActionToken struct {
+	TokenHash     []byte
+	MessageID     uuid.UUID
+	BusinessID    uuid.UUID
+	AppointmentID uuid.UUID
+	Action        string
+	Recipient     string
+	ExpiresAt     time.Time
+	UsedAt        *time.Time
+	CreatedAt     time.Time
+}
+
 type NotificationMessage struct {
 	ID                uuid.UUID
 	BusinessID        uuid.UUID

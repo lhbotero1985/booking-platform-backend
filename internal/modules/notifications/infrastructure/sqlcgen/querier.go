@@ -11,12 +11,22 @@ import (
 )
 
 type Querier interface {
+	ActionTokenByHash(ctx context.Context, tokenHash []byte) (AppointmentActionToken, error)
 	AppointmentMessages(ctx context.Context, arg AppointmentMessagesParams) ([]NotificationMessage, error)
+	// Returns the row only the first time the event arrives.
+	ClaimWebhookEvent(ctx context.Context, arg ClaimWebhookEventParams) ([]string, error)
 	// Records the outcome of one delivery attempt; a message that is no longer pending is left alone.
 	FinishMessage(ctx context.Context, arg FinishMessageParams) error
+	InsertActionToken(ctx context.Context, arg InsertActionTokenParams) error
 	// Returns the row only when it was inserted (a repeated event inserts nothing).
 	InsertMessage(ctx context.Context, arg InsertMessageParams) ([]uuid.UUID, error)
+	// Locks every token of a message: its buttons answer once, in order.
+	LockMessageTokens(ctx context.Context, messageID uuid.UUID) ([][]byte, error)
 	MessageByID(ctx context.Context, id uuid.UUID) (NotificationMessage, error)
+	// A status from Meta only moves a sent message forward: SENT → DELIVERED → READ, or SENT /
+	// DELIVERED → FAILED. Late or repeated statuses change nothing.
+	UpdateDeliveryStatus(ctx context.Context, arg UpdateDeliveryStatusParams) (int64, error)
+	UseMessageTokens(ctx context.Context, arg UseMessageTokensParams) error
 }
 
 var _ Querier = (*Queries)(nil)
