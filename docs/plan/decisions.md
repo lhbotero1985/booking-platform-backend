@@ -4,6 +4,7 @@ Decisiones relevantes no arquitectónicas (las arquitectónicas tienen ADR en `d
 
 | Fecha | Decisión | Motivo | Estado |
 |---|---|---|---|
+| 2026-11-25 | Portales web del frontend en el Droplet QA (2 GB): Caddy sirve `booka-app-qa` y `booka-admin-qa` con `/api/*` del mismo origen hacia la API; cada portal en su proyecto Compose (`qa/web`) sobre la red del backend; despliegue con script y llave de CI propios (`booka-web-deploy`), rollback por portal | Autorización del usuario (D-20 del frontend); separación de despliegues backend/frontend y mínimo privilegio | Rama `feature/qa-web-portals`; pasos de operador en `qa-deployment.md` §3B |
 | 2026-11-18 | Código e identificadores en inglés; documentación en español | Convención del ecosistema Go; documentación para el equipo | Propuesto |
 | 2026-11-18 | Git en `booking-platform-backend/` → movido a la raíz (monorepo) → **devuelto al backend** | Aclaración del usuario: dos repos en GitHub (backend y frontend). ADR-0016 reemplaza a ADR-0014 | Aplicado |
 | 2026-11-18 | Repositorios GitHub **privados** | Decisión del usuario (P2) | Aceptado |

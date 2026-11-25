@@ -165,6 +165,10 @@ services:
     image: caddy:2.11.9-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0
     environment:
       SITE_DOMAIN: ${SITE_DOMAIN:?missing}
+      # Frontend web portals (deploy/compose/qa/web). Host names are not secrets: defaults let an
+      # existing .env keep working; override them in .env when they change.
+      APP_DOMAIN: ${APP_DOMAIN:-booka-app-qa.duckdns.org}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:-booka-admin-qa.duckdns.org}
     ports:
       - "80:80"
       - "443:443"

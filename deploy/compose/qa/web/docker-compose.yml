@@ -1,0 +1,33 @@
+# QA web portal of the frontend (booking-platform-frontend: business-web or admin-web).
+# One Compose project per portal, started only by /usr/local/bin/booka-web-deploy
+# (deploy/server/web-deploy.sh), which sets WEB_APP and WEB_IMAGE:
+#
+#   WEB_APP=business-web WEB_IMAGE=ghcr.io/…/business-web@sha256:… \
+#     docker compose -p booka-qa-business-web -f qa/web/docker-compose.yml up -d
+#
+# The container joins the backend stack's network under the alias WEB_APP, so Caddy
+# (qa/Caddyfile) reaches it as http://business-web:3000. No published ports.
+services:
+  web:
+    image: ${WEB_IMAGE:?missing}
+    environment:
+      # Server-side rendering of public pages (frontend ADR-F006) talks to the API inside the
+      # network, never through the Internet.
+      API_INTERNAL_URL: http://api:8080
+    networks:
+      backend:
+        aliases: ["${WEB_APP:?missing}"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+      - /app/apps/${WEB_APP}/.next/cache:size=64m,uid=1000,gid=1000,mode=0700
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 192m
+    pids_limit: 100
+    restart: unless-stopped
+
+networks:
+  backend:
+    external: true
+    name: booking-qa_default

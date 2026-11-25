@@ -1050,3 +1050,12 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Vista previa en Chrome sin interfaz (correo del cliente y del barbero) | ✅ | Revisión visual del diseño |
 | `task check` (lint 0, sin vulnerabilidades) / `sqlc:check` / `shellcheck` / integración completa (migración 00023) / gitleaks | ✅ | |
 | Despliegue y E2E en QA | ⏳ | Tras el merge: correos en Mailpit (comprobante del cliente, aviso al barbero) |
+
+## 2026-11-25 · Integración frontend · portales web en QA
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `shellcheck -S style` (web-deploy.sh, qa-env.sh, deploy.sh) | ✅ | Tras corregir SC2015 en `env_value` |
+| `caddy validate` (Caddyfile con los dos portales) | ✅ | "Valid configuration" |
+| Compose web local con la imagen real de business-web en la red `booking-qa_default` | ✅ | `healthy`, raíz de solo lectura, caché en tmpfs escribible, `/healthz` por el alias `business-web:3000`, 116 MiB de 192 MiB |
+| Despliegue real en QA | ⏳ | Droplet apagado; pasos de operador pendientes (`qa-deployment.md` §3B) |
