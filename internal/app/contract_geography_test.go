@@ -24,6 +24,7 @@ import (
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application/apptest"
 	identityhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/interfaces/http"
+	notifapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/application/notiftest"
 	notificationshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/interfaces/http"
 	profapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/application"
@@ -49,6 +50,8 @@ type geoEnv struct {
 	subs     *subtest.Store
 	modules  []RouteRegistrar // as wired in cmd/api
 	clock    *clock.Fixed
+	notif    *notifapp.Service
+	outbox   *notiftest.Store
 }
 
 // newGeoServer wires identity (authentication, authorizer) and geography like cmd/api does.
@@ -77,7 +80,8 @@ func newGeoServer(t *testing.T) geoEnv {
 	LinkPublicCatalog(biz, cat, profs, biz)
 	sched := schedapp.NewService(schedapp.Deps{Store: schedtest.NewStore(), Authz: e.identity, Businesses: biz, Catalog: cat, Professionals: profs, Bookable: profs, Customers: e.identity, Clock: clk})
 	LinkAgendaGuard(profs, sched)
-	notif, _ := notiftest.NewService(sched, biz, clk)
+	notif, outbox := notiftest.NewService(sched, biz, clk)
+	e.notif, e.outbox = notif, outbox
 	LinkNotifications(sched, notif)
 	e.modules = []RouteRegistrar{
 		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),
@@ -87,6 +91,7 @@ func newGeoServer(t *testing.T) geoEnv {
 		schedulinghttp.New(sched, logger, idh.RequireAuth),
 		notificationshttp.New(notif, logger, idh.RequireAuth),
 		notificationshttp.NewWebhook(notif, notificationshttp.WebhookConfig{AppSecret: testWebhookSecret, VerifyToken: testWebhookVerifyToken}, logger),
+		notificationshttp.NewLinks(notif, notificationshttp.LinksConfig{}, nil, logger),
 	}
 	e.srv = httptest.NewServer(NewHTTPHandler(cfg, logger, Deps{Modules: e.modules}))
 	t.Cleanup(e.srv.Close)

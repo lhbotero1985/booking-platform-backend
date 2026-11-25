@@ -36,6 +36,7 @@ type view struct {
 	PhoneURL        htmltemplate.URL
 	Policy          []string
 	AppURL          string
+	Buttons         []button
 	ForProfessional bool
 }
 
@@ -94,8 +95,44 @@ func copyOf(kind domain.Kind, role domain.Role, c domain.Content) (texts, bool) 
 	return texts{}, false
 }
 
+// button is a link of the email (T7.7). Style is one of the constant styles below.
+type button struct {
+	Label, URL, Text string
+	Style            htmltemplate.CSS
+}
+
+const (
+	stylePrimary   htmltemplate.CSS = "background:#7C3AED;color:#FFFFFF;border:1px solid #7C3AED;"
+	styleSecondary htmltemplate.CSS = "background:#FFFFFF;color:#6D28D9;border:1px solid #C4B5FD;"
+	styleDanger    htmltemplate.CSS = "background:#FFFFFF;color:#B91C1C;border:1px solid #FCA5A5;"
+)
+
+// buttons are the links of the email, in the order the customer reads them.
+func buttons(links map[domain.Action]string, cfg Config) []button {
+	if len(links) == 0 || cfg.LinksBaseURL == "" {
+		return nil
+	}
+	base := strings.TrimRight(cfg.LinksBaseURL, "/")
+	link := func(path, tok string) string { return base + path + "?token=" + url.QueryEscape(tok) }
+	var out []button
+	if tok := links[domain.ActionConfirm]; tok != "" {
+		out = append(out, button{"Confirmar cita", link("/citas/confirmar", tok), "Confirmar tu cita", stylePrimary})
+	}
+	if tok := links[domain.ActionReschedule]; tok != "" {
+		u := link("/citas/reagendar", tok)
+		if cfg.RescheduleURL != "" { // the frontend's page, when it exists
+			u = strings.TrimRight(cfg.RescheduleURL, "?") + "?token=" + url.QueryEscape(tok)
+		}
+		out = append(out, button{"Reagendar", u, "Cambiar la hora", styleSecondary})
+	}
+	if tok := links[domain.ActionCancel]; tok != "" {
+		out = append(out, button{"Cancelar cita", link("/citas/cancelar", tok), "Cancelar tu cita", styleDanger})
+	}
+	return out
+}
+
 // Render builds the email of a message. false when the kind has no email for that recipient.
-func Render(m application.Outgoing, appURL string) (Rendered, bool, error) {
+func Render(m application.Outgoing, cfg Config) (Rendered, bool, error) {
 	c := m.Content
 	cp, ok := copyOf(m.Kind, m.Role, c)
 	if !ok {
@@ -104,7 +141,7 @@ func Render(m application.Outgoing, appURL string) (Rendered, bool, error) {
 	v := view{
 		Title: cp.title, Intro: cp.intro, BusinessName: c.BusinessName, ServiceName: c.ServiceName,
 		Date: capitalize(c.DateES()), Time: c.TimeES(), Professional: c.ProfessionalName, CustomerName: c.CustomerName,
-		ForProfessional: m.Role == domain.RecipientProfessional, AppURL: appURL,
+		ForProfessional: m.Role == domain.RecipientProfessional, AppURL: cfg.AppDownloadURL, Buttons: buttons(m.Links, cfg),
 	}
 	if s, ok := statuses[c.Status]; ok {
 		v.Badge, v.BadgeColor, v.BadgeBackground = s[0], s[1], s[2]
@@ -212,6 +249,9 @@ var htmlTemplate = htmltemplate.Must(htmltemplate.New("email").Parse(`<!doctype 
 {{if .CancelReason}}<tr><td width="32" valign="top">💬</td><td style="padding:4px 0;">Motivo: {{.CancelReason}}</td></tr>{{end}}
 </table>
 </td></tr>
+{{if .Buttons}}<tr><td style="padding:12px 24px 4px;">{{range .Buttons}}<a href="{{.URL}}" style="display:inline-block;margin:0 8px 10px 0;padding:12px 18px;border-radius:10px;font-size:15px;font-weight:bold;text-decoration:none;{{.Style}}">{{.Label}}</a>{{end}}
+<div style="font-size:12px;line-height:1.5;color:#64748B;">Cada botón abre una página donde confirmas el cambio.</div>
+</td></tr>{{end}}
 {{if .Policy}}<tr><td style="padding:8px 24px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F3E8FF;border-radius:12px;">
 <tr><td style="padding:14px 16px;font-size:14px;line-height:1.5;color:#4C1D95;"><b>Políticas del negocio</b>{{range .Policy}}<br>{{.}}{{end}}</td></tr>
@@ -245,7 +285,9 @@ Con {{.Professional}}{{end}}{{if .Address}}
 Dirección: {{.Address}}{{end}}{{if .MapsURL}}
 Mapa: {{.MapsURL}}{{end}}{{if .CancelReason}}
 Motivo: {{.CancelReason}}{{end}}
-{{if .Policy}}
+{{if .Buttons}}{{range .Buttons}}
+{{.Text}}: {{.URL}}{{end}}
+{{end}}{{if .Policy}}
 Políticas del negocio:{{range .Policy}}
 - {{.}}{{end}}
 {{end}}{{if .Phone}}

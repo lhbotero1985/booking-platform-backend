@@ -354,6 +354,8 @@ linters:
       default-signifies-exhaustive: true
     misspell:
       locale: US
+      # Spanish words of the user-facing texts (emails and pages).
+      ignore-rules: [confirmas, cancelas]
   exclusions:
     presets:
       - std-error-handling

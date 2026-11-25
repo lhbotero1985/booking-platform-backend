@@ -189,6 +189,10 @@ func (t *txStore) UseMessageTokens(ctx context.Context, messageID uuid.UUID, at 
 	return t.q.UseMessageTokens(ctx, sqlcgen.UseMessageTokensParams{UsedAt: &at, MessageID: messageID})
 }
 
+func (t *txStore) UseActionToken(ctx context.Context, hash []byte, at time.Time) error {
+	return t.q.UseActionToken(ctx, sqlcgen.UseActionTokenParams{UsedAt: &at, TokenHash: hash})
+}
+
 func (t *txStore) EnqueueReply(ctx context.Context, to, text string) error {
 	_, err := t.jobs.InsertTx(ctx, t.tx, worker.SendReplyArgs{To: to, Text: text}, nil)
 	return err

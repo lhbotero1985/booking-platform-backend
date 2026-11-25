@@ -142,6 +142,8 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 			cataloghttp.New(catalogSvc, logger, identityHandler.RequireAuth),
 			schedulinghttp.New(schedulingSvc, logger, identityHandler.RequireAuth),
 			notificationshttp.New(notificationsSvc, logger, identityHandler.RequireAuth),
+			// T7.7: the links of the appointment emails (two taps), with the strict limit.
+			notificationshttp.NewLinks(notificationsSvc, notificationshttp.LinksConfig{AppDownloadURL: cfg.AppDownloadURL}, limiters.Auth, logger),
 			notificationshttp.NewWebhook(notificationsSvc, notificationshttp.WebhookConfig{
 				AppSecret: cfg.Notifications.WhatsAppAppSecret, VerifyToken: cfg.Notifications.WhatsAppWebhookVerifyToken,
 			}, logger),

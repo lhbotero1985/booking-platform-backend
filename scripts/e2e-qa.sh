@@ -375,6 +375,52 @@ if [[ -n ${WHATSAPP_TEST_PHONE:-} ]]; then
   check "  still one notice" 1 "$(status GET "/api/v1/business/$mine/appointments/$wa_appt/notifications" "" "$TS" >/dev/null; json '[.items[] | select(.channel == "WHATSAPP" and .kind != "APPOINTMENT_REMINDER")] | length')"
   check "customer phone restored" 200 "$(status PUT /api/v1/me/phone '{"phone":"300 111 2233"}' "$T1")"
 fi
+# --- links of the appointment emails (T7.7): two taps; the code is the credential -------------
+mail_total() { curl -s "$M/api/v1/search?query=to:$1" | jq -r '.messages_count // 0'; }
+mail_newest_text() { # email count-before -> text of the newest email once a new one arrived
+  local id
+  for _ in $(seq 1 30); do
+    if (($(mail_total "$1") > $2)); then
+      id=$(curl -s "$M/api/v1/search?query=to:$1" | jq -r '.messages[0].ID')
+      curl -s "$M/api/v1/message/$id" | jq -r '.Text'
+      return
+    fi
+    sleep 1
+  done
+}
+form() { # PATH TOKEN -> status of a form post (body in $tmp/b); honours Retry-After
+  local code wait
+  for _ in 1 2 3 4 5 6; do
+    code=$(curl -s "${X[@]}" -X POST "$B$1" --data-urlencode "token=$2" -D "$tmp/h" -o "$tmp/b" -w '%{http_code}')
+    [[ $code == 429 ]] || break
+    wait=$(tr -d '\r' <"$tmp/h" | sed -n 's/^[Rr]etry-[Aa]fter: *//p')
+    sleep "$((${wait:-10} + 1))"
+  done
+  echo "$code"
+}
+link_of() { grep -o "https://[^ ]*$1?token=[A-Za-z0-9_%.-]*" <<<"$2" | head -1; }
+tok() { echo "${1##*token=}"; }
+before=$(mail_total "$EMAIL")
+lk_start=$(status GET "$av&date=$tue" >/dev/null; json '.slots[0].startAt')
+check "customer books (email links)" 201 "$(book "$lk_start" "e2e-$(date +%s)-links" "$T1")"
+lk_appt=$(json .id)
+lk_text=$(mail_newest_text "$EMAIL" "$before")
+lk_confirm=$(link_of /citas/confirmar "$lk_text")
+lk_resched=$(link_of /citas/reagendar "$lk_text")
+lk_cancel=$(link_of /citas/cancelar "$lk_text")
+check "  its email has the three links" 3 "$(for l in "$lk_confirm" "$lk_resched" "$lk_cancel"; do [[ -n $l ]] && echo x; done | wc -l | tr -d ' ')"
+check "first tap: the page" 200 "$(status GET "${lk_confirm#"$B"}")"
+check "  security headers" 1 "$(hdrs | grep -ci "^content-security-policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'")"
+check "  changes nothing" PENDING_CONFIRMATION "$(status GET "/api/v1/me/appointments/$lk_appt" "" "$T1" >/dev/null; json .status)"
+check "second tap confirms" "200 1" "$(form /citas/confirmar "$(tok "$lk_confirm")") $(grep -c 'quedó confirmada' "$tmp/b")"
+check "  status CONFIRMED" CONFIRMED "$(status GET "/api/v1/me/appointments/$lk_appt" "" "$T1" >/dev/null; json .status)"
+check "the same link again: no longer valid" "200 1" "$(form /citas/confirmar "$(tok "$lk_confirm")") $(grep -c 'ya no es válido' "$tmp/b")"
+check "reschedule (frontend API): lookup" "null $svc" "$(status POST /api/v1/appointment-links/lookup "{\"token\":\"$(tok "$lk_resched")\",\"action\":\"RESCHEDULE\"}" >/dev/null; json '"\(.outcome) \(.appointment.serviceId)"')"
+lk_new=$(status GET "$av&date=$tue" >/dev/null; json '.slots[0].startAt')
+check "  moves it to a free time" "200 RESCHEDULED" "$(status POST /api/v1/appointment-links/apply "{\"token\":\"$(tok "$lk_resched")\",\"action\":\"RESCHEDULE\",\"startAt\":\"$lk_new\"}") $(json .outcome)"
+check "  as the customer (history)" "RESCHEDULED" "$(status GET "/api/v1/business/$mine/appointments/$lk_appt/history" "" "$T1" >/dev/null; json '.items[-1].type')"
+check "  the email's cancel link is spent" "200 1" "$(status GET "${lk_cancel#"$B"}") $(grep -c 'ya no es válido' "$tmp/b")"
+check "frees the slot (customer cancels)" 200 "$(status POST "/api/v1/me/appointments/$lk_appt/cancel" "" "$T1")"
 check "a cancelled one cannot be confirmed" 409 "$(status POST "$st_appt/confirm" "" "$TS")"
 
 # --- coherence of the agenda (T6.7) ------------------------------------------------------------

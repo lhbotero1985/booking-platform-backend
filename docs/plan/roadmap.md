@@ -159,7 +159,7 @@ cliente conserva al menos uno); límite de reprogramaciones por negocio.
 | T7.4 ✅ | Recordatorios según el negocio, con botones Confirmar / Cancelar | Un recordatorio viejo se descarta |
 | T7.5 ✅ | Webhook de Meta: firma, duplicados, estados de entrega y respuestas de los botones (token de un solo uso) | Firma falsa → rechazo; botón reusado → sin efecto |
 | T7.6 ✅ | Correos de citas (Booka): HTML + texto, al cliente (los mismos avisos que WhatsApp, además del WhatsApp) y al barbero (reservas, cancelaciones y cambios); datos, política del negocio, dirección con mapa, contacto | Correo con diseño aprobado por el usuario, visto en Mailpit QA |
-| T7.7 | Acciones desde el correo en dos toques: confirmar y cancelar (página con botón, código de un solo uso); reagendar: servicios para el frontend, con el código | Abrir el enlace no cambia nada; código reusado → sin efecto |
+| T7.7 ✅ | Acciones desde el correo en dos toques: confirmar y cancelar (página con botón, código de un solo uso); reagendar: servicios para el frontend, con el código | Abrir el enlace no cambia nada; código reusado → sin efecto |
 | T7.8 | Límite de reprogramaciones por cita, configurable por negocio | Superado el límite → rechazo, para cliente y botones |
 | T7.9 | Preferencias de notificación: el cliente elige WhatsApp y/o correo (al menos uno) y apaga los recordatorios; el barbero activa o apaga sus correos. Control de costos (P16) | Sin canal → rechazo; tope alcanzado → no se envía |
 | T7.10 | E2E en QA con mensajes reales, pruebas de seguridad del webhook y de los enlaces, cierre | Aprobación del usuario |

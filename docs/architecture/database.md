@@ -143,6 +143,7 @@ notification_messages(id, business_id, appointment_id, event_id → appointment_
 -- 00020–00022: tipos nuevos, send_at, unique(event_id, kind, channel, recipient_role).
 -- 00023 (T7.6): canal EMAIL, tipo APPOINTMENT_CANCELLED_BY_CUSTOMER; recipient vacío solo para
 -- EMAIL hasta enviarlo (la dirección se resuelve al enviar), hasta 254 caracteres.
+-- 00024 (T7.7): appointment_action_tokens.action admite RESCHEDULE (enlaces del correo).
 appointment_action_tokens(token_hash bytea pk, appointment_id, appointment_version, action,
                           phone, expires_at, used_at)
 webhook_events(provider text, event_id text, received_at, processed_at, payload_hash bytea,

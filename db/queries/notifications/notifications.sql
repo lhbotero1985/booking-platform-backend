@@ -60,3 +60,7 @@ SELECT token_hash FROM appointment_action_tokens WHERE message_id = @message_id 
 
 -- name: UseMessageTokens :exec
 UPDATE appointment_action_tokens SET used_at = @used_at WHERE message_id = @message_id AND used_at IS NULL;
+
+-- name: UseActionToken :exec
+-- T7.7: a confirmation from an email spends only its own link (the email's cancel link still works).
+UPDATE appointment_action_tokens SET used_at = @used_at WHERE token_hash = @token_hash AND used_at IS NULL;

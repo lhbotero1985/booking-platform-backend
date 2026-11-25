@@ -70,6 +70,7 @@ func TestLoadOverrides(t *testing.T) {
 		"DB_CONNECT_TIMEOUT":       "2s",
 		"SMTP_TLS":                 "starttls",
 		"PUBLIC_APP_URL":           "https://qa.example.com",
+		"PUBLIC_API_URL":           "https://api.qa.example.com",
 	}))
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
@@ -191,23 +192,23 @@ func TestSMTPAndPublicURLConfig(t *testing.T) {
 		t.Errorf("dev defaults = %+v %q", cfg.SMTP, cfg.PublicAppURL)
 	}
 	if _, err := Load(envFrom(map[string]string{
-		"APP_ENV": "qa", "SMTP_TLS": "starttls", "PUBLIC_APP_URL": "https://qa.example.com",
+		"APP_ENV": "qa", "SMTP_TLS": "starttls", "PUBLIC_APP_URL": "https://qa.example.com", "PUBLIC_API_URL": "https://api.example.com",
 	})); err != nil {
 		t.Errorf("valid QA config rejected: %v", err)
 	}
 	// QA uses Mailpit on the internal network without TLS.
 	if _, err := Load(envFrom(map[string]string{
-		"APP_ENV": "qa", "SMTP_HOST": "mailpit", "SMTP_TLS": "none", "PUBLIC_APP_URL": "https://qa.example.com",
+		"APP_ENV": "qa", "SMTP_HOST": "mailpit", "SMTP_TLS": "none", "PUBLIC_APP_URL": "https://qa.example.com", "PUBLIC_API_URL": "https://api.example.com",
 	})); err != nil {
 		t.Errorf("QA with Mailpit rejected: %v", err)
 	}
 	for name, env := range map[string]map[string]string{
-		"prod without TLS":   {"APP_ENV": "production", "PUBLIC_APP_URL": "https://app.example.com"},
+		"prod without TLS":   {"APP_ENV": "production", "PUBLIC_APP_URL": "https://app.example.com", "PUBLIC_API_URL": "https://api.example.com"},
 		"prod http app url":  {"APP_ENV": "production", "SMTP_TLS": "tls", "PUBLIC_APP_URL": "http://app.example.com"},
 		"unknown TLS":        {"APP_ENV": "test", "SMTP_TLS": "ssl"},
 		"user without pass":  {"APP_ENV": "test", "SMTP_USERNAME": "u"},
 		"relative app url":   {"APP_ENV": "test", "PUBLIC_APP_URL": "/app"},
-		"app url with query": {"APP_ENV": "test", "PUBLIC_APP_URL": "https://a.com/?x=1"},
+		"app url with query": {"APP_ENV": "test", "PUBLIC_APP_URL": "https://a.com/?x=1", "PUBLIC_API_URL": "https://api.example.com"},
 		"port out of range":  {"APP_ENV": "test", "SMTP_PORT": "70000"},
 	} {
 		if _, err := Load(envFrom(env)); err == nil {
@@ -278,7 +279,7 @@ func TestNotificationsConfig(t *testing.T) {
 	if cfg, err := Load(envFrom(map[string]string{"APP_ENV": "development", "NOTIFICATIONS_EMAIL_ENABLED": "false"})); err != nil || cfg.Notifications.EmailEnabled {
 		t.Errorf("emails off: %v %v", cfg.Notifications.EmailEnabled, err)
 	}
-	cfg, err = Load(envFrom(map[string]string{"APP_ENV": "qa", "PUBLIC_APP_URL": "https://app.example.com", "SMTP_TLS": "starttls",
+	cfg, err = Load(envFrom(map[string]string{"APP_ENV": "qa", "PUBLIC_APP_URL": "https://app.example.com", "PUBLIC_API_URL": "https://api.example.com", "SMTP_TLS": "starttls",
 		"WHATSAPP_ENABLED": "true", "WHATSAPP_ALLOWLIST": " +573001234567, +12125550100 "}))
 	if err != nil {
 		t.Fatal(err)
@@ -303,7 +304,7 @@ func TestNotificationsConfig(t *testing.T) {
 func TestWhatsAppCloudAPIConfig(t *testing.T) {
 	const token = "EAAsecretTOKEN1234567890abc"
 	qa := func(extra map[string]string) map[string]string {
-		m := map[string]string{"APP_ENV": "qa", "PUBLIC_APP_URL": "https://app.example.com", "SMTP_TLS": "starttls"}
+		m := map[string]string{"APP_ENV": "qa", "PUBLIC_APP_URL": "https://app.example.com", "PUBLIC_API_URL": "https://api.example.com", "SMTP_TLS": "starttls"}
 		for k, v := range extra {
 			m[k] = v
 		}
@@ -325,7 +326,7 @@ func TestWhatsAppCloudAPIConfig(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "WHATSAPP_ALLOWLIST: is required in qa") || strings.Contains(err.Error(), token) {
 		t.Errorf("qa without allowlist: %v", err)
 	}
-	if _, err := Load(envFrom(map[string]string{"APP_ENV": "production", "PUBLIC_APP_URL": "https://app.example.com", "SMTP_TLS": "tls",
+	if _, err := Load(envFrom(map[string]string{"APP_ENV": "production", "PUBLIC_APP_URL": "https://app.example.com", "PUBLIC_API_URL": "https://api.example.com", "SMTP_TLS": "tls",
 		"WHATSAPP_ACCESS_TOKEN": token, "WHATSAPP_PHONE_NUMBER_ID": "106540352242922"})); err != nil {
 		t.Errorf("production writes to anyone: %v", err)
 	}
@@ -393,6 +394,30 @@ func TestWhatsAppWebhookConfig(t *testing.T) {
 		}
 		if strings.Contains(err.Error(), "NOT-A-SECRET") || strings.Contains(err.Error(), "has spaces") {
 			t.Errorf("%s: value echoed: %v", name, err)
+		}
+	}
+}
+
+// TestEmailLinksConfig (T7.7): the public origin of the API (https when deployed) and the
+// optional page of the frontend that picks a new time.
+func TestEmailLinksConfig(t *testing.T) {
+	cfg, err := Load(envFrom(map[string]string{"APP_ENV": "development"}))
+	if err != nil || cfg.PublicAPIURL != "http://localhost:8080" || cfg.AppointmentRescheduleURL != "" {
+		t.Fatalf("defaults: %q %q %v", cfg.PublicAPIURL, cfg.AppointmentRescheduleURL, err)
+	}
+	cfg, err = Load(envFrom(map[string]string{"APP_ENV": "development", "PUBLIC_API_URL": "https://api.example.com/",
+		"APPOINTMENT_RESCHEDULE_URL": "https://app.example.com/reagendar"}))
+	if err != nil || cfg.PublicAPIURL != "https://api.example.com" || cfg.AppointmentRescheduleURL != "https://app.example.com/reagendar" {
+		t.Errorf("set: %q %q %v", cfg.PublicAPIURL, cfg.AppointmentRescheduleURL, err)
+	}
+	for name, env := range map[string]map[string]string{
+		"http in qa":           {"APP_ENV": "qa", "PUBLIC_APP_URL": "https://app.example.com", "SMTP_TLS": "starttls", "PUBLIC_API_URL": "http://api.example.com"},
+		"not a URL":            {"APP_ENV": "development", "PUBLIC_API_URL": "api"},
+		"reschedule over http": {"APP_ENV": "development", "APPOINTMENT_RESCHEDULE_URL": "http://app.example.com/r"},
+		"reschedule w/ query":  {"APP_ENV": "development", "APPOINTMENT_RESCHEDULE_URL": "https://app.example.com/r?x=1"},
+	} {
+		if _, err := Load(envFrom(env)); err == nil {
+			t.Errorf("%s accepted", name)
 		}
 	}
 }

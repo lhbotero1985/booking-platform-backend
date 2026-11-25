@@ -466,10 +466,23 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-25 · Fase 7 · T7.7 — Acciones desde el correo
+
+- **Estado:** ✅ en `feature/t7.7-email-actions` (commit y push; PR pendiente de autorización).
+- **Hecho:** botones Confirmar / Reagendar / Cancelar en los correos al cliente; códigos de un
+  solo uso (acción `RESCHEDULE`, migración 00024); páginas de dos toques `/citas/*`; API
+  `appointment-links/lookup|apply` para la pantalla de reagendar del frontend;
+  `scheduling.RescheduleAsCustomer`; `PUBLIC_API_URL` y `APPOINTMENT_RESCHEDULE_URL`; E2E del
+  flujo completo con los enlaces reales del correo en Mailpit. 92 rutas documentadas.
+- **Hallazgos:** la base en memoria de las pruebas no unía transacciones anidadas (un enlace
+  confirma la cita y ese cambio encola mensajes) y se bloqueaba; ahora se une como Postgres. La
+  regla de OpenAPI (errores en `problem+json`) llevó a responder 200 en las páginas. El servicio
+  `migrate` de QA valida la configuración completa: también recibe `PUBLIC_API_URL`.
+
 ## 2026-11-25 · Fase 7 · T7.6 — Correos de citas (Booka)
 
-- **Estado:** ✅ en `feature/t7.6-appointment-emails` (commit y push; PR pendiente de autorización).
-  Criterio de aceptación: el usuario aprueba el diseño viendo un correo real en Mailpit QA.
+- **Estado:** ✅ validada en QA: PR #61 (squash `3cf9b43`), CI 6/6, E2E 209/209. Pendiente: el
+  usuario aprobó el diseño (2026-11-25).
 - **Hecho:** canal `EMAIL` (migración 00023); plan de mensajes con correo al cliente y al barbero
   (solo lo que hizo el cliente) y comprobante de la cancelación del cliente; dirección resuelta al
   enviar (`identity.Accounts`, ficha del cliente, cuenta del barbero); plantilla HTML + texto con la
@@ -477,8 +490,11 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
   `Booka QA`; E2E con verificación en Mailpit.
 - **Hallazgos:** `html/template` bloquea los enlaces `tel:` (se arma solo con dígitos y se marca
   como seguro); el enlace de WhatsApp sale del teléfono del negocio.
-- **Rama anterior:** `feature/t7.6-push` quedó con los commits de documentación (ya incluidos en
-  esta rama); borrarla requiere autorización.
+- **Ramas:** `feature/t7.6-push` borrada (autorizada). `feature/t7.6-appointment-emails` sigue en
+  GitHub (integrada; borrarla requiere autorización).
+- **Incidente:** el primer despliegue falló (SSH sin respuesta) porque el droplet estaba apagado
+  para cambiarle recursos; al encenderlo se relanzó con éxito. El tamaño quedó igual (1 vCPU,
+  2 GB, 70 GB).
 
 ## 2026-11-25 · Fase 7 · T7.5 — Webhook de WhatsApp
 

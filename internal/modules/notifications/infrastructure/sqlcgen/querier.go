@@ -27,6 +27,8 @@ type Querier interface {
 	// A status from Meta only moves a sent message forward: SENT → DELIVERED → READ, or SENT /
 	// DELIVERED → FAILED. Late or repeated statuses change nothing.
 	UpdateDeliveryStatus(ctx context.Context, arg UpdateDeliveryStatusParams) (int64, error)
+	// T7.7: a confirmation from an email spends only its own link (the email's cancel link still works).
+	UseActionToken(ctx context.Context, arg UseActionTokenParams) error
 	UseMessageTokens(ctx context.Context, arg UseMessageTokensParams) error
 }
 

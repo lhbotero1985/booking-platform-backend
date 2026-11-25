@@ -32,6 +32,8 @@ type WebhookTx interface {
 	// LockMessageTokens locks every token of a message (always in the same order).
 	LockMessageTokens(ctx context.Context, messageID uuid.UUID) error
 	UseMessageTokens(ctx context.Context, messageID uuid.UUID, at time.Time) error
+	// UseActionToken spends one token (T7.7: an email's confirmation).
+	UseActionToken(ctx context.Context, hash []byte, at time.Time) error
 	EnqueueReply(ctx context.Context, to, text string) error
 }
 
@@ -145,17 +147,18 @@ func (s *Service) apply(ctx context.Context, tx Tx, hash []byte, from string) (d
 	return outcome, content, tx.UseMessageTokens(ctx, tok.MessageID, now)
 }
 
-// issueTokens stores the two tokens of a reminder's buttons (confirm, cancel) and returns them in
-// the order of the buttons. A new attempt issues new tokens; the old ones were never delivered.
-func (s *Service) issueTokens(ctx context.Context, m domain.Message) ([]string, error) {
+// issueTokens stores one token per action (the reminder's buttons: confirm, cancel; an email's
+// links, T7.7) and returns them in that order. A new attempt issues new tokens; the old ones were
+// never delivered.
+func (s *Service) issueTokens(ctx context.Context, m domain.Message, actions []domain.Action) ([]string, error) {
 	random := s.d.Random
 	if random == nil {
 		random = rand.Reader
 	}
 	now := s.d.Clock.Now()
-	raws := make([]string, 0, 2)
-	toks := make([]domain.ActionToken, 0, 2)
-	for _, a := range []domain.Action{domain.ActionConfirm, domain.ActionCancel} {
+	raws := make([]string, 0, len(actions))
+	toks := make([]domain.ActionToken, 0, len(actions))
+	for _, a := range actions {
 		raw, hash, err := domain.NewActionToken(random)
 		if err != nil {
 			return nil, err

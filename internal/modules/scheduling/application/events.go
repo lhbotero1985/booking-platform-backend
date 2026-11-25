@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -44,6 +45,7 @@ func (s *Service) AppointmentState(ctx context.Context, businessID, id uuid.UUID
 		out = contract.AppointmentState{
 			ID: a.ID, BusinessID: a.BusinessID, ProfessionalID: a.ProfessionalID, Status: string(a.Status), Start: a.Start, Version: a.Version,
 			CustomerName: a.Customer.Name, ServiceName: a.Service.Name, CancelReason: a.CancelReason, CustomerUserID: a.Customer.UserID,
+			ServiceID: a.Service.ServiceID,
 		}
 		if a.Customer.CustomerID == uuid.Nil {
 			return nil
@@ -69,7 +71,7 @@ func (s *Service) describeState(ctx context.Context, st *contract.AppointmentSta
 			return err
 		}
 		b := sums[st.BusinessID]
-		st.BusinessName, st.TimeZone = b.Name, b.TimeZone
+		st.BusinessName, st.TimeZone, st.BusinessSlug = b.Name, b.TimeZone, b.Slug
 		st.BusinessAddress, st.BusinessPhone, st.BusinessLatitude, st.BusinessLongitude = b.AddressLine, b.ContactPhone, b.Latitude, b.Longitude
 	}
 	if s.d.Professionals != nil {
@@ -108,6 +110,18 @@ func (s *Service) ConfirmAsCustomer(ctx context.Context, businessID, id uuid.UUI
 // CancelAsCustomer implements contract.CustomerReplies (with the customer's cut-off).
 func (s *Service) CancelAsCustomer(ctx context.Context, businessID, id uuid.UUID) error {
 	_, err := s.change(ctx, actor{role: domain.ActorCustomer, businessID: businessID, onBehalf: true}, id, ActionCancel, "")
+	return replyError(err)
+}
+
+// RescheduleAsCustomer implements contract.CustomerReplies (T7.7).
+func (s *Service) RescheduleAsCustomer(ctx context.Context, businessID, id uuid.UUID, start time.Time) error {
+	_, err := s.move(ctx, actor{role: domain.ActorCustomer, businessID: businessID, onBehalf: true}, id, start, uuid.Nil)
+	switch {
+	case errors.Is(err, ErrSlotUnavailable), errors.Is(err, ErrAppointmentChanged):
+		return errors.Join(contract.ErrSlotUnavailable, err)
+	case errors.Is(err, ErrNotFound):
+		return errors.Join(contract.ErrAppointmentNotFound, err)
+	}
 	return replyError(err)
 }
 

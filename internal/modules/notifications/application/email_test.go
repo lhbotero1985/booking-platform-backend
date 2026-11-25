@@ -161,27 +161,3 @@ func TestEmailSwitchAndFailures(t *testing.T) {
 		}
 	}
 }
-
-// TestEmailReminderHasNoButtons: the codes of the buttons are only issued for WhatsApp (the email
-// actions are T7.7).
-func TestEmailReminderHasNoButtons(t *testing.T) {
-	ctx := context.Background()
-	w := newEmailWorld(application.Policy{EmailEnabled: true, WhatsAppEnabled: true})
-	w.rs.pol.RemindersEnabled, w.rs.pol.ReminderHoursBefore = true, 24
-	w.appts.state.Status, w.appts.state.CustomerEmail = scheduling.StatusPendingConfirmation, "laura@negocio.co"
-	e := event("CREATED", "CUSTOMER")
-	e.Status = scheduling.StatusPendingConfirmation
-	if err := w.svc.AppointmentEventRecorded(ctx, e); err != nil {
-		t.Fatal(err)
-	}
-	for _, m := range w.st.Messages() {
-		if m.Kind == domain.KindReminder && m.Channel == domain.ChannelEmail {
-			if err := w.svc.Send(ctx, m.ID, false); err != nil {
-				t.Fatal(err)
-			}
-			if len(w.mails.sent) != 1 || len(w.mails.sent[0].ButtonPayloads) != 0 || len(w.st.Tokens(m.ID)) != 0 {
-				t.Errorf("email reminder %+v", w.mails.sent)
-			}
-		}
-	}
-}
