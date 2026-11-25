@@ -470,8 +470,8 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 
 - **Previo:** PR #54 (T6.7) → `qa`: CI 6/6 ✅, squash `b112f37`, rama borrada; `release-qa` ✅;
   E2E en QA **194/194**.
-- **Estado:** ✅ en `feature/t6.8-phase6-closure` (commit y push; PR pendiente). Cierre de fase
-  **pendiente de aprobación del usuario** (`docs/plan/phase-6-closure.md`).
+- **Estado:** ✅ en `feature/t6.8-phase6-closure`. **Fase 6 aprobada por el usuario
+  (2026-11-24)**. P40 decidido (WhatsApp con el enlace de la app al agendar manualmente).
 - **Revisión de las 7 pruebas de concurrencia del diseño:** 5 existían; faltaban las
   confirmaciones concurrentes (`TestConcurrentConfirmationsOnPostgres`) y la reserva en el cambio
   de horario de verano (`TestBookingAcrossDST`): agregadas y en verde.

@@ -1,6 +1,6 @@
 # Cierre de la Fase 6 — Disponibilidad y reservas
 
-Fecha: 2026-11-24 · Estado: **⏳ Pendiente de aprobación del usuario**
+Fecha: 2026-11-24 · Estado: **✅ Aprobada por el usuario (2026-11-24)**
 
 ## 1. Entregables
 
@@ -125,7 +125,7 @@ contrato, de seguridad, el E2E y Postman.
 | Tema | Estado |
 |---|---|
 | Notificaciones (confirmación, recordatorios, cambios) | Fase 7: los eventos ya quedan en `appointment_events` |
-| P40: invitar a la app al cliente agendado a mano | Pendiente de revisar con el usuario (antes de la Fase 7) |
+| P40: invitar a la app al cliente agendado a mano | Decidido 2026-11-24: WhatsApp con el enlace de descarga apenas el barbero lo agenda (Fase 7) |
 | Las claves de idempotencia no se purgan | Purga programada (River) en la Fase 12 |
 | DEV local con datos viejos (la migración 6 no aplica) | Recrear el volumen DEV cuando el usuario lo autorice |
 | Datos de prueba en QA: cada corrida E2E y de Postman deja negocios, clientes y citas sintéticos | Aceptado en QA |
@@ -133,4 +133,4 @@ contrato, de seguridad, el E2E y Postman.
 
 ## 7. Aprobación
 
-- [ ] Usuario aprueba el cierre de la Fase 6.
+- [x] Usuario aprueba el cierre de la Fase 6 (2026-11-24).
