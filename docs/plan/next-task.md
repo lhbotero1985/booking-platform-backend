@@ -12,4 +12,5 @@ solo al pasar a producción.
 
 1. Cuando Meta apruebe las plantillas: prueba real — reserva con el celular de prueba, el
    recordatorio llega con botones, "Confirmar cita" confirma y responde.
-2. T7.6 — Push (Expo): registro de dispositivos y avisos al barbero.
+2. T7.6 — Correos de citas (Booka) al cliente y al barbero (replanificación del 2026-11-25,
+   ADR-0019). Primero se presenta el diseño del correo para aprobación.
