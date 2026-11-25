@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/netip"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -100,6 +101,14 @@ type SMTP struct {
 	TLSMode  string
 }
 
+// Notifications switches the delivery channels per environment (notifications.md §3, T7.1).
+type Notifications struct {
+	// WhatsAppEnabled: false skips every WhatsApp message (default; DEV).
+	WhatsAppEnabled bool
+	// WhatsAppAllowlist: when set, the only numbers (E.164) WhatsApp may write to (QA).
+	WhatsAppAllowlist []string
+}
+
 // Config is the full process configuration.
 type Config struct {
 	Env       Env
@@ -110,6 +119,8 @@ type Config struct {
 	Argon2    Argon2
 	SMTP      SMTP
 	RateLimit RateLimit
+	// Notifications switches WhatsApp and push.
+	Notifications Notifications
 	// PublicAppURL is the base URL of the client app used in email links (/verify-email, …).
 	PublicAppURL string
 }
@@ -166,6 +177,10 @@ func Load(getenv func(string) string) (Config, error) {
 			LoginBackoffMax:       p.duration("LOGIN_BACKOFF_MAX", 15*time.Minute),
 		},
 		PublicAppURL: p.str("PUBLIC_APP_URL", "http://localhost:3000"),
+		Notifications: Notifications{
+			WhatsAppEnabled:   p.boolean("WHATSAPP_ENABLED", false),
+			WhatsAppAllowlist: p.phones("WHATSAPP_ALLOWLIST"),
+		},
 	}
 	if cfg.Database.MigratorURL == "" {
 		cfg.Database.MigratorURL = cfg.Database.URL
@@ -286,6 +301,34 @@ func (p *parser) list(key string) []string {
 	for item := range strings.SplitSeq(p.getenv(key), ",") {
 		if item = strings.TrimSpace(item); item != "" {
 			out = append(out, item)
+		}
+	}
+	return out
+}
+
+func (p *parser) boolean(key string, def bool) bool {
+	switch v := strings.ToLower(strings.TrimSpace(p.getenv(key))); v {
+	case "":
+		return def
+	case "true", "1", "yes":
+		return true
+	case "false", "0", "no":
+		return false
+	default:
+		p.fail(key, fmt.Sprintf("invalid boolean %q (true or false)", v))
+		return def
+	}
+}
+
+// e164 is an international phone number: + and 8 to 15 digits.
+var e164 = regexp.MustCompile(`^\+[1-9][0-9]{7,14}$`)
+
+// phones parses a comma-separated list of E.164 numbers; the values are never echoed in errors.
+func (p *parser) phones(key string) []string {
+	out := p.list(key)
+	for i, n := range out {
+		if !e164.MatchString(n) {
+			p.fail(key, fmt.Sprintf("entry %d is not an E.164 number (+ and 8 to 15 digits)", i+1))
 		}
 	}
 	return out

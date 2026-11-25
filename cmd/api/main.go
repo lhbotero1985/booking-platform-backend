@@ -29,6 +29,7 @@ import (
 	cataloghttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/interfaces/http"
 	geographyhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/interfaces/http"
 	identityhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/interfaces/http"
+	notificationshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/interfaces/http"
 	professionalshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/interfaces/http"
 	schedulinghttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/interfaces/http"
 	subscriptionshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/interfaces/http"
@@ -120,6 +121,8 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	app.LinkPublicCatalog(businessesSvc, catalogSvc, professionalsSvc, businessesSvc)
 	schedulingSvc := app.NewSchedulingService(pool, identitySvc, businessesSvc, catalogSvc, professionalsSvc, identitySvc)
 	app.LinkAgendaGuard(professionalsSvc, schedulingSvc)
+	notificationsSvc := app.NewNotificationsService(cfg.Notifications, pool, jobClient, schedulingSvc, logger)
+	app.LinkNotifications(schedulingSvc, notificationsSvc)
 
 	handler := app.NewHTTPHandler(cfg, logger, app.Deps{
 		Readiness: []app.Check{
@@ -134,6 +137,7 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 			professionalshttp.New(professionalsSvc, logger, identityHandler.RequireAuth),
 			cataloghttp.New(catalogSvc, logger, identityHandler.RequireAuth),
 			schedulinghttp.New(schedulingSvc, logger, identityHandler.RequireAuth),
+			notificationshttp.New(notificationsSvc, logger, identityHandler.RequireAuth),
 		},
 		APILimiter: limiters.API,
 	})

@@ -14,6 +14,7 @@ import (
 	catalog "github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/contract"
 	identity "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 	professionals "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/contract"
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/domain"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
 )
@@ -57,7 +58,10 @@ type Deps struct {
 }
 
 // Service implements the scheduling use cases.
-type Service struct{ d Deps }
+type Service struct {
+	d      Deps
+	events contract.EventListener
+}
 
 // NewService builds the service.
 func NewService(d Deps) *Service { return &Service{d: d} }

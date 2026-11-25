@@ -29,6 +29,8 @@ import (
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application/apptest"
 	identityhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/interfaces/http"
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/application/notiftest"
+	notificationshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/interfaces/http"
 	profapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/application/proftest"
 	professionalshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/interfaces/http"
@@ -88,12 +90,15 @@ func startAuth(t *testing.T) authHarness {
 	app.LinkPublicCatalog(biz, cat, profs, biz)
 	sched := schedapp.NewService(schedapp.Deps{Store: schedtest.NewStore(), Authz: h.svc, Businesses: biz, Catalog: cat, Professionals: profs, Bookable: profs, Customers: h.svc, Clock: h.clock})
 	app.LinkAgendaGuard(profs, sched)
+	notif, _ := notiftest.NewService(sched, h.clock)
+	app.LinkNotifications(sched, notif)
 	h.srv = httptest.NewServer(app.NewHTTPHandler(cfg, logger, app.Deps{Modules: []app.RouteRegistrar{
 		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),
 		subscriptionshttp.New(subs, logger, idh.RequireAuth),
 		professionalshttp.New(profs, logger, idh.RequireAuth),
 		cataloghttp.New(cat, logger, idh.RequireAuth),
 		schedulinghttp.New(sched, logger, idh.RequireAuth),
+		notificationshttp.New(notif, logger, idh.RequireAuth),
 	}}))
 	t.Cleanup(h.srv.Close)
 	return h

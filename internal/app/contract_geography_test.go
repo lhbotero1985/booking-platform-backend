@@ -24,6 +24,8 @@ import (
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/application/apptest"
 	identityhttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/interfaces/http"
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/application/notiftest"
+	notificationshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/interfaces/http"
 	profapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/application/proftest"
 	professionalshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/interfaces/http"
@@ -75,12 +77,15 @@ func newGeoServer(t *testing.T) geoEnv {
 	LinkPublicCatalog(biz, cat, profs, biz)
 	sched := schedapp.NewService(schedapp.Deps{Store: schedtest.NewStore(), Authz: e.identity, Businesses: biz, Catalog: cat, Professionals: profs, Bookable: profs, Customers: e.identity, Clock: clk})
 	LinkAgendaGuard(profs, sched)
+	notif, _ := notiftest.NewService(sched, clk)
+	LinkNotifications(sched, notif)
 	e.modules = []RouteRegistrar{
 		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),
 		subscriptionshttp.New(subs, logger, idh.RequireAuth),
 		professionalshttp.New(profs, logger, idh.RequireAuth),
 		cataloghttp.New(cat, logger, idh.RequireAuth),
 		schedulinghttp.New(sched, logger, idh.RequireAuth),
+		notificationshttp.New(notif, logger, idh.RequireAuth),
 	}
 	e.srv = httptest.NewServer(NewHTTPHandler(cfg, logger, Deps{Modules: e.modules}))
 	t.Cleanup(e.srv.Close)

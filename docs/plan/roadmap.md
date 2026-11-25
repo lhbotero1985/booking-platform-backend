@@ -137,7 +137,27 @@ aunque tenga citas futuras, que quedan por reasignar y el responsable las pasa a
 | T6.7 ✅ | Coherencia de agenda: ausencias y horario toman el lock y se rechazan si chocan con citas activas; retiro/desactivación de barbero deja sus citas por reasignar y el responsable las reasigna | Reserva vs ausencia en paralelo: solo una gana |
 | T6.8 ✅ | Suite de aislamiento, las 7 pruebas de concurrencia del diseño, E2E en QA, cierre | Aprobación del usuario |
 
-Las fases 7–13 se desglosarán en tareas al iniciar cada una.
+## Fase 7 — WhatsApp y push (tareas)
+
+Desglose aprobado por el usuario el 2026-11-24. Base: `notifications.md`, ADR-0008, ADR-0009 y
+ADR-0010. Mientras Meta verifica el negocio (P17: el usuario inicia el trámite) se desarrolla con el
+número de prueba de Meta; pasar a clientes reales es configuración, no código. Decisiones del
+usuario: agendar una cita es la aceptación del cliente a recibir WhatsApp sobre ella (también
+cuando el barbero lo agenda a mano); el enlace de descarga de la app es configurable (P40); push se
+construye ahora y se valida con la app real cuando exista.
+
+| ID | Tarea | Criterio de aceptación principal |
+|---|---|---|
+| T7.1 ✅ | Base: módulo `notifications`, mensajes encolados en la transacción del cambio, envío por River con proveedor simulado, revalidación de la cita, interruptor y lista blanca | Un mensaje por cambio; nunca dos veces; si el cambio se deshace, el mensaje también |
+| T7.2 | Cliente de WhatsApp Cloud API (número de prueba), plantillas versionadas en código, reintentos y errores permanentes | Mensaje real al celular de prueba en QA |
+| T7.3 | Mensajes al cliente: cita creada, cancelada por el negocio, reprogramada; P40: enlace de la app en la cita manual | Textos aprobados por el usuario |
+| T7.4 | Recordatorios según el negocio, con botones Confirmar / Cancelar | Un recordatorio viejo se descarta |
+| T7.5 | Webhook de Meta: firma, duplicados, estados de entrega y respuestas de los botones (token de un solo uso) | Firma falsa → rechazo; botón reusado → sin efecto |
+| T7.6 | Push (Expo): registro de dispositivos y avisos al barbero | Token inválido → se revoca |
+| T7.7 | Control de costos (P16): tope mensual por negocio, tope diario global, consumo visible; el cliente apaga los recordatorios | Tope alcanzado → no se envía |
+| T7.8 | E2E en QA con mensajes reales, pruebas de seguridad del webhook, cierre | Aprobación del usuario |
+
+Las fases 8–13 se desglosarán en tareas al iniciar cada una.
 
 ## Riesgos identificados
 

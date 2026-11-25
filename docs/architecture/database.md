@@ -135,9 +135,11 @@ devices(id, user_id, platform, app_kind, push_token text unique, last_seen_at, r
 consents(id, subject_type, subject_id, channel, phone, granted bool, source, policy_version,
          granted_at, revoked_at)
 notification_preferences(subject_type, subject_id, event_type, channel, enabled)
-notification_messages(id, business_id, appointment_id null, channel, template, recipient_ref,
-                      status, provider_message_id unique null, attempts, last_error,
-                      idempotency_key text unique, created_at, updated_at)
+-- Implementada en T7.1 (migración 00019):
+notification_messages(id, business_id, appointment_id, event_id → appointment_events, kind,
+                      channel, recipient_role, recipient, professional_id, start_at, status,
+                      skip_reason, error_code, provider_message_id, attempts, created_at,
+                      updated_at, sent_at, unique(event_id, channel, recipient_role))
 appointment_action_tokens(token_hash bytea pk, appointment_id, appointment_version, action,
                           phone, expires_at, used_at)
 webhook_events(provider text, event_id text, received_at, processed_at, payload_hash bytea,
