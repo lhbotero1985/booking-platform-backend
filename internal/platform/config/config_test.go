@@ -292,3 +292,60 @@ func TestNotificationsConfig(t *testing.T) {
 		t.Errorf("the numbers must not be echoed: %v", err)
 	}
 }
+
+func TestWhatsAppCloudAPIConfig(t *testing.T) {
+	const token = "EAAsecretTOKEN1234567890abc"
+	qa := func(extra map[string]string) map[string]string {
+		m := map[string]string{"APP_ENV": "qa", "PUBLIC_APP_URL": "https://app.example.com", "SMTP_TLS": "starttls"}
+		for k, v := range extra {
+			m[k] = v
+		}
+		return m
+	}
+	cfg, err := Load(envFrom(qa(map[string]string{"WHATSAPP_ENABLED": "true", "WHATSAPP_ACCESS_TOKEN": token,
+		"WHATSAPP_PHONE_NUMBER_ID": "106540352242922", "WHATSAPP_BUSINESS_ACCOUNT_ID": "102290129340398", "WHATSAPP_ALLOWLIST": "+573001234567"})))
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := cfg.Notifications
+	if !n.WhatsAppConfigured() || n.WhatsAppAPIBaseURL != "https://graph.facebook.com" || n.WhatsAppGraphVersion != "v23.0" ||
+		n.WhatsAppPhoneNumberID != "106540352242922" || n.WhatsAppBusinessAccountID != "102290129340398" {
+		t.Errorf("%+v", n)
+	}
+
+	// Outside production a token needs the allowlist; the token is never echoed.
+	_, err = Load(envFrom(qa(map[string]string{"WHATSAPP_ACCESS_TOKEN": token, "WHATSAPP_PHONE_NUMBER_ID": "106540352242922"})))
+	if err == nil || !strings.Contains(err.Error(), "WHATSAPP_ALLOWLIST: is required in qa") || strings.Contains(err.Error(), token) {
+		t.Errorf("qa without allowlist: %v", err)
+	}
+	if _, err := Load(envFrom(map[string]string{"APP_ENV": "production", "PUBLIC_APP_URL": "https://app.example.com", "SMTP_TLS": "tls",
+		"WHATSAPP_ACCESS_TOKEN": token, "WHATSAPP_PHONE_NUMBER_ID": "106540352242922"})); err != nil {
+		t.Errorf("production writes to anyone: %v", err)
+	}
+
+	bad := map[string]string{
+		"WHATSAPP_ACCESS_TOKEN":        "not a token!",
+		"WHATSAPP_PHONE_NUMBER_ID":     "+573001234567",
+		"WHATSAPP_BUSINESS_ACCOUNT_ID": "abc",
+		"WHATSAPP_GRAPH_VERSION":       "latest",
+		"WHATSAPP_API_BASE_URL":        "http://graph.facebook.com",
+		"WHATSAPP_ALLOWLIST":           "+573001234567",
+	}
+	_, err = Load(envFrom(qa(bad)))
+	for _, key := range []string{"WHATSAPP_ACCESS_TOKEN", "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_BUSINESS_ACCOUNT_ID", "WHATSAPP_GRAPH_VERSION", "WHATSAPP_API_BASE_URL"} {
+		if err == nil || !strings.Contains(err.Error(), key) {
+			t.Errorf("%s not reported: %v", key, err)
+		}
+	}
+	if err != nil && strings.Contains(err.Error(), "not a token") {
+		t.Errorf("the token is echoed: %v", err)
+	}
+	// http to a local fake is fine in development; a phone number id needs a token.
+	if _, err := Load(envFrom(map[string]string{"APP_ENV": "development", "WHATSAPP_ACCESS_TOKEN": token, "WHATSAPP_PHONE_NUMBER_ID": "1065403522",
+		"WHATSAPP_API_BASE_URL": "http://127.0.0.1:9999", "WHATSAPP_ALLOWLIST": "+573001234567"})); err != nil {
+		t.Errorf("development fake: %v", err)
+	}
+	if _, err := Load(envFrom(map[string]string{"APP_ENV": "development", "WHATSAPP_PHONE_NUMBER_ID": "1065403522"})); err == nil {
+		t.Error("an id without a token must fail")
+	}
+}

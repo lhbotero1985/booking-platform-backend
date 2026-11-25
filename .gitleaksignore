@@ -1,0 +1,6 @@
+# Findings reviewed and confirmed as false positives (gitleaks fingerprint: commit:file:rule:line).
+# Only that exact commit and line are ignored; any new finding still fails.
+#
+# 2026-11-25 (T7.2): fake Meta token of an integration test ("EAAtest…", accepted by a local fake
+# server); replaced by the constant fakeMetaToken in the next commit.
+edb28b1a8040b235471644d2f859a957d1d6ac2e:internal/app/notifications_integration_test.go:generic-api-key:203

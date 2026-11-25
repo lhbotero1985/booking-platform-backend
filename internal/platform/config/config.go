@@ -107,7 +107,17 @@ type Notifications struct {
 	WhatsAppEnabled bool
 	// WhatsAppAllowlist: when set, the only numbers (E.164) WhatsApp may write to (QA).
 	WhatsAppAllowlist []string
+	// WhatsApp Cloud API (T7.2). Without an access token the simulated sender is used. Outside
+	// production a token requires WhatsAppAllowlist, so QA never writes to a synthetic number.
+	WhatsAppAccessToken       string // secret: never logged nor echoed in errors
+	WhatsAppPhoneNumberID     string
+	WhatsAppBusinessAccountID string
+	WhatsAppAPIBaseURL        string // https://graph.facebook.com
+	WhatsAppGraphVersion      string // v23.0
 }
+
+// WhatsAppConfigured reports whether the Meta credentials are present.
+func (n Notifications) WhatsAppConfigured() bool { return n.WhatsAppAccessToken != "" }
 
 // Config is the full process configuration.
 type Config struct {
@@ -178,8 +188,13 @@ func Load(getenv func(string) string) (Config, error) {
 		},
 		PublicAppURL: p.str("PUBLIC_APP_URL", "http://localhost:3000"),
 		Notifications: Notifications{
-			WhatsAppEnabled:   p.boolean("WHATSAPP_ENABLED", false),
-			WhatsAppAllowlist: p.phones("WHATSAPP_ALLOWLIST"),
+			WhatsAppEnabled:           p.boolean("WHATSAPP_ENABLED", false),
+			WhatsAppAllowlist:         p.phones("WHATSAPP_ALLOWLIST"),
+			WhatsAppAccessToken:       strings.TrimSpace(p.getenv("WHATSAPP_ACCESS_TOKEN")),
+			WhatsAppPhoneNumberID:     p.str("WHATSAPP_PHONE_NUMBER_ID", ""),
+			WhatsAppBusinessAccountID: p.str("WHATSAPP_BUSINESS_ACCOUNT_ID", ""),
+			WhatsAppAPIBaseURL:        strings.TrimRight(p.str("WHATSAPP_API_BASE_URL", "https://graph.facebook.com"), "/"),
+			WhatsAppGraphVersion:      p.str("WHATSAPP_GRAPH_VERSION", "v23.0"),
 		},
 	}
 	if cfg.Database.MigratorURL == "" {
@@ -189,6 +204,7 @@ func Load(getenv func(string) string) (Config, error) {
 	p.validateOrigins(cfg.Env, cfg.HTTP.CORSAllowedOrigins)
 	p.validateSMTP(cfg.Env, cfg.SMTP)
 	p.validatePublicURL(cfg.Env, cfg.PublicAppURL)
+	p.validateWhatsApp(cfg.Env, cfg.Notifications)
 	if m := cfg.RateLimit.LoginBackoffMax; m < time.Second || m > 24*time.Hour {
 		p.fail("LOGIN_BACKOFF_MAX", "must be between 1s and 24h")
 	}
@@ -385,6 +401,41 @@ func (p *parser) validatePublicURL(env Env, raw string) {
 	}
 	if env.IsDeployed() && u.Scheme != "https" {
 		p.fail(key, fmt.Sprintf("must use https in %s", env))
+	}
+}
+
+var (
+	metaID       = regexp.MustCompile(`^[0-9]{5,30}$`)
+	graphVersion = regexp.MustCompile(`^v[0-9]{1,3}\.[0-9]$`)
+	metaToken    = regexp.MustCompile(`^[A-Za-z0-9_-]{20,1000}$`)
+)
+
+// validateWhatsApp checks the Meta settings only when a token is set; values are never echoed.
+func (p *parser) validateWhatsApp(env Env, n Notifications) {
+	if !n.WhatsAppConfigured() {
+		if n.WhatsAppPhoneNumberID != "" {
+			p.fail("WHATSAPP_ACCESS_TOKEN", "is required when WHATSAPP_PHONE_NUMBER_ID is set")
+		}
+		return
+	}
+	if !metaToken.MatchString(n.WhatsAppAccessToken) {
+		p.fail("WHATSAPP_ACCESS_TOKEN", "has an invalid format")
+	}
+	if !metaID.MatchString(n.WhatsAppPhoneNumberID) {
+		p.fail("WHATSAPP_PHONE_NUMBER_ID", "must be the numeric phone number id from Meta (not the phone number)")
+	}
+	if n.WhatsAppBusinessAccountID != "" && !metaID.MatchString(n.WhatsAppBusinessAccountID) {
+		p.fail("WHATSAPP_BUSINESS_ACCOUNT_ID", "must be numeric")
+	}
+	if !graphVersion.MatchString(n.WhatsAppGraphVersion) {
+		p.fail("WHATSAPP_GRAPH_VERSION", "must look like v23.0")
+	}
+	if u, err := url.Parse(n.WhatsAppAPIBaseURL); err != nil || u.Host == "" || u.Path != "" || u.RawQuery != "" ||
+		(u.Scheme != "https" && (env.IsDeployed() || u.Scheme != "http")) {
+		p.fail("WHATSAPP_API_BASE_URL", "must be an https origin (http only outside QA/PROD)")
+	}
+	if env != EnvProduction && len(n.WhatsAppAllowlist) == 0 {
+		p.fail("WHATSAPP_ALLOWLIST", fmt.Sprintf("is required in %s when WhatsApp credentials are set", env))
 	}
 }
 

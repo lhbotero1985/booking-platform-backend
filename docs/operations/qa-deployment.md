@@ -181,6 +181,28 @@ ssh deploy@HOST 'cd /opt/booking/qa && docker compose exec api /usr/local/bin/ap
 Queda en `audit_log` (`admin.platform_admin_granted|revoked`, `source=cli`). El cambio aplica en la
 siguiente petición del usuario.
 
+### WhatsApp (Meta Cloud API, T7.2)
+
+Las credenciales viven solo en `/opt/booking/qa/.env` (permisos `600`, dueño `deploy`), nunca en
+Git ni en GitHub. Se agregan o rotan editando el archivo en el servidor (con `nano`, para que el
+token no quede en el historial de la consola):
+
+```
+WHATSAPP_ACCESS_TOKEN=<token permanente del usuario del sistema de Meta>
+WHATSAPP_PHONE_NUMBER_ID=<identificador del número, no el número>
+WHATSAPP_BUSINESS_ACCOUNT_ID=<identificador de la cuenta de WhatsApp Business>
+WHATSAPP_ALLOWLIST=+57XXXXXXXXXX[,+57…]   # obligatorio fuera de PROD; máx. 5 con el número de prueba
+```
+
+- Verificar sin mostrar valores: `grep '^WHATSAPP_' /opt/booking/qa/.env | cut -d= -f1`.
+- Aplicar sin redesplegar: `cd /opt/booking/qa && docker compose --env-file .env -f <stack>/docker-compose.yml up -d worker`
+  (o esperar al siguiente despliegue, que recrea los contenedores con el `.env`).
+- El log del worker dice al arrancar `whatsapp sender` con `provider=meta` o `simulated`.
+- Token comprometido: revocarlo en el usuario del sistema de Meta, generar otro y reemplazarlo.
+- **Nunca enviar capturas del `.env`** (contiene también las contraseñas de la base).
+- E2E con un envío real: `WHATSAPP_TEST_PHONE=<número de la lista blanca> scripts/e2e-qa.sh …`
+  (recibe exactamente un mensaje; el número no se imprime).
+
 ### Argon2id (P27)
 
 QA: `ARGON2_MEMORY_KIB=65536` (64 MiB), `ARGON2_ITERATIONS=2`, `ARGON2_PARALLELISM=2`,
