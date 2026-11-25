@@ -46,6 +46,7 @@ type geoEnv struct {
 	biz      *biztest.Store
 	subs     *subtest.Store
 	modules  []RouteRegistrar // as wired in cmd/api
+	clock    *clock.Fixed
 }
 
 // newGeoServer wires identity (authentication, authorizer) and geography like cmd/api does.
@@ -59,7 +60,7 @@ func newGeoServer(t *testing.T) geoEnv {
 	}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	clk := clock.NewFixed(time.Date(2026, 11, 23, 12, 0, 0, 0, time.UTC))
-	e := geoEnv{users: apptest.NewStore(), mailer: &apptest.Mailer{}, geo: geotest.NewSeededStore()}
+	e := geoEnv{users: apptest.NewStore(), mailer: &apptest.Mailer{}, geo: geotest.NewSeededStore(), clock: clk}
 	e.identity = application.NewService(application.Deps{
 		Store: e.users, Hasher: &apptest.Hasher{}, Mailer: e.mailer, Clock: clk, Random: &apptest.FixedRandom{},
 		Config: application.Config{PublicAppURL: "https://app.example.test"}, Logger: logger,

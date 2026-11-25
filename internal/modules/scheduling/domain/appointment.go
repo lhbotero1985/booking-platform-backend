@@ -68,6 +68,9 @@ type Appointment struct {
 	Buffer         time.Duration
 	Status         Status
 	Version        int
+	CancelledAt    time.Time // zero unless the status is the canceled one
+	CancelReason   string
+	CancelledBy    ActorRole
 	CreatedBy      uuid.UUID
 	CreatedAt      time.Time
 	UpdatedAt      time.Time

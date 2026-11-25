@@ -74,6 +74,7 @@ func (t *txStore) InsertAppointment(ctx context.Context, a domain.Appointment) e
 		Status: string(a.Status), ServiceName: a.Service.Name, DurationMinutes: int16(a.Service.DurationMinutes), //nolint:gosec // 5–480, CHECK
 		PriceMinor: a.Service.PriceMinor, Currency: a.Service.Currency, Version: int32(a.Version), //nolint:gosec // small counter
 		CreatedBy: a.CreatedBy, CreatedAt: a.CreatedAt, UpdatedAt: a.UpdatedAt,
+		CancelledAt: optionalTime(a.CancelledAt), CancelReason: optionalText(a.CancelReason), CancelledBy: optionalText(string(a.CancelledBy)),
 	})
 	if db.IsExclusionViolation(err) {
 		return errors.Join(application.ErrSlotUnavailable, err)
@@ -81,15 +82,84 @@ func (t *txStore) InsertAppointment(ctx context.Context, a domain.Appointment) e
 	return err
 }
 
-func (t *txStore) InsertAppointmentEvent(ctx context.Context, id uuid.UUID, a domain.Appointment, typ domain.EventType, actor uuid.UUID, at time.Time) error {
-	var actorID *uuid.UUID
-	if actor != uuid.Nil {
-		actorID = &actor
+func (t *txStore) InsertAppointmentEvent(ctx context.Context, businessID, appointmentID uuid.UUID, e domain.Event) error {
+	var prevStart *time.Time
+	if !e.PreviousStart.IsZero() {
+		prevStart = &e.PreviousStart
 	}
 	return t.q.InsertAppointmentEvent(ctx, sqlcgen.InsertAppointmentEventParams{
-		ID: id, BusinessID: a.BusinessID, AppointmentID: a.ID, Type: string(typ), Status: string(a.Status),
-		ProfessionalID: a.ProfessionalID, StartAt: a.Start, ActorUserID: actorID, OccurredAt: at,
+		ID: e.ID, BusinessID: businessID, AppointmentID: appointmentID, Type: string(e.Type), Status: string(e.Status),
+		ProfessionalID: e.ProfessionalID, StartAt: e.Start, ActorUserID: optional(e.Actor), OccurredAt: e.At,
+		ActorRole: optionalText(string(e.ActorRole)), FromStatus: optionalText(string(e.FromStatus)), PreviousStartAt: prevStart,
+		PreviousProfessionalID: optional(e.PreviousProfessionalID), Reason: optionalText(e.Reason),
 	})
+}
+
+func (t *txStore) LockAppointment(ctx context.Context, id uuid.UUID) (domain.Appointment, error) {
+	r, err := t.q.LockAppointment(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Appointment{}, application.ErrAppointmentNotFound
+	}
+	if err != nil {
+		return domain.Appointment{}, err
+	}
+	return toAppointment(r), nil
+}
+
+func (t *txStore) UpdateAppointment(ctx context.Context, a domain.Appointment, version int) error {
+	n, err := t.q.UpdateAppointment(ctx, sqlcgen.UpdateAppointmentParams{
+		ID: a.ID, Version: int32(version), ProfessionalID: a.ProfessionalID, StartAt: a.Start, EndAt: a.End, //nolint:gosec // small counter
+		OccupiedUntil: a.OccupiedUntil(), Status: string(a.Status), CancelledAt: optionalTime(a.CancelledAt),
+		CancelReason: optionalText(a.CancelReason), CancelledBy: optionalText(string(a.CancelledBy)), UpdatedAt: a.UpdatedAt,
+	})
+	switch {
+	case db.IsExclusionViolation(err):
+		return errors.Join(application.ErrSlotUnavailable, err)
+	case err != nil:
+		return err
+	case n == 0:
+		return application.ErrAppointmentChanged
+	}
+	return nil
+}
+
+func (t *txStore) AppointmentEvents(ctx context.Context, appointmentID uuid.UUID) ([]domain.Event, error) {
+	rows, err := t.q.AppointmentEvents(ctx, appointmentID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.Event, 0, len(rows))
+	for _, r := range rows {
+		e := domain.Event{ID: r.ID, Type: domain.EventType(r.Type), Status: domain.Status(r.Status), ProfessionalID: r.ProfessionalID,
+			Start: r.StartAt.UTC(), At: r.OccurredAt.UTC()}
+		if r.ActorUserID != nil {
+			e.Actor = *r.ActorUserID
+		}
+		if r.ActorRole != nil {
+			e.ActorRole = domain.ActorRole(*r.ActorRole)
+		}
+		if r.FromStatus != nil {
+			e.FromStatus = domain.Status(*r.FromStatus)
+		}
+		if r.PreviousStartAt != nil {
+			e.PreviousStart = r.PreviousStartAt.UTC()
+		}
+		if r.PreviousProfessionalID != nil {
+			e.PreviousProfessionalID = *r.PreviousProfessionalID
+		}
+		if r.Reason != nil {
+			e.Reason = *r.Reason
+		}
+		out = append(out, e)
+	}
+	return out, nil
+}
+
+func optionalTime(t time.Time) *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+	return &t
 }
 
 func (t *txStore) AppointmentByID(ctx context.Context, id uuid.UUID) (domain.Appointment, error) {
@@ -118,8 +188,23 @@ func toAppointment(r sqlcgen.Appointment) domain.Appointment {
 		Customer: domain.Customer{CustomerID: record, UserID: customer, Name: r.CustomerName, Phone: r.CustomerPhone},
 		Start:    r.StartAt.UTC(), End: r.EndAt.UTC(), Buffer: time.Duration(r.BufferMinutes) * time.Minute,
 		Status: domain.Status(r.Status), Version: int(r.Version), CreatedBy: r.CreatedBy,
-		CreatedAt: r.CreatedAt.UTC(), UpdatedAt: r.UpdatedAt.UTC(),
+		CreatedAt: r.CreatedAt.UTC(), UpdatedAt: r.UpdatedAt.UTC(), CancelledAt: cancelledAt(r.CancelledAt),
+		CancelReason: text(r.CancelReason), CancelledBy: domain.ActorRole(text(r.CancelledBy)),
 	}
+}
+
+func cancelledAt(t *time.Time) time.Time {
+	if t == nil {
+		return time.Time{}
+	}
+	return t.UTC()
+}
+
+func text(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 func toAppointments(rows []sqlcgen.Appointment, err error) ([]domain.Appointment, error) {
@@ -169,7 +254,7 @@ func (t *txStore) ActiveAppointments(ctx context.Context, businessID, profession
 	}
 	out := make([]domain.Booked, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, domain.Booked{Start: r.StartAt, End: r.EndAt, Buffer: r.OccupiedUntil.Sub(r.EndAt)})
+		out = append(out, domain.Booked{ID: r.ID, Start: r.StartAt, End: r.EndAt, Buffer: r.OccupiedUntil.Sub(r.EndAt)})
 	}
 	return out, nil
 }

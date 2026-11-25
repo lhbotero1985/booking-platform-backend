@@ -47,8 +47,14 @@ type BookingTx interface {
 	SetIdempotencyAppointment(ctx context.Context, userID uuid.UUID, key string, appointmentID uuid.UUID) error
 	// InsertAppointment returns ErrSlotUnavailable when the exclusion constraint rejects it.
 	InsertAppointment(ctx context.Context, a domain.Appointment) error
-	InsertAppointmentEvent(ctx context.Context, id uuid.UUID, a domain.Appointment, t domain.EventType, actor uuid.UUID, at time.Time) error
+	InsertAppointmentEvent(ctx context.Context, businessID, appointmentID uuid.UUID, e domain.Event) error
 	AppointmentByID(ctx context.Context, id uuid.UUID) (domain.Appointment, error)
+	// LockAppointment is AppointmentByID taking a row lock (T6.6).
+	LockAppointment(ctx context.Context, id uuid.UUID) (domain.Appointment, error)
+	// UpdateAppointment writes a change if the stored version is still version
+	// (ErrAppointmentChanged otherwise; ErrSlotUnavailable if the new time overlaps).
+	UpdateAppointment(ctx context.Context, a domain.Appointment, version int) error
+	AppointmentEvents(ctx context.Context, appointmentID uuid.UUID) ([]domain.Event, error)
 }
 
 var idempotencyKey = regexp.MustCompile(`^[A-Za-z0-9_-]{8,100}$`)
@@ -144,7 +150,7 @@ func (s *Service) Book(ctx context.Context, p identity.Principal, in BookingInpu
 		if err := tx.InsertAppointment(ctx, a); err != nil {
 			return err
 		}
-		if err := tx.InsertAppointmentEvent(ctx, uuid.Must(uuid.NewV7()), a, domain.EventCreated, p.UserID, now); err != nil {
+		if err := tx.InsertAppointmentEvent(ctx, a.BusinessID, a.ID, createdEvent(a, p.UserID, domain.ActorCustomer, now)); err != nil {
 			return err
 		}
 		if err := tx.SetIdempotencyAppointment(ctx, p.UserID, in.IdempotencyKey, a.ID); err != nil {
@@ -170,4 +176,9 @@ func mapNotFound(err error) error {
 		return ErrNotFound
 	}
 	return err
+}
+
+func createdEvent(a domain.Appointment, actor uuid.UUID, role domain.ActorRole, now time.Time) domain.Event {
+	return domain.Event{ID: uuid.Must(uuid.NewV7()), Type: domain.EventCreated, Status: a.Status, ProfessionalID: a.ProfessionalID,
+		Start: a.Start, Actor: actor, ActorRole: role, At: now}
 }

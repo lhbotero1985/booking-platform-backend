@@ -34,6 +34,8 @@ type bookingWorld struct {
 	pool     *pgxpool.Pool
 	identity *idapp.Service
 	catalog  *catapp.Service
+	profs    *profapp.Service
+	clk      *clock.Fixed
 	sched    *schedapp.Service
 	owner    identitycontract.Principal
 	barber   identitycontract.Principal
@@ -59,11 +61,11 @@ func newBookingWorld(t *testing.T) bookingWorld {
 	profs := NewProfessionalsService(pool, identity)
 	catalog := NewCatalogService(pool, identity, biz, profs)
 	LinkPublicCatalog(biz, catalog, profs, biz)
-	w := bookingWorld{pool: pool, identity: identity, catalog: catalog}
+	w := bookingWorld{pool: pool, identity: identity, catalog: catalog, profs: profs, clk: clock.NewFixed(time.Date(2030, 3, 1, 17, 0, 0, 0, time.UTC))}
 	w.bogota, _ = time.LoadLocation("America/Bogota")
 	w.sched = schedapp.NewService(schedapp.Deps{
 		Store: schedpg.NewStore(pool), Authz: identity, Businesses: biz, Catalog: catalog, Professionals: profs, Customers: identity,
-		Clock: clock.NewFixed(time.Date(2030, 3, 1, 17, 0, 0, 0, time.UTC)),
+		Clock: w.clk,
 	})
 
 	ownerID, _ := activeUser(t, pool, "ACTIVE")
@@ -268,6 +270,9 @@ func TestExclusionConstraintIsTheSafetyNet(t *testing.T) {
 			t.Fatal(err)
 		}
 		a.Status = status
+		if status == scheddomain.StatusCancelled {
+			a.CancelledAt, a.CancelledBy = time.Now(), scheddomain.ActorBusiness
+		}
 		return a
 	}
 	insert := func(a scheddomain.Appointment) error {
@@ -452,5 +457,175 @@ func TestAgendaOnPostgres(t *testing.T) {
 	}
 	if _, err := w.sched.MyAppointmentDetail(ctx, w.customer(t), up[0].ID); !errors.Is(err, schedapp.ErrAppointmentNotFound) {
 		t.Errorf("another customer's appointment: %v", err)
+	}
+}
+
+// secondBarber adds Pedro (Tuesdays 09:00–12:00, performs "Corte") and returns his profile.
+func (w bookingWorld) secondBarber(t *testing.T) uuid.UUID {
+	t.Helper()
+	ctx := t.Context()
+	_, email := activeUser(t, w.pool, "ACTIVE")
+	pedro, err := w.profs.Create(ctx, w.owner, w.biz, profapp.CreateInput{Email: email, DisplayName: "Pedro"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.profs.ReplaceSchedule(ctx, w.owner, w.biz, pedro.ID, []profdomain.DayInput{
+		{Weekday: "TUESDAY", WorkingHours: []profdomain.RangeInput{{Start: "09:00", End: "12:00"}}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.catalog.ReplaceProfessionalServices(ctx, w.owner, w.biz, pedro.ID, []uuid.UUID{w.svc}); err != nil {
+		t.Fatal(err)
+	}
+	return pedro.ID
+}
+
+func (w bookingWorld) walkIn(t *testing.T, pro uuid.UUID, start time.Time, key string) scheddomain.Appointment {
+	t.Helper()
+	a, err := w.sched.BookManual(t.Context(), w.owner, w.biz, schedapp.ManualInput{ProfessionalID: pro, ServiceID: w.svc, Start: start, Confirmed: true,
+		IdempotencyKey: key, Customer: &schedapp.CustomerInput{FullName: "Cliente " + key, Phone: fmt.Sprintf("301%07d", len(key)*7919%10000000)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return a
+}
+
+// TestAppointmentChangesOnPostgres (T6.6): changes with the real SQL under concurrency.
+func TestAppointmentChangesOnPostgres(t *testing.T) {
+	ctx := t.Context()
+	w := newBookingWorld(t)
+	pedro := w.secondBarber(t)
+
+	// 1. Cancel and reschedule of the same appointment at the same time, 8 rounds: the final
+	// state is always consistent (version = 1 + successful changes, one event per change).
+	ana := w.customer(t)
+	for round := range 8 {
+		a, err := w.sched.Book(ctx, ana, w.in(w.at(9, 0), fmt.Sprintf("carrera-%02d", round)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var wg sync.WaitGroup
+		var errCancel, errMove error
+		start := make(chan struct{})
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			<-start
+			_, errCancel = w.sched.CustomerChange(ctx, ana, a.ID, schedapp.ActionCancel, "")
+		}()
+		go func() {
+			defer wg.Done()
+			<-start
+			_, errMove = w.sched.StaffReschedule(ctx, w.owner, w.biz, a.ID, w.at(11, 0), uuid.Nil)
+		}()
+		close(start)
+		wg.Wait()
+		if errCancel != nil {
+			t.Fatalf("round %d: cancel %v", round, errCancel)
+		}
+		ok := 1
+		if errMove == nil {
+			ok++
+		} else if !errors.Is(errMove, scheddomain.ErrInvalidTransition) && !errors.Is(errMove, schedapp.ErrAppointmentChanged) {
+			t.Fatalf("round %d: move %v", round, errMove)
+		}
+		if n := count(t, w.pool, `SELECT count(*) FROM appointments WHERE id = $1 AND status = 'CANCELLED' AND version = $2`, a.ID, 1+ok); n != 1 {
+			t.Fatalf("round %d: appointment not canceled at version %d", round, 1+ok)
+		}
+		if n := count(t, w.pool, `SELECT count(*) FROM appointment_events WHERE appointment_id = $1`, a.ID); n != 1+ok {
+			t.Fatalf("round %d: %d events, want %d", round, n, 1+ok)
+		}
+	}
+
+	// 2. Crossed reassignments Juan 09:00 → Pedro 09:40 and Pedro 09:00 → Juan 09:40 at the same
+	// time, 5 rounds: both succeed (fixed lock order: no deadlock, no timeout).
+	for round := range 5 {
+		x := w.walkIn(t, w.pro, w.at(9, 0), fmt.Sprintf("cruce-juan-%02d", round))
+		y := w.walkIn(t, pedro, w.at(9, 0), fmt.Sprintf("cruce-pedro-%02d", round))
+		var e1, e2 error
+		var wg sync.WaitGroup
+		gate := make(chan struct{})
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			<-gate
+			_, e1 = w.sched.StaffReschedule(ctx, w.owner, w.biz, x.ID, w.at(9, 40), pedro)
+		}()
+		go func() {
+			defer wg.Done()
+			<-gate
+			_, e2 = w.sched.StaffReschedule(ctx, w.owner, w.biz, y.ID, w.at(9, 40), w.pro)
+		}()
+		close(gate)
+		wg.Wait()
+		if e1 != nil || e2 != nil {
+			t.Fatalf("round %d: crossed reassignments: %v / %v", round, e1, e2)
+		}
+		if n := count(t, w.pool, `SELECT count(*) FROM appointments WHERE id = ANY($1) AND start_at = $2`, []uuid.UUID{x.ID, y.ID}, w.at(9, 40)); n != 2 {
+			t.Fatalf("round %d: reassigned %d of 2", round, n)
+		}
+		for _, id := range []uuid.UUID{x.ID, y.ID} { // keep the agendas free for the next round
+			if _, err := w.sched.StaffChange(ctx, w.owner, w.biz, id, schedapp.ActionCancel, "limpieza"); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	// 3. A move and new bookings race for 10:00: one wins.
+	moving := w.walkIn(t, w.pro, w.at(9, 0), "se-mueve-0900")
+	customers := make([]identitycontract.Principal, 6)
+	for i := range customers {
+		customers[i] = w.customer(t)
+	}
+	var (
+		mu      sync.Mutex
+		wg      sync.WaitGroup
+		winners int
+	)
+	start := make(chan struct{})
+	try := func(f func() error) {
+		defer wg.Done()
+		<-start
+		err := f()
+		mu.Lock()
+		defer mu.Unlock()
+		switch {
+		case err == nil:
+			winners++
+		case !errors.Is(err, schedapp.ErrSlotUnavailable):
+			t.Errorf("unexpected: %v", err)
+		}
+	}
+	wg.Add(1 + len(customers))
+	go try(func() error {
+		_, err := w.sched.StaffReschedule(ctx, w.owner, w.biz, moving.ID, w.at(10, 0), uuid.Nil)
+		return err
+	})
+	for i, c := range customers {
+		go try(func() error {
+			_, err := w.sched.Book(ctx, c, w.in(w.at(10, 0), fmt.Sprintf("contra-mov-%02d", i)))
+			return err
+		})
+	}
+	close(start)
+	wg.Wait()
+	if winners != 1 || count(t, w.pool, `SELECT count(*) FROM appointments WHERE professional_id = $1 AND start_at = $2 AND status IN ('PENDING_CONFIRMATION','CONFIRMED')`, w.pro, w.at(10, 0)) != 1 {
+		t.Fatalf("move vs bookings on 10:00: %d winners", winners)
+	}
+
+	// 4. A no-show frees the rest of the slot at once (decision of the user): Pedro's 10:40
+	// customer does not come; at 10:45 a waiting customer gets 10:50, which overlaps 10:40–11:20.
+	late := w.walkIn(t, pedro, w.at(10, 40), "no-vino-1040")
+	w.clk.Advance(w.at(10, 45).Sub(w.clk.Now()))
+	if _, err := w.sched.BookManual(ctx, w.owner, w.biz, schedapp.ManualInput{ProfessionalID: pedro, ServiceID: w.svc, Start: w.at(10, 50), Confirmed: true,
+		IdempotencyKey: "antes-no-vino", Customer: &schedapp.CustomerInput{FullName: "Esperaba", Phone: "3019998877"}}); !errors.Is(err, schedapp.ErrSlotUnavailable) {
+		t.Fatalf("10:50 while 10:40 is still active: %v", err)
+	}
+	if _, err := w.sched.StaffChange(ctx, w.owner, w.biz, late.ID, schedapp.ActionNoShow, ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.sched.BookManual(ctx, w.owner, w.biz, schedapp.ManualInput{ProfessionalID: pedro, ServiceID: w.svc, Start: w.at(10, 50), Confirmed: true,
+		IdempotencyKey: "tras-no-vino", Customer: &schedapp.CustomerInput{FullName: "Esperaba", Phone: "3019998877"}}); err != nil {
+		t.Errorf("10:50 after the no-show: %v", err)
 	}
 }

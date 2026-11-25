@@ -31,6 +31,9 @@ type BookingPolicy struct {
 	BufferMinutes       int
 	MinLeadMinutes      int
 	MaxAdvanceDays      int
+	// Cut-offs for the customer to cancel or reschedule (T6.6).
+	CancellationCutoffHours int
+	RescheduleCutoffHours   int
 }
 
 // PublicBooking resolves the slug of a business customers can see (same rules as

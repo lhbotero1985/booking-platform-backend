@@ -121,6 +121,11 @@ const maxOccupation = 9 * time.Hour
 
 // slots runs the engine for one local day with the professional's agenda and active appointments.
 func (s *Service) slots(ctx context.Context, tx Tx, pol businesses.BookingPolicy, loc *time.Location, minutes int, professionalID uuid.UUID, date domain.LocalDate) ([]domain.Slot, error) {
+	return s.slotsExcept(ctx, tx, pol, loc, minutes, professionalID, date, uuid.Nil)
+}
+
+// slotsExcept is slots ignoring one appointment (the one being moved: it may overlap itself).
+func (s *Service) slotsExcept(ctx context.Context, tx Tx, pol businesses.BookingPolicy, loc *time.Location, minutes int, professionalID uuid.UUID, date domain.LocalDate, except uuid.UUID) ([]domain.Slot, error) {
 	from, to := domain.ResolveLocal(date, 0, loc), domain.ResolveLocal(date.AddDays(1), 0, loc)
 	agenda, err := s.d.Professionals.DayAgenda(ctx, pol.BusinessID, professionalID, date.Weekday(), from, to)
 	if errors.Is(err, professionals.ErrProfessionalNotFound) {
@@ -129,9 +134,15 @@ func (s *Service) slots(ctx context.Context, tx Tx, pol businesses.BookingPolicy
 	if err != nil {
 		return nil, err
 	}
-	booked, err := tx.ActiveAppointments(ctx, pol.BusinessID, professionalID, from.Add(-maxOccupation), to.Add(maxOccupation))
+	all, err := tx.ActiveAppointments(ctx, pol.BusinessID, professionalID, from.Add(-maxOccupation), to.Add(maxOccupation))
 	if err != nil {
 		return nil, err
+	}
+	booked := all[:0]
+	for _, b := range all {
+		if b.ID != except {
+			booked = append(booked, b)
+		}
 	}
 	in := domain.AvailabilityInput{
 		Location: loc,

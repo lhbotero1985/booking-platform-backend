@@ -170,7 +170,7 @@ func (s *Service) BookManual(ctx context.Context, p identity.Principal, business
 		if err := tx.InsertAppointment(ctx, a); err != nil {
 			return err
 		}
-		if err := tx.InsertAppointmentEvent(ctx, uuid.Must(uuid.NewV7()), a, domain.EventCreated, p.UserID, now); err != nil {
+		if err := tx.InsertAppointmentEvent(ctx, a.BusinessID, a.ID, createdEvent(a, p.UserID, domain.ActorBusiness, now)); err != nil {
 			return err
 		}
 		if err := tx.SetIdempotencyAppointment(ctx, p.UserID, in.IdempotencyKey, a.ID); err != nil {

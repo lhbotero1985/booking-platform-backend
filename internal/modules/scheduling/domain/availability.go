@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"sort"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Errors of the availability engine.
@@ -69,6 +71,7 @@ func (i Interval) overlaps(o Interval) bool { return i.Start.Before(o.End) && o.
 
 // Booked is an active appointment of the professional: it occupies [Start, End + Buffer).
 type Booked struct {
+	ID         uuid.UUID // the appointment, to leave it out when it is the one being moved
 	Start, End time.Time
 	Buffer     time.Duration
 }

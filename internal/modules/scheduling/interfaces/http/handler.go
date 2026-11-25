@@ -32,6 +32,7 @@ type Service interface {
 	Book(ctx context.Context, p contract.Principal, in application.BookingInput) (domain.Appointment, error)
 	StaffService
 	AgendaService
+	ChangeService
 }
 
 // Handler serves the scheduling endpoints.
@@ -39,13 +40,14 @@ type Handler struct {
 	svc         Service
 	staff       StaffService
 	agendas     AgendaService
+	changes     ChangeService
 	logger      *slog.Logger
 	requireAuth httpx.Middleware
 }
 
 // New builds the handler; requireAuth is the identity module's authentication middleware.
 func New(svc Service, logger *slog.Logger, requireAuth httpx.Middleware) *Handler {
-	return &Handler{svc: svc, staff: svc, agendas: svc, logger: logger, requireAuth: requireAuth}
+	return &Handler{svc: svc, staff: svc, agendas: svc, changes: svc, logger: logger, requireAuth: requireAuth}
 }
 
 // Routes registers the endpoints.
@@ -54,6 +56,7 @@ func (h *Handler) Routes(rt *httpx.Router) {
 	rt.Handle("POST /api/v1/appointments", h.requireAuth(http.HandlerFunc(h.book)))
 	h.staffRoutes(rt)
 	h.agendaRoutes(rt)
+	h.changeRoutes(rt)
 }
 
 type slotDTO struct {
@@ -119,28 +122,38 @@ type bookRequest struct {
 
 // appointmentDTO is an appointment as its customer sees it.
 type appointmentDTO struct {
-	ID              uuid.UUID `json:"id"`
-	BusinessID      uuid.UUID `json:"businessId"`
-	ProfessionalID  uuid.UUID `json:"professionalId"`
-	ServiceID       uuid.UUID `json:"serviceId"`
-	ServiceName     string    `json:"serviceName"`
-	DurationMinutes int       `json:"durationMinutes"`
-	PriceMinor      int64     `json:"priceMinor"`
-	Currency        string    `json:"currency"`
-	StartAt         time.Time `json:"startAt"`
-	EndAt           time.Time `json:"endAt"`
-	Status          string    `json:"status"`
-	CustomerName    string    `json:"customerName"`
-	CreatedAt       time.Time `json:"createdAt"`
+	ID              uuid.UUID  `json:"id"`
+	BusinessID      uuid.UUID  `json:"businessId"`
+	ProfessionalID  uuid.UUID  `json:"professionalId"`
+	ServiceID       uuid.UUID  `json:"serviceId"`
+	ServiceName     string     `json:"serviceName"`
+	DurationMinutes int        `json:"durationMinutes"`
+	PriceMinor      int64      `json:"priceMinor"`
+	Currency        string     `json:"currency"`
+	StartAt         time.Time  `json:"startAt"`
+	EndAt           time.Time  `json:"endAt"`
+	Status          string     `json:"status"`
+	CustomerName    string     `json:"customerName"`
+	Version         int        `json:"version"`
+	CancelledAt     *time.Time `json:"cancelledAt"`
+	CancelReason    *string    `json:"cancelReason"`
+	CancelledBy     *string    `json:"cancelledBy"`
+	CreatedAt       time.Time  `json:"createdAt"`
 }
 
 func toAppointmentDTO(a domain.Appointment) appointmentDTO {
-	return appointmentDTO{
+	out := appointmentDTO{
 		ID: a.ID, BusinessID: a.BusinessID, ProfessionalID: a.ProfessionalID, ServiceID: a.Service.ServiceID,
 		ServiceName: a.Service.Name, DurationMinutes: a.Service.DurationMinutes, PriceMinor: a.Service.PriceMinor,
 		Currency: a.Service.Currency, StartAt: a.Start, EndAt: a.End, Status: string(a.Status),
-		CustomerName: a.Customer.Name, CreatedAt: a.CreatedAt,
+		CustomerName: a.Customer.Name, Version: a.Version, CancelReason: optional(a.CancelReason),
+		CancelledBy: optional(string(a.CancelledBy)), CreatedAt: a.CreatedAt,
 	}
+	if !a.CancelledAt.IsZero() {
+		at := a.CancelledAt
+		out.CancelledAt = &at
+	}
+	return out
 }
 
 // book serves POST /api/v1/appointments (T6.3): the authenticated customer books a slot. The
@@ -211,6 +224,16 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusUnprocessableEntity, CodePhoneRequired, "set your mobile number (PUT /api/v1/me/phone) before booking"))
 	case errors.Is(err, application.ErrIdempotencyKeyReused):
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusUnprocessableEntity, CodeIdempotencyKeyReused, "this Idempotency-Key was used for a different booking"))
+	case errors.Is(err, domain.ErrInvalidTransition):
+		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeInvalidTransition, "the appointment does not allow that change in its current status"))
+	case errors.Is(err, domain.ErrTooEarly):
+		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeTooEarly, "too early for that change"))
+	case errors.Is(err, domain.ErrAlreadyStarted):
+		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeAlreadyStarted, "the appointment time has passed: it can only be completed or marked as no-show"))
+	case errors.Is(err, domain.ErrCutoffPassed):
+		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeCutoffPassed, "too close to the appointment to change it from the app; contact the business"))
+	case errors.Is(err, application.ErrAppointmentChanged):
+		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeAppointmentChanged, "the appointment changed meanwhile; read it again"))
 	case errors.Is(err, application.ErrBusy):
 		w.Header().Set("Retry-After", "1")
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusServiceUnavailable, CodeBusy, "the agenda is busy, retry"))
