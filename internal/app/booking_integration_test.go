@@ -731,3 +731,51 @@ func (g slowGuard) AppointmentsDuring(ctx context.Context, businessID, professio
 	time.Sleep(g.pause)
 	return list, err
 }
+
+// TestConcurrentConfirmationsOnPostgres (availability-engine.md §7): many confirmations of the same
+// appointment at once, from the customer and the staff: one transition, every reply OK, one
+// CONFIRMED event (Phase 7 sends one notification).
+func TestConcurrentConfirmationsOnPostgres(t *testing.T) {
+	ctx := t.Context()
+	w := newBookingWorld(t)
+	ana := w.customer(t)
+	a, err := w.sched.Book(ctx, ana, w.in(w.at(9, 0), "confirmaciones-0900"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var (
+		wg   sync.WaitGroup
+		mu   sync.Mutex
+		errs []error
+		gate = make(chan struct{})
+	)
+	for i := range 12 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-gate
+			var err error
+			if i%2 == 0 {
+				_, err = w.sched.CustomerChange(ctx, ana, a.ID, schedapp.ActionConfirm, "")
+			} else {
+				_, err = w.sched.StaffChange(ctx, w.owner, w.biz, a.ID, schedapp.ActionConfirm, "")
+			}
+			if err != nil {
+				mu.Lock()
+				errs = append(errs, err)
+				mu.Unlock()
+			}
+		}()
+	}
+	close(gate)
+	wg.Wait()
+	if len(errs) > 0 {
+		t.Fatalf("confirmations failed: %v", errs)
+	}
+	if n := count(t, w.pool, `SELECT count(*) FROM appointments WHERE id = $1 AND status = 'CONFIRMED' AND version = 2`, a.ID); n != 1 {
+		t.Error("not exactly one transition (version 2)")
+	}
+	if n := count(t, w.pool, `SELECT count(*) FROM appointment_events WHERE appointment_id = $1 AND type = 'CONFIRMED'`, a.ID); n != 1 {
+		t.Errorf("CONFIRMED events = %d, want 1", n)
+	}
+}
