@@ -466,13 +466,26 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-25 · Fase 7 · T7.4 — Recordatorios
+
+- **Previo:** el usuario aprobó el texto de `recordatorio_cita` y decidió: sin recordatorio para
+  citas confirmadas; inmediato si se agenda dentro de la ventana.
+- **Estado:** ✅ en `feature/t7.4-reminders` (commit y push; PR pendiente de autorización). El
+  usuario debe crear `recordatorio_cita` en Meta.
+- **Hecho:** tipo `APPOINTMENT_REMINDER`, `send_at` y unicidad por tipo (migración 00021); plan
+  del recordatorio en la transacción del cambio con job River programado; revalidación al vencer
+  (`APPOINTMENT_CONFIRMED`); plantilla con sus parámetros; `sendAt` en la vista del personal;
+  `BookingPolicy` con la configuración de recordatorios. Los avisos inmediatos ya no llevan hora
+  de programación (se detectó con el reloj fijo de las pruebas).
+
 ## 2026-11-25 · Fase 7 · T7.3 — Mensajes de la cita
 
 - **Previo:** el usuario confirmó que recibió el "Hello World" de T7.2; aprobó los 5 textos y los
   creó en Meta (Utilidad, Spanish; "En revisión"); decidió que los botones Confirmar / Cancelar
   vayan solo en el recordatorio (T7.4).
-- **Estado:** ✅ en `feature/t7.3-appointment-templates` (commit y push; PR pendiente de
-  autorización y de la aprobación de las plantillas en Meta para el E2E con envío real).
+- **Estado:** ✅ PR #58 → `qa` (merge autorizado sin esperar a Meta): CI 6/6, squash `641e69c`;
+  `release-qa` ✅; E2E en QA **198/198** (sin envío real). Pendiente: E2E con `WHATSAPP_TEST_PHONE`
+  cuando Meta apruebe las plantillas (siguen "En revisión").
 - **Hecho:** `AppointmentState` con cliente, servicio, barbero, negocio, zona y motivo; contenido y
   fecha en español; las 5 plantillas con sus parámetros; tipo `APPOINTMENT_CREATED_BY_BUSINESS`
   (migración 00020); `GET /app` con `APP_DOWNLOAD_URL`; el worker lee negocios y profesionales.

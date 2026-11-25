@@ -302,10 +302,11 @@ func (s *Service) BusinessSummaries(ctx context.Context, ids []uuid.UUID) (map[u
 }
 
 func bookingPolicyOf(b *domain.Business) bizcontract.BookingPolicy {
-	p := b.Policy()
+	p, r := b.Policy(), b.Reminders()
 	return bizcontract.BookingPolicy{
 		BusinessID: b.ID(), TimeZone: b.TimeZone(), SlotIntervalMinutes: p.SlotIntervalMinutes,
 		BufferMinutes: p.BufferMinutes, MinLeadMinutes: p.MinLeadMinutes, MaxAdvanceDays: p.MaxAdvanceDays,
 		CancellationCutoffHours: p.CancellationCutoffHours, RescheduleCutoffHours: p.RescheduleCutoffHours,
+		RemindersEnabled: r.Enabled, ReminderHoursBefore: r.HoursBefore,
 	}
 }

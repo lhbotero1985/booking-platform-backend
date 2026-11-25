@@ -24,7 +24,7 @@ func (s *Service) record(ctx context.Context, tx Tx, a domain.Appointment, e dom
 		return nil
 	}
 	return s.events.AppointmentEventRecorded(ctx, contract.AppointmentEvent{
-		ID: e.ID, BusinessID: a.BusinessID, AppointmentID: a.ID, Type: string(e.Type), ActorRole: string(e.ActorRole),
+		ID: e.ID, BusinessID: a.BusinessID, AppointmentID: a.ID, Type: string(e.Type), ActorRole: string(e.ActorRole), Status: string(e.Status),
 		ProfessionalID: e.ProfessionalID, Start: e.Start, CustomerPhone: a.Customer.Phone,
 		CustomerHasAccount: a.Customer.UserID != uuid.Nil, At: e.At,
 	})

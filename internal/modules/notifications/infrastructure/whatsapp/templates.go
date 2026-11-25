@@ -52,6 +52,12 @@ var templates = map[domain.Kind]Template{
 	domain.KindRescheduled: {Name: "cita_reprogramada", Language: spanish, Params: func(c domain.Content) []string {
 		return []string{c.CustomerName, c.ServiceName, c.BusinessName, c.WhenES(), c.ProfessionalName}
 	}},
+	// T7.4 — Hola {{1}}, te recordamos tu cita de {{2}} en {{3}}. Fecha: {{4}} Con: {{5}} …
+	// Quick-reply buttons "Confirmar cita" / "Cancelar cita": their answers are handled by the
+	// webhook (T7.5), which adds single-use payloads.
+	domain.KindReminder: {Name: "recordatorio_cita", Language: spanish, Params: func(c domain.Content) []string {
+		return []string{c.CustomerName, c.ServiceName, c.BusinessName, c.WhenES(), c.ProfessionalName}
+	}},
 	// Hola {{1}}, tu cita de {{2}} en {{3}} del {{4}} ahora será con {{5}}. …
 	domain.KindReassigned: {Name: "cita_cambio_barbero", Language: spanish, Params: func(c domain.Content) []string {
 		return []string{c.CustomerName, c.ServiceName, c.BusinessName, c.WhenES(), c.ProfessionalName}

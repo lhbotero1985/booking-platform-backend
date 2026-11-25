@@ -29,4 +29,5 @@ type NotificationMessage struct {
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 	SentAt            *time.Time
+	SendAt            time.Time
 }

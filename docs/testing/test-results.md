@@ -999,4 +999,20 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `TestAppDownload` / `TestAppDownloadURLConfig` | ✅ | Aviso HTML sin URL; 302 con URL; solo https |
 | Migración 00020 (up/down) / `sqlc:check` | ✅ | |
 | `task check` (lint 0, sin vulnerabilidades) / `shellcheck` / integración completa | ✅ | 83 rutas documentadas |
-| Despliegue y E2E en QA (envío real) | ⏳ | Tras la aprobación de las plantillas en Meta y el merge |
+| PR #58 — ci + security | ✅ 6/6 | Squash `641e69c` (merge autorizado sin esperar la aprobación de Meta) |
+| `release-qa` | ✅ | Worker con `provider=meta` |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **198/198** | `/app` → 200 con el aviso "muy pronto"; mensajes sintéticos `SKIPPED NOT_ALLOWLISTED`. Sin la sección de envío real: las plantillas siguen "En revisión" en Meta |
+| E2E con `WHATSAPP_TEST_PHONE` (plantilla real a tu celular) | ⏳ | Cuando Meta apruebe las plantillas |
+
+## 2026-11-25 · Fase 7 · T7.4 — Recordatorios
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestPlanReminder` / `TestStaleReminder` (dominio) | ✅ 100 % | Pendiente → recordatorio 24 h antes; dentro de la ventana → inmediato; reprogramada/reasignada pendiente → nuevo; confirmada, desactivado, cancelación, confirmación o ya empezada → ninguno. Al vencer: confirmada → `APPOINTMENT_CONFIRMED`, cancelada, movida |
+| `TestReminders` (aplicación) | ✅ 92,3 % | Mensaje y job del recordatorio; confirmada al vencer → descartado; cambios sin recordatorio no leen la configuración; configuración ilegible → el cambio falla |
+| `TestTemplates` (cliente) | ✅ | `recordatorio_cita` con sus 5 parámetros (la prueba exige probar toda plantilla del mapa) |
+| `TestRemindersOnPostgres` | ✅ | Job River `scheduled` exactamente 24 h antes del inicio; confirmada → `SKIPPED APPOINTMENT_CONFIRMED`; cita manual confirmada → sin recordatorio |
+| Pruebas de T7.1/T7.2 con recordatorios | ✅ | Encontraron que los avisos inmediatos se programaban con la hora del cambio (reloj fijo de prueba → job en el futuro): ahora solo se programa lo que vence después |
+| Expresión jq del E2E (vencimiento del recordatorio) | ✅ | Probada con datos de ejemplo: 24 h antes → `true`; inmediato dentro de la ventana → `true`; incoherente → `false` |
+| `task check` (lint 0; `govulncheck` tras reintento por DNS) / `sqlc:check` / `shellcheck` / integración completa (migración 00021 up/down) | ✅ | |
+| Despliegue y E2E en QA | ⏳ | Tras el merge |

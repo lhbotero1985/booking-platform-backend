@@ -1,6 +1,6 @@
 # Notificaciones: WhatsApp y push
 
-Estado: **Fase 7 en curso** (T7.1–T7.3 implementadas: §7–§9). ADR-0008, ADR-0009, ADR-0010.
+Estado: **Fase 7 en curso** (T7.1–T7.4 implementadas: §7–§10). ADR-0008, ADR-0009, ADR-0010.
 
 ## 1. Principios
 
@@ -158,3 +158,24 @@ motivo); la fecha va en la zona del negocio y en español: *"martes 2 de diciemb
   2026-11-25; necesitan el webhook (T7.5).
 - Si una plantilla no existe o no está aprobada, Meta responde 132xxx → `FAILED TEMPLATE_INVALID`
   sin reintento.
+
+## 10. Recordatorios (T7.4)
+
+Decisiones del usuario (2026-11-25): texto y botones aprobados; **sin recordatorio si la cita está
+confirmada** (las manuales nacen confirmadas); **si se agenda dentro de la ventana, el recordatorio
+sale de inmediato**.
+
+- **Cuándo se planea:** al grabarse un cambio que deja la cita `PENDING_CONFIRMATION` (creada,
+  reprogramada o reasignada), si el negocio tiene los recordatorios activos
+  (`BookingPolicy.RemindersEnabled`, `ReminderHoursBefore` 1–72, 24 por defecto). Se inserta un
+  mensaje `APPOINTMENT_REMINDER` con `send_at = inicio − horas` (o el momento del cambio si ya
+  pasó) y su job River con `ScheduledAt` en la misma transacción. Un aviso inmediato se encola sin
+  hora (no depende del reloj del cambio).
+- **Al vencer** se revalida: confirmada → `SKIPPED APPOINTMENT_CONFIRMED`; cancelada, movida o ya
+  empezada → `SKIPPED` con su motivo. Un recordatorio viejo nunca se envía; el cambio posterior
+  planea el suyo.
+- **Plantilla** `recordatorio_cita` (cliente, servicio, negocio, fecha, barbero) con botones de
+  respuesta rápida "Confirmar cita" / "Cancelar cita". Sus respuestas las procesa el webhook
+  (T7.5), que agregará los códigos de un solo uso.
+- Unicidad: `UNIQUE (event_id, kind, channel, recipient_role)` (migración 00021): el aviso y el
+  recordatorio de un mismo cambio son mensajes distintos.

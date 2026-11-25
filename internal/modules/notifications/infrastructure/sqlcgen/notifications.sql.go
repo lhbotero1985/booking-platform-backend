@@ -13,7 +13,7 @@ import (
 )
 
 const appointmentMessages = `-- name: AppointmentMessages :many
-SELECT id, business_id, appointment_id, event_id, kind, channel, recipient_role, recipient, professional_id, start_at, status, skip_reason, error_code, provider_message_id, attempts, created_at, updated_at, sent_at FROM notification_messages
+SELECT id, business_id, appointment_id, event_id, kind, channel, recipient_role, recipient, professional_id, start_at, status, skip_reason, error_code, provider_message_id, attempts, created_at, updated_at, sent_at, send_at FROM notification_messages
 WHERE business_id = $1 AND appointment_id = $2
 ORDER BY created_at, id
 `
@@ -51,6 +51,7 @@ func (q *Queries) AppointmentMessages(ctx context.Context, arg AppointmentMessag
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SentAt,
+			&i.SendAt,
 		); err != nil {
 			return nil, err
 		}
@@ -99,10 +100,10 @@ func (q *Queries) FinishMessage(ctx context.Context, arg FinishMessageParams) er
 const insertMessage = `-- name: InsertMessage :many
 INSERT INTO notification_messages (
     id, business_id, appointment_id, event_id, kind, channel, recipient_role, recipient,
-    professional_id, start_at, status, created_at, updated_at
+    professional_id, start_at, status, send_at, created_at, updated_at
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8,
-    $9, $10, 'PENDING', $11, $11
+    $9, $10, 'PENDING', $11, $12, $12
 )
 ON CONFLICT ON CONSTRAINT notification_messages_once DO NOTHING
 RETURNING id
@@ -119,6 +120,7 @@ type InsertMessageParams struct {
 	Recipient      string
 	ProfessionalID uuid.UUID
 	StartAt        time.Time
+	SendAt         time.Time
 	CreatedAt      time.Time
 }
 
@@ -135,6 +137,7 @@ func (q *Queries) InsertMessage(ctx context.Context, arg InsertMessageParams) ([
 		arg.Recipient,
 		arg.ProfessionalID,
 		arg.StartAt,
+		arg.SendAt,
 		arg.CreatedAt,
 	)
 	if err != nil {
@@ -156,7 +159,7 @@ func (q *Queries) InsertMessage(ctx context.Context, arg InsertMessageParams) ([
 }
 
 const messageByID = `-- name: MessageByID :one
-SELECT id, business_id, appointment_id, event_id, kind, channel, recipient_role, recipient, professional_id, start_at, status, skip_reason, error_code, provider_message_id, attempts, created_at, updated_at, sent_at FROM notification_messages WHERE id = $1
+SELECT id, business_id, appointment_id, event_id, kind, channel, recipient_role, recipient, professional_id, start_at, status, skip_reason, error_code, provider_message_id, attempts, created_at, updated_at, sent_at, send_at FROM notification_messages WHERE id = $1
 `
 
 func (q *Queries) MessageByID(ctx context.Context, id uuid.UUID) (NotificationMessage, error) {
@@ -181,6 +184,7 @@ func (q *Queries) MessageByID(ctx context.Context, id uuid.UUID) (NotificationMe
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SentAt,
+		&i.SendAt,
 	)
 	return i, err
 }

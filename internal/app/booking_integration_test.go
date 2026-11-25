@@ -34,6 +34,7 @@ import (
 type bookingWorld struct {
 	pool     *pgxpool.Pool
 	identity *idapp.Service
+	bizSvc   *bizapp.Service
 	catalog  *catapp.Service
 	profs    *profapp.Service
 	clk      *clock.Fixed
@@ -62,7 +63,7 @@ func newBookingWorld(t *testing.T) bookingWorld {
 	profs := NewProfessionalsService(pool, identity)
 	catalog := NewCatalogService(pool, identity, biz, profs)
 	LinkPublicCatalog(biz, catalog, profs, biz)
-	w := bookingWorld{pool: pool, identity: identity, catalog: catalog, profs: profs, clk: clock.NewFixed(time.Date(2030, 3, 1, 17, 0, 0, 0, time.UTC))}
+	w := bookingWorld{pool: pool, identity: identity, bizSvc: biz, catalog: catalog, profs: profs, clk: clock.NewFixed(time.Date(2030, 3, 1, 17, 0, 0, 0, time.UTC))}
 	w.bogota, _ = time.LoadLocation("America/Bogota")
 	w.sched = schedapp.NewService(schedapp.Deps{
 		Store: schedpg.NewStore(pool), Authz: identity, Businesses: biz, Catalog: catalog, Professionals: profs, Bookable: profs, Customers: identity,

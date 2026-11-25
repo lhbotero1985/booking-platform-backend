@@ -103,6 +103,7 @@ func TestTemplates(t *testing.T) {
 		{domain.KindCancelled, "cita_cancelada", []string{"Laura", "Barbería El Paisa", "Corte + barba", when, "El barbero está incapacitado"}},
 		{domain.KindRescheduled, "cita_reprogramada", []string{"Laura", "Corte + barba", "Barbería El Paisa", when, "Juan"}},
 		{domain.KindReassigned, "cita_cambio_barbero", []string{"Laura", "Corte + barba", "Barbería El Paisa", when, "Juan"}},
+		{domain.KindReminder, "recordatorio_cita", []string{"Laura", "Corte + barba", "Barbería El Paisa", when, "Juan"}},
 	}
 	for _, c := range cases {
 		f := &fakeMeta{status: http.StatusOK, body: `{"messages":[{"id":"wamid.1"}]}`}

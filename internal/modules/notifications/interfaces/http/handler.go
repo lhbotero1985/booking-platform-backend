@@ -49,6 +49,7 @@ type messageDTO struct {
 	SkipReason    *string    `json:"skipReason"`
 	ErrorCode     *string    `json:"errorCode"`
 	Attempts      int        `json:"attempts"`
+	SendAt        time.Time  `json:"sendAt"` // when the delivery is due (reminders: before the appointment)
 	CreatedAt     time.Time  `json:"createdAt"`
 	SentAt        *time.Time `json:"sentAt"`
 }
@@ -75,7 +76,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		d := messageDTO{
 			ID: m.ID, Kind: string(m.Kind), Channel: string(m.Channel), RecipientRole: string(m.RecipientRole),
 			To: domain.MaskPhone(m.Recipient), Status: string(m.Status), SkipReason: optional(string(m.SkipReason)),
-			ErrorCode: optional(m.ErrorCode), Attempts: m.Attempts, CreatedAt: m.CreatedAt,
+			ErrorCode: optional(m.ErrorCode), Attempts: m.Attempts, SendAt: m.SendAt, CreatedAt: m.CreatedAt,
 		}
 		if !m.SentAt.IsZero() {
 			t := m.SentAt

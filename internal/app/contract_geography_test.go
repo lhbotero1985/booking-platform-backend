@@ -77,7 +77,7 @@ func newGeoServer(t *testing.T) geoEnv {
 	LinkPublicCatalog(biz, cat, profs, biz)
 	sched := schedapp.NewService(schedapp.Deps{Store: schedtest.NewStore(), Authz: e.identity, Businesses: biz, Catalog: cat, Professionals: profs, Bookable: profs, Customers: e.identity, Clock: clk})
 	LinkAgendaGuard(profs, sched)
-	notif, _ := notiftest.NewService(sched, clk)
+	notif, _ := notiftest.NewService(sched, biz, clk)
 	LinkNotifications(sched, notif)
 	e.modules = []RouteRegistrar{
 		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),

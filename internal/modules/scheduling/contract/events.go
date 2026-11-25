@@ -32,8 +32,11 @@ const (
 	ActorBusiness = "BUSINESS"
 )
 
-// StatusCancelled is the status of a canceled appointment in AppointmentState.Status.
-const StatusCancelled = "CANCELLED" //nolint:misspell // stored value
+// Statuses of AppointmentState.Status and AppointmentEvent.Status used by other modules.
+const (
+	StatusCancelled           = "CANCELLED" //nolint:misspell // stored value
+	StatusPendingConfirmation = "PENDING_CONFIRMATION"
+)
 
 // AppointmentEvent is a change of an appointment just recorded in appointment_events (T7.1).
 // ProfessionalID and Start are the values after the change.
@@ -41,6 +44,7 @@ type AppointmentEvent struct {
 	ID, BusinessID, AppointmentID uuid.UUID
 	Type                          string
 	ActorRole                     string
+	Status                        string // of the appointment after the change
 	ProfessionalID                uuid.UUID
 	Start                         time.Time // UTC
 	CustomerPhone                 string    // E.164

@@ -310,7 +310,8 @@ linters:
               desc: la aplicación depende de puertos, no de su implementación
             - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/interfaces
               desc: la aplicación no conoce el transporte
-        # Fronteras del módulo notifications (T7.1): lee scheduling e identity por su contract.
+        # Fronteras del módulo notifications (T7.1): lee scheduling, identity y (T7.4) businesses
+        # por su contract.
         notifications-module-boundary:
           list-mode: lax
           files:
@@ -319,6 +320,7 @@ linters:
             - github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications
             - github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract
             - github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/contract
+            - github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/contract
           deny:
             - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules
               desc: los módulos se comunican solo vía su paquete contract

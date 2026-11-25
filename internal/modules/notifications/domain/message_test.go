@@ -44,7 +44,7 @@ func TestPlan(t *testing.T) {
 	for _, c := range cases {
 		ch := change(c.typ, c.actor)
 		id := uuid.Must(uuid.NewV7())
-		got := domain.Plan(ch, func() uuid.UUID { return id })
+		got := domain.Plan(ch, domain.Reminders{}, func() uuid.UUID { return id })
 		if c.want == "" {
 			if len(got) != 0 {
 				t.Errorf("%s by %s: %v, want none", c.typ, c.actor, got)
@@ -55,6 +55,9 @@ func TestPlan(t *testing.T) {
 			t.Fatalf("%s by %s: %d messages", c.typ, c.actor, len(got))
 		}
 		m := got[0]
+		if !m.SendAt.Equal(ch.At) {
+			t.Errorf("%s: due %s, want at once", c.typ, m.SendAt)
+		}
 		if m.ID != id || m.Kind != c.want || m.Channel != domain.ChannelWhatsApp || m.RecipientRole != domain.RecipientCustomer ||
 			m.Recipient != ch.CustomerPhone || m.EventID != ch.EventID || m.BusinessID != ch.BusinessID || m.AppointmentID != ch.AppointmentID ||
 			m.ProfessionalID != pro || !m.Start.Equal(start) || m.Status != domain.StatusPending || !m.CreatedAt.Equal(ch.At) {
@@ -128,5 +131,77 @@ func TestWhenES(t *testing.T) {
 		if got := (domain.Content{Start: c.utc, Location: c.loc}).WhenES(); got != c.want {
 			t.Errorf("%s: %q, want %q", c.utc, got, c.want)
 		}
+	}
+}
+
+// TestPlanReminder (T7.4, decisions of 2026-11-25): a reminder only while the appointment is
+// pending confirmation, r.Before the start, or at once when that moment already passed.
+func TestPlanReminder(t *testing.T) {
+	day := domain.Reminders{Enabled: true, Before: 24 * time.Hour}
+	id := func() uuid.UUID { return uuid.Must(uuid.NewV7()) }
+	plan := func(typ, actor, status string, at time.Time, r domain.Reminders) []domain.Message {
+		c := change(typ, actor)
+		c.Status, c.At = status, at
+		return domain.Plan(c, r, id)
+	}
+	reminder := func(ms []domain.Message) *domain.Message {
+		for i := range ms {
+			if ms[i].Kind == domain.KindReminder {
+				return &ms[i]
+			}
+		}
+		return nil
+	}
+	twoDaysBefore := start.Add(-48 * time.Hour)
+
+	ms := plan("CREATED", "CUSTOMER", "PENDING_CONFIRMATION", twoDaysBefore, day)
+	if r := reminder(ms); len(ms) != 2 || ms[0].Kind != domain.KindCreated || r == nil || !r.SendAt.Equal(start.Add(-24*time.Hour)) ||
+		r.Recipient != "+573001234567" || !r.Start.Equal(start) || r.ID == ms[0].ID {
+		t.Fatalf("pending, two days before: %+v", ms)
+	}
+	// Booked inside the window: the reminder goes at once (user's decision).
+	threeHoursBefore := start.Add(-3 * time.Hour)
+	if r := reminder(plan("CREATED", "CUSTOMER", "PENDING_CONFIRMATION", threeHoursBefore, day)); r == nil || !r.SendAt.Equal(threeHoursBefore) {
+		t.Errorf("inside the window: %+v", r)
+	}
+	// Moved or reassigned and still pending: a reminder for the new time.
+	for _, typ := range []string{"RESCHEDULED", "REASSIGNED"} {
+		if reminder(plan(typ, "BUSINESS", "PENDING_CONFIRMATION", twoDaysBefore, day)) == nil {
+			t.Errorf("%s pending: no reminder", typ)
+		}
+	}
+	// No reminder: confirmed (manual bookings are), disabled, canceled, already started.
+	none := []struct {
+		name, typ, actor, status string
+		at                       time.Time
+		r                        domain.Reminders
+	}{
+		{"confirmed", "CREATED", "BUSINESS", "CONFIRMED", twoDaysBefore, day},
+		{"disabled", "CREATED", "CUSTOMER", "PENDING_CONFIRMATION", twoDaysBefore, domain.Reminders{Before: 24 * time.Hour}},
+		{"canceled", "CANCELLED", "BUSINESS", "CANCELLED", twoDaysBefore, day}, //nolint:misspell // stored value
+		{"confirmation", "CONFIRMED", "CUSTOMER", "PENDING_CONFIRMATION", twoDaysBefore, day},
+		{"after the start", "CREATED", "BUSINESS", "PENDING_CONFIRMATION", start.Add(time.Minute), day},
+	}
+	for _, c := range none {
+		if r := reminder(plan(c.typ, c.actor, c.status, c.at, c.r)); r != nil {
+			t.Errorf("%s: reminder %+v", c.name, r)
+		}
+	}
+}
+
+func TestStaleReminder(t *testing.T) {
+	m := domain.Message{Kind: domain.KindReminder, Recipient: "+573001234567", ProfessionalID: pro, Start: start}
+	now := start.Add(-24 * time.Hour)
+	for status, want := range map[string]domain.SkipReason{
+		"PENDING_CONFIRMATION": "",
+		"CONFIRMED":            domain.SkipConfirmed,
+		canceled:               domain.SkipCancelled,
+	} {
+		if got := domain.Stale(m, domain.Appointment{Status: status, ProfessionalID: pro, Start: start}, now); got != want {
+			t.Errorf("%s: %q, want %q", status, got, want)
+		}
+	}
+	if got := domain.Stale(m, domain.Appointment{Status: "PENDING_CONFIRMATION", ProfessionalID: pro, Start: start.Add(time.Hour)}, now); got != domain.SkipChanged {
+		t.Errorf("moved: %q", got)
 	}
 }
