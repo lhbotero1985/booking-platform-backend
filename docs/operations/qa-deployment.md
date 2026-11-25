@@ -108,6 +108,52 @@ ssh deploy@HOST 'sudo install -m 0755 -o root -g root /dev/stdin /usr/local/bin/
 gh auth token | ssh deploy@HOST 'booking-deploy deploy ghcr.io/lhbotero1985/booking-platform-backend@sha256:<digest> <versión> <actor>'
 ```
 
+## 3B. Portales web del frontend (Booka; fase F2 del frontend)
+
+Los portales `business-web` y `admin-web` del repositorio `booking-platform-frontend` corren en
+este mismo Droplet (2 GB desde 2026-11-25), en proyectos Compose propios
+(`deploy/compose/qa/web/docker-compose.yml`, que viaja en la imagen del backend como el resto del
+stack) unidos a la red `booking-qa_default` con los alias `business-web` y `admin-web`.
+
+| Host (Caddy) | `/api/*` | Resto |
+|---|---|---|
+| `booka-app-qa.duckdns.org` (`APP_DOMAIN`) | `api:8080` | `business-web:3000` |
+| `booka-admin-qa.duckdns.org` (`ADMIN_DOMAIN`) | `api:8080` | `admin-web:3000` |
+
+Mismo origen para `/api/*` (ADR-F003 del frontend): la cookie de sesión queda separada por portal
+y no hace falta CORS; el `Origin` de cada portal debe estar en `CORS_ALLOWED_ORIGINS` para el
+control CSRF. Mientras un portal no esté desplegado su host responde 502 sin afectar a la API.
+
+**Despliegue:** el workflow del frontend publica cada imagen en
+`ghcr.io/lhbotero1985/booking-platform-frontend/<portal>` y ejecuta por SSH, con **su propia llave**
+restringida a `/usr/local/bin/booka-web-deploy` (fuente `deploy/server/web-deploy.sh`):
+`deploy-web <portal> <imagen@digest> <versión> <actor>` (token del registro por stdin). El script
+solo acepta imágenes de ese repositorio fijadas por digest, levanta únicamente ese portal, exige
+contenedor `healthy` y `/healthz` por HTTPS a través de Caddy, y si falla vuelve a la imagen
+anterior (o detiene el portal en su primer despliegue). Estado en `web-images.env`; historial en
+`deployments.log`. Nunca toca la API ni la base de datos.
+
+**Pasos únicos del operador** (requieren el Droplet encendido y los registros DuckDNS creados):
+
+```bash
+# 1. Variables de los portales en el .env existente (qa-env.sh solo las crea en instalaciones nuevas)
+ssh deploy@HOST 'cd /opt/booking/qa && cp -p .env .env.bak &&   printf "APP_DOMAIN=booka-app-qa.duckdns.org
+ADMIN_DOMAIN=booka-admin-qa.duckdns.org
+" >> .env &&   sed -i "s#^CORS_ALLOWED_ORIGINS=.*#CORS_ALLOWED_ORIGINS=https://booking-platform-col.duckdns.org,https://booka-app-qa.duckdns.org,https://booka-admin-qa.duckdns.org#" .env'
+# 2. Script del servidor (root, la llave de CI no puede cambiarlo)
+ssh deploy@HOST 'sudo install -m 0755 -o root -g root /dev/stdin /usr/local/bin/booka-web-deploy'   < deploy/server/web-deploy.sh
+# 3. Llave de CI del frontend (ed25519 nueva) en ~deploy/.ssh/authorized_keys:
+#    restrict,command="/usr/local/bin/booka-web-deploy" ssh-ed25519 AAAA… github-actions-frontend-qa
+#    La privada va como secreto QA_WEB_SSH_KEY del Environment `qa` del repositorio frontend,
+#    junto con QA_SSH_KNOWN_HOSTS y la variable QA_SSH_HOST.
+# 4. Desplegar este cambio del backend (Caddy se reinicia solo si cambió el Caddyfile) y
+#    verificar: curl -I https://booka-app-qa.duckdns.org/  → 502 hasta el primer despliegue web.
+```
+
+`PUBLIC_APP_URL` sigue apuntando al dominio de la API hasta que business-web sirva
+`/verify-email` y `/reset-password` (fase F5 del frontend); entonces pasa a
+`https://booka-app-qa.duckdns.org`.
+
 ## 4. Primer despliegue (manual, realizado 2026-11-22)
 
 ```bash

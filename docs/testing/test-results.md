@@ -1051,10 +1051,19 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `task check` (lint 0, sin vulnerabilidades) / `sqlc:check` / `shellcheck` / integración completa (migración 00023) / gitleaks | ✅ | |
 | Despliegue y E2E en QA | ⏳ | Tras el merge: correos en Mailpit (comprobante del cliente, aviso al barbero) |
 
+## 2026-11-25 · Integración frontend · portales web en QA
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `shellcheck -S style` (web-deploy.sh, qa-env.sh, deploy.sh) | ✅ | Tras corregir SC2015 en `env_value` |
+| `caddy validate` (Caddyfile con los dos portales) | ✅ | "Valid configuration" |
+| Compose web local con la imagen real de business-web en la red `booking-qa_default` | ✅ | `healthy`, raíz de solo lectura, caché en tmpfs escribible, `/healthz` por el alias `business-web:3000`, 116 MiB de 192 MiB |
+| Despliegue real en QA | ⏳ | Droplet activo; tras el merge, pasos de operador (`qa-deployment.md` §3B) |
+
 ## 2026-11-25 · Integración frontend · slugs reservados (ADR-F006 del frontend)
 
 | Comando / verificación | Resultado | Observaciones |
 |---|---|---|
 | `go test ./internal/modules/businesses/...` | ✅ | Nuevos casos: rutas del portal → `ErrReservedSlug`; "Contacto" → `negocio-contacto`; toda palabra reservada tiene forma de slug |
 | `task check` (build, vet, lint 0 issues, test, govulncheck) | ✅ | govulncheck falló una vez por DNS local (`vuln.go.dev: no such host`); reintento: sin vulnerabilidades |
-| Verificar en QA que ningún slug existente quede reservado | ⏳ | El Droplet QA estaba apagado |
+| Verificar en QA que ningún slug existente quede reservado | ✅ | 4 ciudades, 0 negocios públicos: sin conflictos (los no públicos no son visibles por la API pública) |
