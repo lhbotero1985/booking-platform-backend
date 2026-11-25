@@ -999,4 +999,7 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `TestAppDownload` / `TestAppDownloadURLConfig` | ✅ | Aviso HTML sin URL; 302 con URL; solo https |
 | Migración 00020 (up/down) / `sqlc:check` | ✅ | |
 | `task check` (lint 0, sin vulnerabilidades) / `shellcheck` / integración completa | ✅ | 83 rutas documentadas |
-| Despliegue y E2E en QA (envío real) | ⏳ | Tras la aprobación de las plantillas en Meta y el merge |
+| PR #58 — ci + security | ✅ 6/6 | Squash `641e69c` (merge autorizado sin esperar la aprobación de Meta) |
+| `release-qa` | ✅ | Worker con `provider=meta` |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **198/198** | `/app` → 200 con el aviso "muy pronto"; mensajes sintéticos `SKIPPED NOT_ALLOWLISTED`. Sin la sección de envío real: las plantillas siguen "En revisión" en Meta |
+| E2E con `WHATSAPP_TEST_PHONE` (plantilla real a tu celular) | ⏳ | Cuando Meta apruebe las plantillas |

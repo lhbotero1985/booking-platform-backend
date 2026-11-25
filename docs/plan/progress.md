@@ -471,8 +471,9 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - **Previo:** el usuario confirmó que recibió el "Hello World" de T7.2; aprobó los 5 textos y los
   creó en Meta (Utilidad, Spanish; "En revisión"); decidió que los botones Confirmar / Cancelar
   vayan solo en el recordatorio (T7.4).
-- **Estado:** ✅ en `feature/t7.3-appointment-templates` (commit y push; PR pendiente de
-  autorización y de la aprobación de las plantillas en Meta para el E2E con envío real).
+- **Estado:** ✅ PR #58 → `qa` (merge autorizado sin esperar a Meta): CI 6/6, squash `641e69c`;
+  `release-qa` ✅; E2E en QA **198/198** (sin envío real). Pendiente: E2E con `WHATSAPP_TEST_PHONE`
+  cuando Meta apruebe las plantillas (siguen "En revisión").
 - **Hecho:** `AppointmentState` con cliente, servicio, barbero, negocio, zona y motivo; contenido y
   fecha en español; las 5 plantillas con sus parámetros; tipo `APPOINTMENT_CREATED_BY_BUSINESS`
   (migración 00020); `GET /app` con `APP_DOWNLOAD_URL`; el worker lee negocios y profesionales.
