@@ -983,4 +983,6 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `TestWhatsAppClientOnPostgres` | ✅ | Reserva → mensaje → cliente de Meta (falso) → `SENT` con el wamid; Meta rechaza al destinatario → `FAILED RECIPIENT_NOT_ALLOWED` en el primer intento |
 | `docker compose config` (QA) | ✅ | Credenciales solo en el worker |
 | `task check` (lint 0, sin vulnerabilidades) / `shellcheck` / integración completa | ✅ | |
-| Despliegue y E2E en QA (envío real) | ⏳ | Tras el merge |
+| PR #57 — ci + security | ✅ 6/6 | 1.ª corrida: gitleaks marcó el token **falso** de una prueba (`AccessToken: "EAAtest…"`, regla genérica); corregido con una constante y la huella revisada en `.gitleaksignore`. Squash `d9b29bb` |
+| `release-qa` | ✅ | El worker arranca con `whatsapp sender provider=meta allowlist=1` |
+| `scripts/e2e-qa.sh` (admin, `WHATSAPP_TEST_PHONE`) en QA | ✅ **203/203** | Mensajes sintéticos → `SKIPPED NOT_ALLOWLISTED`; **cita con el celular de prueba → Meta aceptó el WhatsApp (`SENT`, 1 intento)**; la cancelación del cliente no envía un segundo mensaje. El número no aparece en el log |

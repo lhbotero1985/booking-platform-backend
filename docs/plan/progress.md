@@ -480,8 +480,9 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
   `WHATSAPP_GRAPH_VERSION` con validación (lista blanca obligatoria fuera de PROD); elección
   Meta/simulado en el composition root; credenciales solo al worker en QA; E2E adaptado a la lista
   blanca y sección opcional con envío real; guía en `qa-deployment.md`.
-- **Próximo:** PR a `qa` (requiere autorización) y E2E en QA con `WHATSAPP_TEST_PHONE`: el usuario
-  debe recibir un WhatsApp real.
+- **Cierre:** PR #57 → `qa` autorizado: CI 6/6 ✅ (tras corregir un falso positivo de gitleaks),
+  squash `d9b29bb`; `release-qa` ✅; worker con `provider=meta`; E2E en QA **203/203** con un
+  WhatsApp real aceptado por Meta.
 
 ## 2026-11-24 · Fase 7 · T7.1 — Base de notificaciones
 
