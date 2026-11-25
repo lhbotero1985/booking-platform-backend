@@ -63,7 +63,7 @@ func TestRenderEveryEmail(t *testing.T) {
 		{domain.KindCancelledByCustomer, domain.RecipientCustomer, "Tu cita en Barbería El Paisa fue cancelada",
 			[]string{"cancelaste esta cita"}, []string{"Motivo", "Políticas del negocio"}},
 		{domain.KindRescheduled, domain.RecipientCustomer, "Tu cita en Barbería El Paisa cambió de hora", []string{"tu cita ahora es"}, nil},
-		{domain.KindReassigned, domain.RecipientCustomer, "Tu cita en Barbería El Paisa tiene otro barbero", []string{"ahora te atenderá Andrés Botero"}, nil},
+		{domain.KindReassigned, domain.RecipientCustomer, "Tu cita en Barbería El Paisa tiene otro especialista", []string{"ahora te atenderá Andrés Botero"}, nil},
 		{domain.KindReminder, domain.RecipientCustomer, "Recordatorio: tu cita en Barbería El Paisa es el miércoles 2 de diciembre, 10:00 a. m.",
 			[]string{"Te esperamos"}, nil},
 		{domain.KindCreated, domain.RecipientProfessional, "Nueva cita: Laura Gómez, miércoles 2 de diciembre, 10:00 a. m.",

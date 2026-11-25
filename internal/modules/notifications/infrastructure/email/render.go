@@ -85,7 +85,7 @@ func copyOf(kind domain.Kind, role domain.Role, c domain.Content) (texts, bool) 
 		return texts{"Tu cita en " + b + " cambió de hora", "Tu cita cambió de hora",
 			"Hola " + cust + ", tu cita ahora es:"}, true
 	case domain.KindReassigned:
-		return texts{"Tu cita en " + b + " tiene otro barbero", "Tu cita tiene otro barbero",
+		return texts{"Tu cita en " + b + " tiene otro especialista", "Tu cita tiene otro especialista",
 			"Hola " + cust + ", ahora te atenderá " + c.ProfessionalName + ":"}, true
 	case domain.KindReminder:
 		return texts{"Recordatorio: tu cita en " + b + " es el " + short, "Te esperamos",

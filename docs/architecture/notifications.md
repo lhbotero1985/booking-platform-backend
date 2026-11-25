@@ -254,7 +254,7 @@ sale de inmediato**.
 | Agendada (cliente o negocio) | "Tu cita en {negocio} está agendada" |
 | Cancelada (por el negocio o por el cliente) | "Tu cita en {negocio} fue cancelada" |
 | Reprogramada | "Tu cita en {negocio} cambió de hora" |
-| Cambio de barbero | "Tu cita en {negocio} tiene otro barbero" |
+| Cambio de especialista | "Tu cita en {negocio} tiene otro especialista" |
 | Recordatorio | "Recordatorio: tu cita en {negocio} es el {fecha}" |
 | Barbero: nueva / cancelada / reprogramada | "Nueva cita: {cliente}, {fecha}" / "Cita cancelada: …" / "Cita reprogramada: …" |
 
