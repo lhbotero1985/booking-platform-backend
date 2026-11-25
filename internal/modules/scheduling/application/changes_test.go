@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	businesses "github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/contract"
 	identity "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/domain"
@@ -170,5 +171,36 @@ func TestStaffChanges(t *testing.T) {
 	// The 11:00 walk-in has not started yet at 09:05: the owner can still cancel it.
 	if _, err := e.svc.StaffChange(ctx, e.owner, e.biz, a.ID, application.ActionCancel, "cierre"); err != nil {
 		t.Errorf("cancel the 11:00 at 09:05: %v", err)
+	}
+}
+
+// TestCustomerRescheduleLimit (T7.8): the business allows the customer one move; the staff's
+// moves are not limited and do not count.
+func TestCustomerRescheduleLimit(t *testing.T) {
+	ctx := context.Background()
+	e := changeEnv{bookingEnv: newBookingEnvWith(t, func(p *businesses.BookingPolicy) { p.MaxCustomerReschedules = 1 })}
+	e.owner = identity.Principal{UserID: uuid.Must(uuid.NewV7())}
+	e.roles[[2]uuid.UUID{e.biz, e.owner.UserID}] = identity.RoleOwner
+	customer := e.bookingEnv.ana
+	a, err := e.svc.Book(ctx, customer, e.in(e.day(9, 0), "limite-1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m, err := e.svc.CustomerReschedule(ctx, customer, a.ID, e.day(9, 30)); err != nil || m.CustomerReschedules != 1 {
+		t.Fatalf("first move: %+v %v", m, err)
+	}
+	if _, err := e.svc.CustomerReschedule(ctx, customer, a.ID, e.day(10, 0)); !errors.Is(err, domain.ErrRescheduleLimit) {
+		t.Errorf("second move: %v", err)
+	}
+	m, err := e.svc.StaffReschedule(ctx, e.owner, e.biz, a.ID, e.day(10, 0), uuid.Nil)
+	if err != nil || m.CustomerReschedules != 1 {
+		t.Errorf("the owner moves it: %+v %v", m, err)
+	}
+	if _, err := e.svc.CustomerReschedule(ctx, customer, a.ID, e.day(10, 30)); !errors.Is(err, domain.ErrRescheduleLimit) {
+		t.Errorf("after the owner's move: %v", err)
+	}
+	// Still allowed: confirming and canceling.
+	if c, err := e.svc.CustomerChange(ctx, customer, a.ID, application.ActionCancel, ""); err != nil || c.Status != domain.StatusCancelled {
+		t.Errorf("cancel: %+v %v", c, err)
 	}
 }

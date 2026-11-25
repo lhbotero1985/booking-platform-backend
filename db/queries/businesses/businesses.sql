@@ -6,9 +6,10 @@ INSERT INTO businesses (
     id, name, slug, status, contact_phone, description, country_code, division_id, city_id,
     address_line, latitude, longitude, time_zone, currency, slot_interval_minutes, buffer_minutes,
     min_lead_minutes, max_advance_days, cancellation_cutoff_hours, reschedule_cutoff_hours,
-    require_customer_confirmation, reminders_enabled, reminder_hours_before, created_at, updated_at)
+    require_customer_confirmation, reminders_enabled, reminder_hours_before, max_customer_reschedules,
+    created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-        $21, $22, $23, $24, $24);
+        $21, $22, $23, $24, $25, $25);
 
 -- name: UpdateBusiness :exec
 -- Everything but id, slug, currency and created_at (slug changes and moves between countries
@@ -19,7 +20,7 @@ UPDATE businesses SET
     buffer_minutes = $13, min_lead_minutes = $14, max_advance_days = $15,
     cancellation_cutoff_hours = $16, reschedule_cutoff_hours = $17,
     require_customer_confirmation = $18, reminders_enabled = $19, reminder_hours_before = $20,
-    updated_at = $21
+    max_customer_reschedules = $21, updated_at = $22
 WHERE id = $1;
 
 -- name: BusinessByID :one
@@ -27,7 +28,7 @@ SELECT id, name, slug::text AS slug, status, contact_phone, description, country
        city_id, address_line, latitude, longitude, time_zone, currency, slot_interval_minutes,
        buffer_minutes, min_lead_minutes, max_advance_days, cancellation_cutoff_hours,
        reschedule_cutoff_hours, require_customer_confirmation, reminders_enabled,
-       reminder_hours_before, created_at, updated_at
+       reminder_hours_before, max_customer_reschedules, created_at, updated_at
 FROM businesses
 WHERE id = $1;
 
@@ -36,7 +37,7 @@ SELECT id, name, slug::text AS slug, status, contact_phone, description, country
        city_id, address_line, latitude, longitude, time_zone, currency, slot_interval_minutes,
        buffer_minutes, min_lead_minutes, max_advance_days, cancellation_cutoff_hours,
        reschedule_cutoff_hours, require_customer_confirmation, reminders_enabled,
-       reminder_hours_before, created_at, updated_at
+       reminder_hours_before, max_customer_reschedules, created_at, updated_at
 FROM businesses
 WHERE slug = $1;
 
@@ -59,7 +60,7 @@ SELECT id, name, slug::text AS slug, status, contact_phone, description, country
        city_id, address_line, latitude, longitude, time_zone, currency, slot_interval_minutes,
        buffer_minutes, min_lead_minutes, max_advance_days, cancellation_cutoff_hours,
        reschedule_cutoff_hours, require_customer_confirmation, reminders_enabled,
-       reminder_hours_before, created_at, updated_at
+       reminder_hours_before, max_customer_reschedules, created_at, updated_at
 FROM businesses
 WHERE (sqlc.narg(status)::text IS NULL OR status = sqlc.narg(status)::text)
   AND (sqlc.narg(city_id)::uuid IS NULL OR city_id = sqlc.narg(city_id)::uuid)
@@ -75,7 +76,7 @@ SELECT lower(name) AS sort_name, id, name, slug::text AS slug, status, contact_p
        city_id, address_line, latitude, longitude, time_zone, currency, slot_interval_minutes,
        buffer_minutes, min_lead_minutes, max_advance_days, cancellation_cutoff_hours,
        reschedule_cutoff_hours, require_customer_confirmation, reminders_enabled,
-       reminder_hours_before, created_at, updated_at
+       reminder_hours_before, max_customer_reschedules, created_at, updated_at
 FROM businesses
 WHERE status = 'ACTIVE'
   AND city_id = sqlc.arg(city_id)

@@ -111,6 +111,7 @@ func (t *txStore) UpdateAppointment(ctx context.Context, a domain.Appointment, v
 		ID: a.ID, Version: int32(version), ProfessionalID: a.ProfessionalID, StartAt: a.Start, EndAt: a.End, //nolint:gosec // small counter
 		OccupiedUntil: a.OccupiedUntil(), Status: string(a.Status), CancelledAt: optionalTime(a.CancelledAt),
 		CancelReason: optionalText(a.CancelReason), CancelledBy: optionalText(string(a.CancelledBy)), UpdatedAt: a.UpdatedAt,
+		CustomerReschedules: int16(a.CustomerReschedules), //nolint:gosec // limited to 10 per business
 	})
 	switch {
 	case db.IsExclusionViolation(err):
@@ -190,6 +191,7 @@ func toAppointment(r sqlcgen.Appointment) domain.Appointment {
 		Status: domain.Status(r.Status), Version: int(r.Version), CreatedBy: r.CreatedBy,
 		CreatedAt: r.CreatedAt.UTC(), UpdatedAt: r.UpdatedAt.UTC(), CancelledAt: cancelledAt(r.CancelledAt),
 		CancelReason: text(r.CancelReason), CancelledBy: domain.ActorRole(text(r.CancelledBy)),
+		CustomerReschedules: int(r.CustomerReschedules),
 	}
 }
 

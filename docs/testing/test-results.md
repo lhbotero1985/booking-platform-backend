@@ -1049,7 +1049,7 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Mutaciones: al barbero todo cambio / códigos también en el recordatorio por correo | ✅ detectadas | `TestPlan` y `TestEmailReminderHasNoButtons` fallaron; código restaurado |
 | Vista previa en Chrome sin interfaz (correo del cliente y del barbero) | ✅ | Revisión visual del diseño |
 | `task check` (lint 0, sin vulnerabilidades) / `sqlc:check` / `shellcheck` / integración completa (migración 00023) / gitleaks | ✅ | |
-| Despliegue y E2E en QA | ⏳ | Tras el merge: correos en Mailpit (comprobante del cliente, aviso al barbero) |
+| Despliegue y E2E en QA (PR #61, `3cf9b43`) | ✅ 209/209 | CI 6/6; el primer despliegue falló por el droplet apagado (el usuario lo apagó para cambiar recursos), relanzado con éxito tras encenderlo; migración 00023 aplicada. Mailpit: al cliente "está agendada", dos "cambió de hora" y "fue cancelada"; al especialista "Nueva cita", "Cita reprogramada" y "Cita cancelada"; direcciones enmascaradas. Diseño aprobado por el usuario |
 
 ## 2026-11-25 · Integración frontend · portales web en QA
 
@@ -1068,10 +1068,40 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `task check` (build, vet, lint 0 issues, test, govulncheck) | ✅ | govulncheck falló una vez por DNS local (`vuln.go.dev: no such host`); reintento: sin vulnerabilidades |
 | Verificar en QA que ningún slug existente quede reservado | ✅ | 4 ciudades, 0 negocios públicos: sin conflictos (los no públicos no son visibles por la API pública) |
 
+## 2026-11-25 · Fase 7 · T7.7 — Acciones desde el correo
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestEmailLinksIssued` / `TestLinkTwoTaps` / `TestLinkRejections` / `TestLinkReschedule` (aplicación) | ✅ 91,0 % | 3 enlaces si está pendiente, 2 si confirmada, ninguno al especialista ni en cancelaciones; el primer toque no cambia nada; confirmar gasta solo su enlace (luego se puede cancelar); código desconocido, de otra acción, usado, vencido, cita movida o inexistente → inválido; horario tomado o límite → el enlace sigue válido; reagendar gasta todos |
+| `TestRenderButtons` (correo) | ✅ 95,8 % | Enlaces a `/citas/*` con el código escapado; reagendar al frontend si está configurado; sin URL base no hay botones; texto plano con los enlaces |
+| `TestLinkPages` / `TestLinkPageOutcomes` / `TestLinksAPI` (HTTP) | ✅ 83,9 % | CSP, `no-referrer`, `no-store`, `noindex`; nombre con `<script>` escapado; sin código o > 100 caracteres → página inválida sin consultar el servicio; falla interna sin filtrar el error; validación de la API (acción, código, `startAt`), 415 sin JSON, enlace inválido sin datos de la cita |
+| `TestContractAppointmentLinks` | ✅ | Contra OpenAPI: primer toque, segundo toque, reuso, `lookup` y `apply` (mueve la cita e invalida el resto). **92 rutas documentadas** |
+| `TestEmailLinksOnPostgres` | ✅ | Primer toque sin cambios; confirmar; horario tomado → `SLOT_UNAVAILABLE`; reagendar como el cliente (evento con su cuenta) y aviso al especialista; códigos crudos no guardados |
+| `TestEmailLinksConcurrently` | ✅ | **Cancelar ∥ Reagendar del mismo correo, 4 rondas: exactamente uno se aplica** |
+| Mutaciones: confirmar gasta todos los enlaces / sin el bloqueo de los enlaces | ✅ detectadas | `TestLinkTwoTaps` falló; sin bloqueo se aplicaron los dos (cancelada y movida) en la 1.ª ronda; código restaurado |
+| `TestEmailLinksConfig`, `TestAppointmentsContract` | ✅ | `PUBLIC_API_URL` https fuera de DEV; `APPOINTMENT_RESCHEDULE_URL` https sin query |
+| Vista previa en Chrome sin interfaz (recordatorio con botones, páginas de confirmar, cancelar e inválido) | ✅ | |
+| `task check` (lint 0, sin vulnerabilidades) / `sqlc:check` / `shellcheck` / gitleaks | ✅ | |
+| Integración completa (migración 00024) | ✅ | Una 1.ª corrida falló en `identity/infrastructure` bajo carga (Docker con 2 GB); pasó 4/4 aislado y la suite completa pasó al repetirla |
+| Despliegue y E2E en QA (PR #66) | ✅ 214/214 | CI 6/6 tras integrar `qa` (portales web, slugs reservados); `release-qa` ✅. Enlaces reales del correo en Mailpit: primer toque sin cambios, cabeceras de seguridad, segundo toque confirma, reuso → "ya no es válido", `lookup`/`apply` mueve la cita como el cliente, el enlace de cancelar queda gastado. 1.ª corrida: el script contaba 2 líneas con "ya no es válido" (título y encabezado) → `grep -m1`; dos `000` por red local. 2.ª corrida: un `000` en el login del barbero arrastró 83 fallos en cascada. 3.ª corrida con `CURL_EXTRA=--resolve …` (DNS local): 0 fallos |
+
+## 2026-11-25 · Fase 7 · T7.8 — Límite de reprogramaciones por cita
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestPolicies` (negocios) | ✅ | Por defecto 2; 0 y 10 válidos; −1 y 11 → `bookingPolicy.maxCustomerReschedules` |
+| `TestRescheduleLimit` (dominio) | ✅ | Dos cambios del cliente cuentan, el tercero → `ErrRescheduleLimit`; subir el límite o 0 lo permite; el negocio mueve sin límite y no cuenta; dentro del límite de horas se informa `CUTOFF_PASSED` primero |
+| `TestCustomerRescheduleLimit` (aplicación) | ✅ | Límite 1: segundo cambio rechazado, también tras un cambio del dueño; cancelar sigue permitido |
+| `TestLinkRescheduleLimit` / `TestLinkPageOutcomes` / `TestLinkPages` / `TestLinksAPI` | ✅ | Al límite: `lookup` y `apply` → `RESCHEDULE_LIMIT_REACHED` sin mover ni gastar (luego cancela o confirma); rechazo de scheduling → mismo resultado; correo nuevo sin "Reagendar"; página y nota "Te queda 1 cambio…"; JSON con `maxCustomerReschedules`/`customerReschedules` |
+| `TestRescheduleLimitOnPostgres` | ✅ | Por defecto 2 en la base; contador guardado y leído; cambio del dueño no cuenta; **límite 1 y dos cambios del cliente a la vez, 4 rondas: exactamente uno se aplica**; migración 00025 abajo y arriba: el contador se reconstruye desde el historial (2, sin el cambio del dueño) |
+| Mutaciones: `>=` → `>` en el límite / contador no guardado | ✅ detectadas | Fallaron `TestCustomerRescheduleLimit` y `TestRescheduleLimitOnPostgres` ("third move: <nil>"; "move 2"); código restaurado |
+| `task check` (lint 0, sin vulnerabilidades) / `sqlc:check` / `shellcheck` | ✅ | |
+| Integración completa (`task test:integration`) | ✅ | 45 paquetes |
+| Despliegue y E2E en QA (PR #68) | ✅ 218/218 | CI 6/6; `release-qa` ✅ (migración 00025 aplicada). Solo cuenta el cambio del cliente (1, no el del barbero); el dueño fija 1 → segundo cambio del cliente 409 `RESCHEDULE_LIMIT_REACHED`; vuelve a 2. Con `CURL_EXTRA=--resolve …` (DNS local), 1.ª corrida sin fallos |
+
 ## 2026-11-25 · Despliegue QA · carrera en el smoke test de Caddy
 
 | Comando / verificación | Resultado | Observaciones |
 |---|---|---|
 | Despliegue de #63 (`86a4dad`) | ❌ → rollback ✅ | Caddy recreado/reiniciado por el Caddyfile nuevo; `curl` a 443 "Couldn't connect … after 0 ms" en el mismo instante; el rollback dejó QA sano (`4437175`) |
 | Corrección: reintentos de la verificación por Caddy (60 s) en `deploy.sh` | ✅ `bash -n` | shellcheck en CI (el contenedor local se colgó) |
-

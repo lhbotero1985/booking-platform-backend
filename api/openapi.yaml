@@ -110,6 +110,147 @@ paths:
                 type: string
                 format: uri
 
+  /citas/confirmar:
+    get:
+      tags: [Notifications]
+      operationId: showConfirmLink
+      summary: Page of the email's "Confirmar cita" link (first tap)
+      description: |
+        T7.7 (ADR-0019). Shows the appointment and a button; changes nothing (mail scanners open
+        the links of every email). The "link no longer valid" page when the code is unknown, used,
+        expired or the appointment changed since the email (a page for people: always 200). Public; the code is the
+        credential. Rate limited per client.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/LinkToken"
+      responses:
+        "200": { $ref: "#/components/responses/LinkPage" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+    post:
+      tags: [Notifications]
+      operationId: useConfirmLink
+      summary: Confirm the appointment (second tap)
+      description: The page's button. Confirms as the customer and spends only this link.
+      security: []
+      requestBody:
+        $ref: "#/components/requestBodies/LinkForm"
+      responses:
+        "200": { $ref: "#/components/responses/LinkPage" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /citas/cancelar:
+    get:
+      tags: [Notifications]
+      operationId: showCancelLink
+      summary: Page of the email's "Cancelar cita" link (first tap)
+      description: Shows the appointment, the cancellation cut-off and a button; changes nothing.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/LinkToken"
+      responses:
+        "200": { $ref: "#/components/responses/LinkPage" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+    post:
+      tags: [Notifications]
+      operationId: useCancelLink
+      summary: Cancel the appointment (second tap)
+      description: |
+        Cancels as the customer, with the customer's cut-off (the page says to contact the
+        business when it passed). Spends every link of the email.
+      security: []
+      requestBody:
+        $ref: "#/components/requestBodies/LinkForm"
+      responses:
+        "200": { $ref: "#/components/responses/LinkPage" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /citas/reagendar:
+    get:
+      tags: [Notifications]
+      operationId: showRescheduleLink
+      summary: Page of the email's "Reagendar" link
+      description: |
+        Used while APPOINTMENT_RESCHEDULE_URL (the frontend's page) is not set: shows the
+        appointment and points to the app. Changes nothing.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/LinkToken"
+      responses:
+        "200": { $ref: "#/components/responses/LinkPage" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /api/v1/appointment-links/lookup:
+    post:
+      tags: [Notifications]
+      operationId: lookupAppointmentLink
+      summary: What an email link would do (frontend's reschedule page)
+      description: |
+        T7.7. Reads the appointment of an email link without changing anything. `outcome` is null
+        while the link can be used; otherwise INVALID (unknown, used, expired, or the appointment
+        changed: no appointment data) or NOT_ACTIVE. With `businessSlug`, `serviceId` and
+        `professionalId` the page asks GET /api/v1/businesses/{slug}/availability. Public; the code
+        is the credential. Rate limited per client.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token, action]
+              properties:
+                token: { type: string, minLength: 1, maxLength: 100 }
+                action: { type: string, enum: [CONFIRM, CANCEL, RESCHEDULE] }
+      responses:
+        "200":
+          description: The link.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AppointmentLink" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /api/v1/appointment-links/apply:
+    post:
+      tags: [Notifications]
+      operationId: applyAppointmentLink
+      summary: Apply an email link (confirm, cancel or move to another time)
+      description: |
+        T7.7. Applies the link as the customer, with the customer's rules. `outcome`: CONFIRMED,
+        CANCELLED, RESCHEDULED (the appointment shows the new time), CUTOFF_PASSED,
+        RESCHEDULE_LIMIT_REACHED (T7.8: already moved as many times as the business allows; nothing
+        is spent),
+        SLOT_UNAVAILABLE (pick another time; the link stays valid), NOT_ACTIVE or INVALID. A
+        confirmation spends only its link; a cancellation or a new time every link of the email.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token, action]
+              properties:
+                token: { type: string, minLength: 1, maxLength: 100 }
+                action: { type: string, enum: [CONFIRM, CANCEL, RESCHEDULE] }
+                startAt:
+                  type: string
+                  format: date-time
+                  description: Required for RESCHEDULE; a `startAt` offered by the availability.
+      responses:
+        "200":
+          description: The result.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AppointmentLink" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
   /webhooks/whatsapp:
     get:
       tags: [Notifications]
@@ -1840,7 +1981,7 @@ paths:
       operationId: rescheduleMyAppointment
       summary: Move your appointment to another time
       description: |
-        Same appointment and professional, a start offered by the availability, at least `rescheduleCutoffHours` before (409 `CUTOFF_PASSED`) and while the business is public. The status does not change. 409 `SLOT_UNAVAILABLE` if the time is taken.
+        Same appointment and professional, a start offered by the availability, at least `rescheduleCutoffHours` before (409 `CUTOFF_PASSED`), within the business's `maxCustomerReschedules` (409 `RESCHEDULE_LIMIT_REACHED`, T7.8) and while the business is public. The status does not change. 409 `SLOT_UNAVAILABLE` if the time is taken.
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -3328,6 +3469,12 @@ paths:
 
 components:
   parameters:
+    LinkToken:
+      name: token
+      in: query
+      required: true
+      description: Single-use code of the email link (T7.7).
+      schema: { type: string, minLength: 1, maxLength: 100 }
     CountryCode:
       name: code
       in: path
@@ -3880,7 +4027,8 @@ components:
       type: object
       additionalProperties: false
       required: [slotIntervalMinutes, bufferMinutes, minLeadMinutes, maxAdvanceDays,
-                 cancellationCutoffHours, rescheduleCutoffHours, requireCustomerConfirmation]
+                 cancellationCutoffHours, rescheduleCutoffHours, maxCustomerReschedules,
+                 requireCustomerConfirmation]
       properties:
         slotIntervalMinutes:
           type: integer
@@ -3905,6 +4053,14 @@ components:
           type: integer
           minimum: 0
           maximum: 168
+        maxCustomerReschedules:
+          type: integer
+          minimum: 0
+          maximum: 10
+          default: 2
+          description: |
+            T7.8. How many times the customer may move one appointment (app, API or the email's
+            "Reagendar" link); 0 = no limit. Moves by the business do not count.
         requireCustomerConfirmation:
           type: boolean
 
@@ -4114,6 +4270,8 @@ components:
               type: integer
             rescheduleCutoffHours:
               type: integer
+            maxCustomerReschedules:
+              type: integer
             requireCustomerConfirmation:
               type: boolean
         reminders:
@@ -4212,7 +4370,7 @@ components:
         bookingPolicy:
           type: object
           additionalProperties: false
-          required: [minLeadMinutes, maxAdvanceDays, cancellationCutoffHours, rescheduleCutoffHours]
+          required: [minLeadMinutes, maxAdvanceDays, cancellationCutoffHours, rescheduleCutoffHours, maxCustomerReschedules]
           properties:
             minLeadMinutes:
               type: integer
@@ -4222,6 +4380,9 @@ components:
               type: integer
             rescheduleCutoffHours:
               type: integer
+            maxCustomerReschedules:
+              type: integer
+              description: Times the customer may move one appointment; 0 = no limit (T7.8).
 
     PublicBusinessList:
       type: object
@@ -4704,7 +4865,7 @@ components:
       type: object
       additionalProperties: false
       required: [id, business, professional, serviceName, durationMinutes, priceMinor, currency, startAt,
-                 endAt, startLocal, status, createdAt]
+                 endAt, startLocal, status, customerReschedules, createdAt]
       properties:
         id:
           type: string
@@ -4753,6 +4914,12 @@ components:
         status:
           type: string
           enum: [PENDING_CONFIRMATION, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW]
+        customerReschedules:
+          type: integer
+          minimum: 0
+          description: |
+            Times the customer moved it (T7.8). The business's `maxCustomerReschedules` (public
+            detail) limits them; 0 there = no limit.
         createdAt:
           type: string
           format: date-time
@@ -4804,8 +4971,8 @@ components:
       type: object
       additionalProperties: false
       required: [id, businessId, professionalId, serviceId, serviceName, durationMinutes, priceMinor,
-                 currency, startAt, endAt, status, customerName, version, cancelledAt, cancelReason,
-                 cancelledBy, createdAt]
+                 currency, startAt, endAt, status, customerName, version, customerReschedules,
+                 cancelledAt, cancelReason, cancelledBy, createdAt]
       properties:
         id:
           type: string
@@ -4844,6 +5011,10 @@ components:
         version:
           type: integer
           description: Increases with every change.
+        customerReschedules:
+          type: integer
+          minimum: 0
+          description: Times the customer moved it (T7.8; limited by the business's `maxCustomerReschedules`).
         cancelledAt:
           type: [string, "null"]
           format: date-time
@@ -4855,6 +5026,37 @@ components:
         createdAt:
           type: string
           format: date-time
+    AppointmentLink:
+      type: object
+      additionalProperties: false
+      required: [action, outcome, appointment]
+      properties:
+        action: { type: string, enum: [CONFIRM, CANCEL, RESCHEDULE] }
+        outcome:
+          type: [string, "null"]
+          enum: [CONFIRMED, CANCELLED, RESCHEDULED, CUTOFF_PASSED, SLOT_UNAVAILABLE, RESCHEDULE_LIMIT_REACHED, NOT_ACTIVE, INVALID, null]
+          description: null while the link can be used.
+        appointment:
+          description: null for an INVALID link.
+          oneOf:
+            - type: "null"
+            - type: object
+              additionalProperties: false
+              required: [businessId, businessSlug, businessName, serviceId, serviceName, professionalId, professionalName, startAt, timeZone, cancelCutoffHours, rescheduleCutoffHours, maxCustomerReschedules, customerReschedules]
+              properties:
+                businessId: { type: string, format: uuid }
+                businessSlug: { type: string }
+                businessName: { type: string }
+                serviceId: { type: string, format: uuid }
+                serviceName: { type: string }
+                professionalId: { type: string, format: uuid }
+                professionalName: { type: string }
+                startAt: { type: string, format: date-time }
+                timeZone: { type: string, example: America/Bogota }
+                cancelCutoffHours: { type: integer, minimum: 0 }
+                rescheduleCutoffHours: { type: integer, minimum: 0 }
+                maxCustomerReschedules: { type: integer, minimum: 0, description: "0 = no limit (T7.8)" }
+                customerReschedules: { type: integer, minimum: 0 }
     AppointmentNotifications:
       type: object
       additionalProperties: false
@@ -5171,7 +5373,7 @@ components:
         professional profile in the business (`ALREADY_PROFESSIONAL`), the start time is not
         available (`SLOT_UNAVAILABLE`), or an appointment change is not allowed
         (`INVALID_TRANSITION`, `TOO_EARLY`, `APPOINTMENT_STARTED`, `CUTOFF_PASSED`,
-        `APPOINTMENT_CHANGED`), or an absence or weekly schedule would break active appointments
+        `RESCHEDULE_LIMIT_REACHED`, `APPOINTMENT_CHANGED`), or an absence or weekly schedule would break active appointments
         (`AGENDA_CONFLICTS`, listed in `conflicts`).
       headers:
         X-Request-ID:
@@ -5201,6 +5403,26 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
+    LinkPage:
+      description: HTML page of an email link (Spanish, Booka look; no scripts).
+      headers:
+        X-Request-ID:
+          $ref: "#/components/headers/XRequestID"
+      content:
+        text/html:
+          schema:
+            type: string
+
+  requestBodies:
+    LinkForm:
+      required: true
+      content:
+        application/x-www-form-urlencoded:
+          schema:
+            type: object
+            required: [token]
+            properties:
+              token: { type: string, minLength: 1, maxLength: 100 }
 
   securitySchemes:
     # Declared now for the frontends; applied to operations from Phase 2 (ADR-0006).

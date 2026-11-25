@@ -59,6 +59,7 @@ type CoordinatesPatch struct {
 type PolicyPatch struct {
 	SlotIntervalMinutes, BufferMinutes, MinLeadMinutes, MaxAdvanceDays *int
 	CancellationCutoffHours, RescheduleCutoffHours                     *int
+	MaxCustomerReschedules                                             *int
 	RequireCustomerConfirmation                                        *bool
 }
 
@@ -184,6 +185,7 @@ func (s *Service) buildUpdate(ctx context.Context, b *domain.Business, in Update
 		setInt(&p.MaxAdvanceDays, in.Policy.MaxAdvanceDays)
 		setInt(&p.CancellationCutoffHours, in.Policy.CancellationCutoffHours)
 		setInt(&p.RescheduleCutoffHours, in.Policy.RescheduleCutoffHours)
+		setInt(&p.MaxCustomerReschedules, in.Policy.MaxCustomerReschedules)
 		if in.Policy.RequireCustomerConfirmation != nil {
 			p.RequireCustomerConfirmation = *in.Policy.RequireCustomerConfirmation
 		}

@@ -68,12 +68,14 @@ type Appointment struct {
 	Buffer         time.Duration
 	Status         Status
 	Version        int
-	CancelledAt    time.Time // zero unless the status is the canceled one
-	CancelReason   string
-	CancelledBy    ActorRole
-	CreatedBy      uuid.UUID
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	// CustomerReschedules counts the times the customer moved it (T7.8: the business's limit).
+	CustomerReschedules int
+	CancelledAt         time.Time // zero unless the status is the canceled one
+	CancelReason        string
+	CancelledBy         ActorRole
+	CreatedBy           uuid.UUID
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 // OccupiedUntil is the end of the service plus the preparation time.

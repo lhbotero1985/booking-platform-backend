@@ -37,6 +37,9 @@ type BookingPolicy struct {
 	CancellationCutoffHours     int  // 0–168, the customer may cancel until N hours before
 	RescheduleCutoffHours       int  // 0–168
 	RequireCustomerConfirmation bool // reminder asks the customer to confirm
+	// MaxCustomerReschedules: how many times the customer may move one appointment (T7.8);
+	// 0 = no limit, 1–10. Moves by the business do not count.
+	MaxCustomerReschedules int
 }
 
 // DefaultBookingPolicy returns the documented defaults.
@@ -44,6 +47,7 @@ func DefaultBookingPolicy() BookingPolicy {
 	return BookingPolicy{
 		SlotIntervalMinutes: 10, BufferMinutes: 0, MinLeadMinutes: 60, MaxAdvanceDays: 60,
 		CancellationCutoffHours: 2, RescheduleCutoffHours: 2, RequireCustomerConfirmation: true,
+		MaxCustomerReschedules: 2,
 	}
 }
 
@@ -62,6 +66,8 @@ func (p BookingPolicy) PolicyField() string {
 		return "cancellationCutoffHours"
 	case p.RescheduleCutoffHours < 0 || p.RescheduleCutoffHours > 168:
 		return "rescheduleCutoffHours"
+	case p.MaxCustomerReschedules < 0 || p.MaxCustomerReschedules > 10:
+		return "maxCustomerReschedules"
 	default:
 		return ""
 	}

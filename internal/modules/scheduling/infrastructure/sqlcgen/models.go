@@ -11,30 +11,31 @@ import (
 )
 
 type Appointment struct {
-	ID              uuid.UUID
-	BusinessID      uuid.UUID
-	ProfessionalID  uuid.UUID
-	ServiceID       uuid.UUID
-	CustomerUserID  *uuid.UUID
-	CustomerName    string
-	CustomerPhone   string
-	StartAt         time.Time
-	EndAt           time.Time
-	BufferMinutes   int16
-	OccupiedUntil   time.Time
-	Status          string
-	ServiceName     string
-	DurationMinutes int16
-	PriceMinor      int64
-	Currency        string
-	Version         int32
-	CreatedBy       uuid.UUID
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	CustomerID      *uuid.UUID
-	CancelledAt     *time.Time
-	CancelReason    *string
-	CancelledBy     *string
+	ID                  uuid.UUID
+	BusinessID          uuid.UUID
+	ProfessionalID      uuid.UUID
+	ServiceID           uuid.UUID
+	CustomerUserID      *uuid.UUID
+	CustomerName        string
+	CustomerPhone       string
+	StartAt             time.Time
+	EndAt               time.Time
+	BufferMinutes       int16
+	OccupiedUntil       time.Time
+	Status              string
+	ServiceName         string
+	DurationMinutes     int16
+	PriceMinor          int64
+	Currency            string
+	Version             int32
+	CreatedBy           uuid.UUID
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+	CustomerID          *uuid.UUID
+	CancelledAt         *time.Time
+	CancelReason        *string
+	CancelledBy         *string
+	CustomerReschedules int16
 }
 
 type AppointmentEvent struct {

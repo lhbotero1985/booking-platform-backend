@@ -72,6 +72,11 @@ type AppointmentState struct {
 	ProfessionalName               string // display name; "" if unknown
 	BusinessName                   string
 	TimeZone                       string // IANA zone of the business
+	// T7.7: what a reschedule page needs to ask the public availability.
+	ServiceID    uuid.UUID
+	BusinessSlug string
+	// T7.8: times the customer moved it (the business limits them).
+	CustomerReschedules int
 	// T7.6: who the appointment emails go to and the contact they show.
 	CustomerEmail     string    // registered by the business; "" if none
 	CustomerUserID    uuid.UUID // the customer's account; uuid.Nil if booked by hand without one
@@ -98,6 +103,12 @@ var (
 	ErrCutoffPassed = errors.New("scheduling: the cancellation cut-off passed")
 	// ErrNotActive: the appointment no longer allows that change (canceled, finished…).
 	ErrNotActive = errors.New("scheduling: the appointment does not allow that change")
+	// ErrSlotUnavailable: the new time is not offered (taken, outside the agenda) or the
+	// appointment changed meanwhile (T7.7).
+	ErrSlotUnavailable = errors.New("scheduling: that time is not available")
+	// ErrRescheduleLimit: the customer already moved it as many times as the business allows
+	// (T7.8).
+	ErrRescheduleLimit = errors.New("scheduling: the customer's reschedule limit was reached")
 )
 
 // CustomerReplies applies the answer of a customer to a message about its appointment (T7.5: the
@@ -109,4 +120,9 @@ type CustomerReplies interface {
 	// status does not allow it; CancelAsCustomer: ErrCutoffPassed; ErrAppointmentNotFound.
 	ConfirmAsCustomer(ctx context.Context, businessID, appointmentID uuid.UUID) error
 	CancelAsCustomer(ctx context.Context, businessID, appointmentID uuid.UUID) error
+	// RescheduleAsCustomer (T7.7: the email's link) moves it to a start offered by the public
+	// availability, same professional, before the reschedule cut-off (ErrCutoffPassed) and
+	// within the business's limit of moves (ErrRescheduleLimit); ErrSlotUnavailable; ErrNotActive; ErrAppointmentNotFound (also when the business is no
+	// longer public).
+	RescheduleAsCustomer(ctx context.Context, businessID, appointmentID uuid.UUID, start time.Time) error
 }

@@ -336,6 +336,21 @@ func (q *Queries) UpdateDeliveryStatus(ctx context.Context, arg UpdateDeliverySt
 	return result.RowsAffected(), nil
 }
 
+const useActionToken = `-- name: UseActionToken :exec
+UPDATE appointment_action_tokens SET used_at = $1 WHERE token_hash = $2 AND used_at IS NULL
+`
+
+type UseActionTokenParams struct {
+	UsedAt    *time.Time
+	TokenHash []byte
+}
+
+// T7.7: a confirmation from an email spends only its own link (the email's cancel link still works).
+func (q *Queries) UseActionToken(ctx context.Context, arg UseActionTokenParams) error {
+	_, err := q.db.Exec(ctx, useActionToken, arg.UsedAt, arg.TokenHash)
+	return err
+}
+
 const useMessageTokens = `-- name: UseMessageTokens :exec
 UPDATE appointment_action_tokens SET used_at = $1 WHERE message_id = $2 AND used_at IS NULL
 `
