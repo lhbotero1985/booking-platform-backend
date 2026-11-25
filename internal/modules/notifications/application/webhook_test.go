@@ -19,7 +19,13 @@ import (
 // replies is the scheduling side of the answers.
 type replies struct {
 	confirms, cancels int
+	moves             []time.Time
 	err               error
+}
+
+func (r *replies) RescheduleAsCustomer(_ context.Context, _, _ uuid.UUID, start time.Time) error {
+	r.moves = append(r.moves, start)
+	return r.err
 }
 
 func (r *replies) ConfirmAsCustomer(context.Context, uuid.UUID, uuid.UUID) error {

@@ -140,6 +140,11 @@ type Config struct {
 	// AppDownloadURL is where GET /app redirects (store page of the app, P40); empty shows a
 	// "coming soon" page.
 	AppDownloadURL string
+	// PublicAPIURL is the public origin of this API: the links of the appointment emails open its
+	// pages (T7.7). AppointmentRescheduleURL, optional, is the frontend's page that picks a new
+	// time (it receives ?token=); without it the API's page points to the app.
+	PublicAPIURL             string
+	AppointmentRescheduleURL string
 	// PublicAppURL is the base URL of the client app used in email links (/verify-email, …).
 	PublicAppURL string
 }
@@ -197,6 +202,9 @@ func Load(getenv func(string) string) (Config, error) {
 		},
 		PublicAppURL:   p.str("PUBLIC_APP_URL", "http://localhost:3000"),
 		AppDownloadURL: p.str("APP_DOWNLOAD_URL", ""),
+		PublicAPIURL:   strings.TrimRight(p.str("PUBLIC_API_URL", "http://localhost:8080"), "/"),
+
+		AppointmentRescheduleURL: p.str("APPOINTMENT_RESCHEDULE_URL", ""),
 		Notifications: Notifications{
 			EmailEnabled:               p.boolean("NOTIFICATIONS_EMAIL_ENABLED", true),
 			WhatsAppEnabled:            p.boolean("WHATSAPP_ENABLED", false),
@@ -216,7 +224,13 @@ func Load(getenv func(string) string) (Config, error) {
 
 	p.validateOrigins(cfg.Env, cfg.HTTP.CORSAllowedOrigins)
 	p.validateSMTP(cfg.Env, cfg.SMTP)
-	p.validatePublicURL(cfg.Env, cfg.PublicAppURL)
+	p.validatePublicURL(cfg.Env, "PUBLIC_APP_URL", cfg.PublicAppURL)
+	p.validatePublicURL(cfg.Env, "PUBLIC_API_URL", cfg.PublicAPIURL)
+	if u := cfg.AppointmentRescheduleURL; u != "" {
+		if pu, err := url.Parse(u); err != nil || pu.Scheme != "https" || pu.Host == "" || pu.RawQuery != "" || pu.Fragment != "" {
+			p.fail("APPOINTMENT_RESCHEDULE_URL", "must be an absolute https URL without query or fragment")
+		}
+	}
 	p.validateWhatsApp(cfg.Env, cfg.Notifications)
 	p.validateWebhook(cfg.Notifications)
 	if u := cfg.AppDownloadURL; u != "" {
@@ -411,8 +425,7 @@ func (p *parser) validateSMTP(env Env, s SMTP) {
 	}
 }
 
-func (p *parser) validatePublicURL(env Env, raw string) {
-	const key = "PUBLIC_APP_URL"
+func (p *parser) validatePublicURL(env Env, key, raw string) {
 	u, err := url.Parse(raw)
 	if err != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") || u.RawQuery != "" || u.Fragment != "" {
 		p.fail(key, "must be an absolute http(s) URL without query or fragment")

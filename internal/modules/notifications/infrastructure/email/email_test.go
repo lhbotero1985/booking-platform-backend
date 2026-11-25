@@ -35,7 +35,7 @@ func out(kind domain.Kind, role domain.Role, c domain.Content) application.Outgo
 
 func render(t *testing.T, kind domain.Kind, role domain.Role, c domain.Content) Rendered {
 	t.Helper()
-	r, ok, err := Render(out(kind, role, c), "https://booka.example/app")
+	r, ok, err := Render(out(kind, role, c), Config{AppDownloadURL: "https://booka.example/app"})
 	if err != nil || !ok {
 		t.Fatalf("%s to %s: %v %v", kind, role, ok, err)
 	}
@@ -93,7 +93,7 @@ func TestRenderEveryEmail(t *testing.T) {
 	}
 	// Kinds with no email for that recipient.
 	for _, k := range []domain.Kind{domain.KindReminder, domain.KindReassigned, domain.KindCancelled, domain.KindCreatedByBusiness} {
-		if _, ok, _ := Render(out(k, domain.RecipientProfessional, c), ""); ok {
+		if _, ok, _ := Render(out(k, domain.RecipientProfessional, c), Config{}); ok {
 			t.Errorf("%s to the professional rendered", k)
 		}
 	}
@@ -195,7 +195,7 @@ func TestPreview(t *testing.T) {
 	for _, k := range []domain.Kind{domain.KindCreated, domain.KindCreatedByBusiness, domain.KindCancelled, domain.KindCancelledByCustomer,
 		domain.KindRescheduled, domain.KindReassigned, domain.KindReminder} {
 		for _, role := range []domain.Role{domain.RecipientCustomer, domain.RecipientProfessional} {
-			r, ok, err := Render(out(k, role, content()), "https://booka.example/app")
+			r, ok, err := Render(withLinks(out(k, role, content())), previewConfig)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -207,5 +207,53 @@ func TestPreview(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+var previewConfig = Config{AppDownloadURL: "https://booka.example/app", LinksBaseURL: "https://api.booka.example/"}
+
+// withLinks gives a customer's email about an active appointment its three links.
+func withLinks(m application.Outgoing) application.Outgoing {
+	if m.Role == domain.RecipientCustomer && m.Kind != domain.KindCancelled && m.Kind != domain.KindCancelledByCustomer {
+		m.Links = map[domain.Action]string{domain.ActionConfirm: "c0nf+rm", domain.ActionReschedule: "r3sch", domain.ActionCancel: "c4nc"}
+	}
+	return m
+}
+
+// TestRenderButtons (T7.7): the links open the API's pages (two taps); the reschedule link goes to
+// the frontend when configured; without a base URL there are no buttons.
+func TestRenderButtons(t *testing.T) {
+	m := withLinks(out(domain.KindReminder, domain.RecipientCustomer, content()))
+	r, _, err := Render(m, previewConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := html.UnescapeString(r.HTML)
+	for _, want := range []string{
+		"https://api.booka.example/citas/confirmar?token=c0nf%2Brm", "https://api.booka.example/citas/reagendar?token=r3sch",
+		"https://api.booka.example/citas/cancelar?token=c4nc", ">Confirmar cita<", ">Reagendar<", ">Cancelar cita<",
+	} {
+		if !strings.Contains(h, want) {
+			t.Errorf("html without %q", want)
+		}
+	}
+	if !strings.Contains(r.Text, "Confirmar tu cita: https://api.booka.example/citas/confirmar?token=c0nf%2Brm") {
+		t.Errorf("text:\n%s", r.Text)
+	}
+	if i, j := strings.Index(h, "Confirmar cita"), strings.Index(h, "Cancelar cita"); i < 0 || j < i {
+		t.Error("order of the buttons")
+	}
+	cfg := previewConfig
+	cfg.RescheduleURL = "https://app.booka.example/reagendar"
+	r, _, _ = Render(m, cfg)
+	if !strings.Contains(html.UnescapeString(r.HTML), "https://app.booka.example/reagendar?token=r3sch") {
+		t.Error("frontend reschedule page")
+	}
+	delete(m.Links, domain.ActionConfirm)
+	if r, _, _ = Render(m, previewConfig); strings.Contains(r.HTML, "Confirmar cita<") {
+		t.Error("confirm button without its link")
+	}
+	if r, _, _ = Render(m, Config{}); strings.Contains(r.HTML, "citas/") {
+		t.Error("buttons without a base URL")
 	}
 }

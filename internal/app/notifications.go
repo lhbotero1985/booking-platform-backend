@@ -50,7 +50,9 @@ func NewNotificationsService(cfg config.Config, pool *pgxpool.Pool, jobs postgre
 		Recipients:   recipients,
 		Senders: map[domain.Channel]application.Sender{
 			domain.ChannelWhatsApp: wa,
-			domain.ChannelEmail:    email.New(mailer, email.Config{AppDownloadURL: cfg.AppDownloadURL}),
+			domain.ChannelEmail: email.New(mailer, email.Config{
+				AppDownloadURL: cfg.AppDownloadURL, LinksBaseURL: cfg.PublicAPIURL, RescheduleURL: cfg.AppointmentRescheduleURL,
+			}),
 		},
 		Policy: application.Policy{EmailEnabled: n.EmailEnabled, WhatsAppEnabled: n.WhatsAppEnabled, WhatsAppAllowlist: n.WhatsAppAllowlist},
 		Clock:  clock.System{},

@@ -27,6 +27,7 @@ type Store struct {
 	tokens   map[string]domain.ActionToken
 	items    []domain.WebhookItem
 	replies  []Reply
+	outbox   []application.Outgoing
 	// FailCommit, when set, makes every transaction fail after its function ran.
 	FailCommit error
 }
@@ -47,15 +48,22 @@ type tx struct {
 	items    []domain.WebhookItem
 	tokens   []domain.ActionToken
 	used     map[uuid.UUID]time.Time
+	usedOne  map[string]time.Time // one token (by hash)
 	replies  []Reply
 }
 
-// WithinTx implements application.Store.
+type txKey struct{}
+
+// WithinTx implements application.Store. Like the Postgres store, a call inside a transaction
+// joins it (e.g. a link confirms the appointment, whose change queues its messages).
 func (s *Store) WithinTx(ctx context.Context, fn func(ctx context.Context, tx application.Tx) error) error {
+	if t, ok := ctx.Value(txKey{}).(*tx); ok && t.s == s {
+		return fn(ctx, t)
+	}
 	s.txMu.Lock()
 	defer s.txMu.Unlock()
-	t := &tx{s: s, used: map[uuid.UUID]time.Time{}}
-	if err := fn(ctx, t); err != nil {
+	t := &tx{s: s, used: map[uuid.UUID]time.Time{}, usedOne: map[string]time.Time{}}
+	if err := fn(context.WithValue(ctx, txKey{}, t), t); err != nil {
 		return err
 	}
 	if s.FailCommit != nil {
@@ -74,6 +82,12 @@ func (s *Store) WithinTx(ctx context.Context, fn func(ctx context.Context, tx ap
 	s.items = append(s.items, t.items...)
 	for _, k := range t.tokens {
 		s.tokens[string(k.Hash)] = k
+	}
+	for h, at := range t.usedOne {
+		if k, ok := s.tokens[h]; ok && k.UsedAt.IsZero() {
+			k.UsedAt = at
+			s.tokens[h] = k
+		}
 	}
 	for id, at := range t.used {
 		for h, k := range s.tokens {
@@ -162,10 +176,11 @@ func (s *Store) Enqueued() []uuid.UUID {
 	return append([]uuid.UUID(nil), s.enqueued...)
 }
 
-// Sender records what it delivers.
+// Sender records what it delivers (and in Store's outbox, when set).
 type Sender struct {
-	mu   sync.Mutex
-	Sent []application.Outgoing
+	mu    sync.Mutex
+	Sent  []application.Outgoing
+	Store *Store
 }
 
 // Send implements application.Sender.
@@ -173,16 +188,24 @@ func (s *Sender) Send(_ context.Context, m application.Outgoing) (string, error)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.Sent = append(s.Sent, m)
+	if s.Store != nil {
+		s.Store.mu.Lock()
+		s.Store.outbox = append(s.Store.outbox, m)
+		s.Store.mu.Unlock()
+	}
 	return "test-" + m.MessageID.String(), nil
 }
 
 // NewService is the notifications service over an in-memory store, with WhatsApp and email on and
 // recording senders.
+// When appointments also applies the customer's answers (scheduling.CustomerReplies), the links
+// and buttons work too.
 func NewService(appointments scheduling.Appointments, reminders application.ReminderSettings, clk clock.Clock) (*application.Service, *Store) {
 	st := NewStore()
+	replies, _ := appointments.(scheduling.CustomerReplies)
 	return application.NewService(application.Deps{
-		Store: st, Appointments: appointments, Reminders: reminders,
-		Senders: map[domain.Channel]application.Sender{domain.ChannelWhatsApp: &Sender{}, domain.ChannelEmail: &Sender{}},
+		Store: st, Appointments: appointments, Reminders: reminders, Replies: replies,
+		Senders: map[domain.Channel]application.Sender{domain.ChannelWhatsApp: &Sender{Store: st}, domain.ChannelEmail: &Sender{Store: st}},
 		Policy:  application.Policy{WhatsAppEnabled: true, EmailEnabled: true}, Clock: clk,
 	}), st
 }
@@ -217,6 +240,9 @@ func (t *tx) ActionToken(_ context.Context, hash []byte) (domain.ActionToken, er
 	if at, used := t.used[k.MessageID]; used && k.UsedAt.IsZero() {
 		k.UsedAt = at
 	}
+	if at, used := t.usedOne[string(hash)]; used && k.UsedAt.IsZero() {
+		k.UsedAt = at
+	}
 	return k, nil
 }
 
@@ -224,6 +250,11 @@ func (t *tx) LockMessageTokens(context.Context, uuid.UUID) error { return nil } 
 
 func (t *tx) UseMessageTokens(_ context.Context, id uuid.UUID, at time.Time) error {
 	t.used[id] = at
+	return nil
+}
+
+func (t *tx) UseActionToken(_ context.Context, hash []byte, at time.Time) error {
+	t.usedOne[string(hash)] = at
 	return nil
 }
 
@@ -281,4 +312,18 @@ func (s *Store) Replies() []Reply {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]Reply(nil), s.replies...)
+}
+
+// Outbox returns what the senders of NewService delivered, oldest first.
+func (s *Store) Outbox() []application.Outgoing {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.outbox)
+}
+
+// Delivered returns what the sender delivered, oldest first.
+func (s *Sender) Delivered() []application.Outgoing {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.Sent)
 }

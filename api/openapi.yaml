@@ -110,6 +110,145 @@ paths:
                 type: string
                 format: uri
 
+  /citas/confirmar:
+    get:
+      tags: [Notifications]
+      operationId: showConfirmLink
+      summary: Page of the email's "Confirmar cita" link (first tap)
+      description: |
+        T7.7 (ADR-0019). Shows the appointment and a button; changes nothing (mail scanners open
+        the links of every email). The "link no longer valid" page when the code is unknown, used,
+        expired or the appointment changed since the email (a page for people: always 200). Public; the code is the
+        credential. Rate limited per client.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/LinkToken"
+      responses:
+        "200": { $ref: "#/components/responses/LinkPage" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+    post:
+      tags: [Notifications]
+      operationId: useConfirmLink
+      summary: Confirm the appointment (second tap)
+      description: The page's button. Confirms as the customer and spends only this link.
+      security: []
+      requestBody:
+        $ref: "#/components/requestBodies/LinkForm"
+      responses:
+        "200": { $ref: "#/components/responses/LinkPage" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /citas/cancelar:
+    get:
+      tags: [Notifications]
+      operationId: showCancelLink
+      summary: Page of the email's "Cancelar cita" link (first tap)
+      description: Shows the appointment, the cancellation cut-off and a button; changes nothing.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/LinkToken"
+      responses:
+        "200": { $ref: "#/components/responses/LinkPage" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+    post:
+      tags: [Notifications]
+      operationId: useCancelLink
+      summary: Cancel the appointment (second tap)
+      description: |
+        Cancels as the customer, with the customer's cut-off (the page says to contact the
+        business when it passed). Spends every link of the email.
+      security: []
+      requestBody:
+        $ref: "#/components/requestBodies/LinkForm"
+      responses:
+        "200": { $ref: "#/components/responses/LinkPage" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /citas/reagendar:
+    get:
+      tags: [Notifications]
+      operationId: showRescheduleLink
+      summary: Page of the email's "Reagendar" link
+      description: |
+        Used while APPOINTMENT_RESCHEDULE_URL (the frontend's page) is not set: shows the
+        appointment and points to the app. Changes nothing.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/LinkToken"
+      responses:
+        "200": { $ref: "#/components/responses/LinkPage" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /api/v1/appointment-links/lookup:
+    post:
+      tags: [Notifications]
+      operationId: lookupAppointmentLink
+      summary: What an email link would do (frontend's reschedule page)
+      description: |
+        T7.7. Reads the appointment of an email link without changing anything. `outcome` is null
+        while the link can be used; otherwise INVALID (unknown, used, expired, or the appointment
+        changed: no appointment data) or NOT_ACTIVE. With `businessSlug`, `serviceId` and
+        `professionalId` the page asks GET /api/v1/businesses/{slug}/availability. Public; the code
+        is the credential. Rate limited per client.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token, action]
+              properties:
+                token: { type: string, minLength: 1, maxLength: 100 }
+                action: { type: string, enum: [CONFIRM, CANCEL, RESCHEDULE] }
+      responses:
+        "200":
+          description: The link.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AppointmentLink" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /api/v1/appointment-links/apply:
+    post:
+      tags: [Notifications]
+      operationId: applyAppointmentLink
+      summary: Apply an email link (confirm, cancel or move to another time)
+      description: |
+        T7.7. Applies the link as the customer, with the customer's rules. `outcome`: CONFIRMED,
+        CANCELLED, RESCHEDULED (the appointment shows the new time), CUTOFF_PASSED,
+        SLOT_UNAVAILABLE (pick another time; the link stays valid), NOT_ACTIVE or INVALID. A
+        confirmation spends only its link; a cancellation or a new time every link of the email.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token, action]
+              properties:
+                token: { type: string, minLength: 1, maxLength: 100 }
+                action: { type: string, enum: [CONFIRM, CANCEL, RESCHEDULE] }
+                startAt:
+                  type: string
+                  format: date-time
+                  description: Required for RESCHEDULE; a `startAt` offered by the availability.
+      responses:
+        "200":
+          description: The result.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AppointmentLink" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
   /webhooks/whatsapp:
     get:
       tags: [Notifications]
@@ -3328,6 +3467,12 @@ paths:
 
 components:
   parameters:
+    LinkToken:
+      name: token
+      in: query
+      required: true
+      description: Single-use code of the email link (T7.7).
+      schema: { type: string, minLength: 1, maxLength: 100 }
     CountryCode:
       name: code
       in: path
@@ -4855,6 +5000,35 @@ components:
         createdAt:
           type: string
           format: date-time
+    AppointmentLink:
+      type: object
+      additionalProperties: false
+      required: [action, outcome, appointment]
+      properties:
+        action: { type: string, enum: [CONFIRM, CANCEL, RESCHEDULE] }
+        outcome:
+          type: [string, "null"]
+          enum: [CONFIRMED, CANCELLED, RESCHEDULED, CUTOFF_PASSED, SLOT_UNAVAILABLE, NOT_ACTIVE, INVALID, null]
+          description: null while the link can be used.
+        appointment:
+          description: null for an INVALID link.
+          oneOf:
+            - type: "null"
+            - type: object
+              additionalProperties: false
+              required: [businessId, businessSlug, businessName, serviceId, serviceName, professionalId, professionalName, startAt, timeZone, cancelCutoffHours, rescheduleCutoffHours]
+              properties:
+                businessId: { type: string, format: uuid }
+                businessSlug: { type: string }
+                businessName: { type: string }
+                serviceId: { type: string, format: uuid }
+                serviceName: { type: string }
+                professionalId: { type: string, format: uuid }
+                professionalName: { type: string }
+                startAt: { type: string, format: date-time }
+                timeZone: { type: string, example: America/Bogota }
+                cancelCutoffHours: { type: integer, minimum: 0 }
+                rescheduleCutoffHours: { type: integer, minimum: 0 }
     AppointmentNotifications:
       type: object
       additionalProperties: false
@@ -5201,6 +5375,26 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
+    LinkPage:
+      description: HTML page of an email link (Spanish, Booka look; no scripts).
+      headers:
+        X-Request-ID:
+          $ref: "#/components/headers/XRequestID"
+      content:
+        text/html:
+          schema:
+            type: string
+
+  requestBodies:
+    LinkForm:
+      required: true
+      content:
+        application/x-www-form-urlencoded:
+          schema:
+            type: object
+            required: [token]
+            properties:
+              token: { type: string, minLength: 1, maxLength: 100 }
 
   securitySchemes:
     # Declared now for the frontends; applied to operations from Phase 2 (ADR-0006).

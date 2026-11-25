@@ -19,6 +19,12 @@ type Mailer interface {
 type Config struct {
 	// AppDownloadURL, when set, adds "Descarga la app" to the footer.
 	AppDownloadURL string
+	// LinksBaseURL is the public origin of the API, whose pages open the email's links (T7.7);
+	// empty: no links.
+	LinksBaseURL string
+	// RescheduleURL, when set, is the frontend's page that picks the new time (it gets ?token=);
+	// otherwise the API's page points to the app.
+	RescheduleURL string
 }
 
 // Sender implements application.Sender for the EMAIL channel.
@@ -33,7 +39,7 @@ func New(m Mailer, cfg Config) *Sender { return &Sender{mailer: m, cfg: cfg} }
 // Send renders and delivers the email; SMTP gives no message id, so it returns "". A malformed
 // address or a 5xx answer of the server is permanent; anything else is retried.
 func (s *Sender) Send(ctx context.Context, m application.Outgoing) (string, error) {
-	r, ok, err := Render(m, s.cfg.AppDownloadURL)
+	r, ok, err := Render(m, s.cfg)
 	if err != nil {
 		return "", &application.DeliveryError{Code: "RENDER_FAILED", Permanent: true, Err: err}
 	}

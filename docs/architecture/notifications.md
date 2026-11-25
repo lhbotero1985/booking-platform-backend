@@ -1,6 +1,6 @@
 # Notificaciones: WhatsApp, correo y push
 
-Estado: **Fase 7 en curso** (T7.1–T7.6 implementadas: §7–§12). ADR-0008, ADR-0009, ADR-0010 (push
+Estado: **Fase 7 en curso** (T7.1–T7.7 implementadas: §7–§13). ADR-0008, ADR-0009, ADR-0010 (push
 aplazada por ADR-0019).
 
 ## 1. Principios
@@ -260,3 +260,36 @@ sale de inmediato**.
 
 - **Errores:** dirección mal formada o respuesta 5xx del servidor SMTP → `FAILED` sin reintento
   (`INVALID_EMAIL`, `SMTP_5xx`); lo demás se reintenta (`SMTP_ERROR`).
+
+## 13. Acciones desde el correo (T7.7, ADR-0019)
+
+- **Botones del correo al cliente** sobre una cita activa (agendada, reprogramada, cambio de
+  especialista, recordatorio): **Confirmar cita** (solo si está pendiente de confirmar),
+  **Reagendar** y **Cancelar cita**. No los llevan los correos de cancelación ni los del
+  especialista.
+- **Códigos de un solo uso** (`appointment_action_tokens`, acción `RESCHEDULE` nueva, migración
+  00024): 32 bytes aleatorios, solo su SHA-256 guardado, ligados al mensaje y a la dirección,
+  vencen al inicio de la cita. Quien tiene el código actúa como el cliente, con sus reglas
+  (límites de cancelación y reprogramación).
+- **Dos toques** (decisión del usuario): `GET /citas/confirmar|cancelar|reagendar?token=…` solo
+  muestra la cita y un botón (los revisores de enlaces de Outlook, antivirus o pasarelas abren los
+  enlaces); el botón hace `POST` y ahí ocurre el cambio. Páginas HTML con la marca Booka, sin
+  scripts; CSP `default-src 'none'; style-src 'unsafe-inline'; form-action 'self'`,
+  `Referrer-Policy: no-referrer`, `no-store`, `noindex`; límite estricto por cliente (el de
+  autenticación). Toda página responde 200 y dice qué pasó (incluido "Este enlace ya no es
+  válido").
+- **Reglas:** confirmar gasta solo su enlace (luego aún se puede cancelar desde el mismo correo);
+  cancelar o cambiar la hora gasta todos los enlaces del correo; un enlace de otra acción, usado,
+  vencido o de una cita que cambió desde el correo → inválido; los enlaces de un correo se
+  bloquean juntos (orden fijo), así que dos usados a la vez aplican uno solo; horario tomado o
+  límite pasado → el enlace sigue válido.
+- **Reagendar:** si `APPOINTMENT_RESCHEDULE_URL` está configurado, el botón abre esa página del
+  frontend con `?token=`; si no, la página de la API indica usar la app. API para el frontend
+  (pública, el código es la credencial):
+  - `POST /api/v1/appointment-links/lookup {token, action}` → `outcome` (null si se puede usar),
+    datos de la cita (`businessSlug`, `serviceId`, `professionalId`, `startAt`, `timeZone`,
+    límites) para consultar `GET /api/v1/businesses/{slug}/availability`;
+  - `POST /api/v1/appointment-links/apply {token, action, startAt?}` → `CONFIRMED`, `CANCELLED`,
+    `RESCHEDULED`, `CUTOFF_PASSED`, `SLOT_UNAVAILABLE`, `NOT_ACTIVE` o `INVALID`.
+- **Configuración:** `PUBLIC_API_URL` (origen público de la API; https en QA/PROD; en QA sale de
+  `SITE_DOMAIN`) y `APPOINTMENT_RESCHEDULE_URL` (opcional, https).

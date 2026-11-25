@@ -1049,4 +1049,21 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Mutaciones: al barbero todo cambio / códigos también en el recordatorio por correo | ✅ detectadas | `TestPlan` y `TestEmailReminderHasNoButtons` fallaron; código restaurado |
 | Vista previa en Chrome sin interfaz (correo del cliente y del barbero) | ✅ | Revisión visual del diseño |
 | `task check` (lint 0, sin vulnerabilidades) / `sqlc:check` / `shellcheck` / integración completa (migración 00023) / gitleaks | ✅ | |
-| Despliegue y E2E en QA (PR #61, `3cf9b43`) | ✅ 209/209 | CI 6/6; el primer despliegue falló por el droplet apagado (el usuario lo apagó para cambiar recursos), relanzado con éxito tras encenderlo; migración 00023 aplicada. Mailpit: al cliente "está agendada", dos "cambió de hora" y "fue cancelada"; al especialista "Nueva cita", "Cita reprogramada" y "Cita cancelada"; direcciones enmascaradas. Diseño: pendiente de aprobación del usuario en Mailpit |
+| Despliegue y E2E en QA (PR #61, `3cf9b43`) | ✅ 209/209 | CI 6/6; el primer despliegue falló por el droplet apagado (el usuario lo apagó para cambiar recursos), relanzado con éxito tras encenderlo; migración 00023 aplicada. Mailpit: al cliente "está agendada", dos "cambió de hora" y "fue cancelada"; al especialista "Nueva cita", "Cita reprogramada" y "Cita cancelada"; direcciones enmascaradas. Diseño aprobado por el usuario |
+
+## 2026-11-25 · Fase 7 · T7.7 — Acciones desde el correo
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestEmailLinksIssued` / `TestLinkTwoTaps` / `TestLinkRejections` / `TestLinkReschedule` (aplicación) | ✅ 91,0 % | 3 enlaces si está pendiente, 2 si confirmada, ninguno al especialista ni en cancelaciones; el primer toque no cambia nada; confirmar gasta solo su enlace (luego se puede cancelar); código desconocido, de otra acción, usado, vencido, cita movida o inexistente → inválido; horario tomado o límite → el enlace sigue válido; reagendar gasta todos |
+| `TestRenderButtons` (correo) | ✅ 95,8 % | Enlaces a `/citas/*` con el código escapado; reagendar al frontend si está configurado; sin URL base no hay botones; texto plano con los enlaces |
+| `TestLinkPages` / `TestLinkPageOutcomes` / `TestLinksAPI` (HTTP) | ✅ 83,9 % | CSP, `no-referrer`, `no-store`, `noindex`; nombre con `<script>` escapado; sin código o > 100 caracteres → página inválida sin consultar el servicio; falla interna sin filtrar el error; validación de la API (acción, código, `startAt`), 415 sin JSON, enlace inválido sin datos de la cita |
+| `TestContractAppointmentLinks` | ✅ | Contra OpenAPI: primer toque, segundo toque, reuso, `lookup` y `apply` (mueve la cita e invalida el resto). **92 rutas documentadas** |
+| `TestEmailLinksOnPostgres` | ✅ | Primer toque sin cambios; confirmar; horario tomado → `SLOT_UNAVAILABLE`; reagendar como el cliente (evento con su cuenta) y aviso al especialista; códigos crudos no guardados |
+| `TestEmailLinksConcurrently` | ✅ | **Cancelar ∥ Reagendar del mismo correo, 4 rondas: exactamente uno se aplica** |
+| Mutaciones: confirmar gasta todos los enlaces / sin el bloqueo de los enlaces | ✅ detectadas | `TestLinkTwoTaps` falló; sin bloqueo se aplicaron los dos (cancelada y movida) en la 1.ª ronda; código restaurado |
+| `TestEmailLinksConfig`, `TestAppointmentsContract` | ✅ | `PUBLIC_API_URL` https fuera de DEV; `APPOINTMENT_RESCHEDULE_URL` https sin query |
+| Vista previa en Chrome sin interfaz (recordatorio con botones, páginas de confirmar, cancelar e inválido) | ✅ | |
+| `task check` (lint 0, sin vulnerabilidades) / `sqlc:check` / `shellcheck` / gitleaks | ✅ | |
+| Integración completa (migración 00024) | ✅ | Una 1.ª corrida falló en `identity/infrastructure` bajo carga (Docker con 2 GB); pasó 4/4 aislado y la suite completa pasó al repetirla |
+| Despliegue y E2E en QA | ⏳ | Tras el merge: enlaces reales del correo en Mailpit (dos toques, reuso, `lookup`/`apply`) |

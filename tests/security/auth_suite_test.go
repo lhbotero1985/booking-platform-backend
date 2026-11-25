@@ -100,6 +100,7 @@ func startAuth(t *testing.T) authHarness {
 		schedulinghttp.New(sched, logger, idh.RequireAuth),
 		notificationshttp.New(notif, logger, idh.RequireAuth),
 		notificationshttp.NewWebhook(notif, notificationshttp.WebhookConfig{AppSecret: testWebhookSecret, VerifyToken: testWebhookVerifyToken}, logger),
+		notificationshttp.NewLinks(notif, notificationshttp.LinksConfig{}, nil, logger),
 	}}))
 	t.Cleanup(h.srv.Close)
 	return h

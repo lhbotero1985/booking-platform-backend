@@ -228,6 +228,9 @@ func (s *Service) move(ctx context.Context, who actor, id uuid.UUID, start time.
 		if a.Version != current.Version {
 			return ErrAppointmentChanged
 		}
+		if who.onBehalf {
+			who.p.UserID = a.Customer.UserID // the event's actor: the customer's account, if any
+		}
 		now := s.d.Clock.Now()
 		if err := a.CanMove(who.role, time.Duration(pol.RescheduleCutoffHours)*time.Hour, now); err != nil {
 			return err

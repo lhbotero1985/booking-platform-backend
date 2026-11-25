@@ -60,6 +60,8 @@ type Outgoing struct {
 	// ButtonPayloads are the payloads of the quick-reply buttons, in order (T7.5: the reminder's
 	// single-use tokens for "Confirmar cita" and "Cancelar cita").
 	ButtonPayloads []string
+	// Links are the single-use codes of an email's links, by action (T7.7).
+	Links map[domain.Action]string
 }
 
 // Sender delivers a message through its channel and returns the provider's message id.
@@ -241,8 +243,18 @@ func (s *Service) Send(ctx context.Context, id uuid.UUID, lastAttempt bool) erro
 		}
 	}
 	if m.Kind == domain.KindReminder && m.Channel == domain.ChannelWhatsApp {
-		if out.ButtonPayloads, err = s.issueTokens(ctx, m); err != nil {
+		if out.ButtonPayloads, err = s.issueTokens(ctx, m, []domain.Action{domain.ActionConfirm, domain.ActionCancel}); err != nil {
 			return err
+		}
+	}
+	if actions := emailActions(m.Kind, m.RecipientRole, st.Status); m.Channel == domain.ChannelEmail && len(actions) > 0 {
+		raws, err := s.issueTokens(ctx, m, actions)
+		if err != nil {
+			return err
+		}
+		out.Links = make(map[domain.Action]string, len(actions))
+		for i, a := range actions {
+			out.Links[a] = raws[i]
 		}
 	}
 	providerID, sendErr := sender.Send(ctx, out)

@@ -17,6 +17,8 @@ type Action string
 const (
 	ActionConfirm Action = "CONFIRM"
 	ActionCancel  Action = "CANCEL"
+	// ActionReschedule: the email's "Reagendar" link (T7.7).
+	ActionReschedule Action = "RESCHEDULE"
 )
 
 // ActionToken authorizes one answer to a reminder: the opaque payload of a button. Only the
@@ -79,6 +81,9 @@ const (
 	OutcomeCutoff    Outcome = "CUTOFF_PASSED"
 	OutcomeNotActive Outcome = "NOT_ACTIVE"
 	OutcomeInvalid   Outcome = "INVALID" // unknown, used, expired token, or the appointment changed
+	// T7.7: the email's reschedule link.
+	OutcomeRescheduled     Outcome = "RESCHEDULED"
+	OutcomeSlotUnavailable Outcome = "SLOT_UNAVAILABLE"
 )
 
 // ReplyText is the answer sent back to the customer (a session message: no template needed
