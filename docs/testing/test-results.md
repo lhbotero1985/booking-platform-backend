@@ -1067,3 +1067,11 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `go test ./internal/modules/businesses/...` | ✅ | Nuevos casos: rutas del portal → `ErrReservedSlug`; "Contacto" → `negocio-contacto`; toda palabra reservada tiene forma de slug |
 | `task check` (build, vet, lint 0 issues, test, govulncheck) | ✅ | govulncheck falló una vez por DNS local (`vuln.go.dev: no such host`); reintento: sin vulnerabilidades |
 | Verificar en QA que ningún slug existente quede reservado | ✅ | 4 ciudades, 0 negocios públicos: sin conflictos (los no públicos no son visibles por la API pública) |
+
+## 2026-11-25 · Despliegue QA · carrera en el smoke test de Caddy
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| Despliegue de #63 (`86a4dad`) | ❌ → rollback ✅ | Caddy recreado/reiniciado por el Caddyfile nuevo; `curl` a 443 "Couldn't connect … after 0 ms" en el mismo instante; el rollback dejó QA sano (`4437175`) |
+| Corrección: reintentos de la verificación por Caddy (60 s) en `deploy.sh` | ✅ `bash -n` | shellcheck en CI (el contenedor local se colgó) |
+

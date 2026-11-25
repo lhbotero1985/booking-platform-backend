@@ -124,8 +124,16 @@ smoke() {
     sleep 2
   done
   $ok || { log "smoke: API not ready (version '$got', want '$want')"; return 1; }
-  curl -fsS --max-time 5 --resolve "$domain:443:127.0.0.1" "https://$domain/readyz" >/dev/null ||
-    { log "smoke: not reachable through Caddy"; return 1; }
+  # Caddy may have just been recreated or restarted (new Caddyfile or environment): give it time
+  # to listen instead of failing on the first connection refused.
+  ok=false
+  for _ in $(seq 1 30); do
+    if curl -fsS --max-time 5 --resolve "$domain:443:127.0.0.1" "https://$domain/readyz" >/dev/null 2>&1; then
+      ok=true; break
+    fi
+    sleep 2
+  done
+  $ok || { log "smoke: not reachable through Caddy"; return 1; }
   [[ -n $(docker compose ps --status running -q worker) ]] ||
     { log "smoke: worker not running"; return 1; }
 }
