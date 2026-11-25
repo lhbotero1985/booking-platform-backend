@@ -93,7 +93,8 @@ func TestAppointmentsContract(t *testing.T) {
 	}
 	st, err := e.svc.AppointmentState(ctx, e.biz, a.ID)
 	if err != nil || st.ID != a.ID || st.BusinessID != e.biz || st.ProfessionalID != e.pro || st.Status != "PENDING_CONFIRMATION" ||
-		!st.Start.Equal(a.Start) || st.Version != 1 {
+		!st.Start.Equal(a.Start) || st.Version != 1 || st.CustomerName != "Ana Cliente" || st.ServiceName != "Corte" ||
+		st.BusinessName != "Barbería Centro" || st.TimeZone != "America/Bogota" || st.ProfessionalName != "Juan" || st.CancelReason != "" {
 		t.Fatalf("state: %+v %v", st, err)
 	}
 	if _, err := e.svc.AppointmentState(ctx, uuid.Must(uuid.NewV7()), a.ID); !errors.Is(err, contract.ErrAppointmentNotFound) {

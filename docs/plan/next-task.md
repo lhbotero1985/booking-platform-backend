@@ -1,8 +1,8 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T7.2 — Cliente de WhatsApp Cloud API (2026-11-25): PR #57 en `qa`, E2E en QA 203/203 con un
-WhatsApp real.
+T7.3 — Mensajes de la cita (2026-11-25), en `feature/t7.3-appointment-templates` (commit y push;
+PR y merge pendientes de autorización).
 
 ## Flujo de ramas (ADR-0017)
 
@@ -11,6 +11,7 @@ solo al pasar a producción.
 
 ## Próxima tarea
 
-T7.3 — Mensajes al cliente: proponer al usuario los textos de las plantillas (cita creada,
-   cancelada por el negocio, reprogramada, reasignada; enlace de la app en la cita manual, P40),
-   que el usuario crea y envía a aprobación en Meta.
+1. Cuando Meta apruebe las 5 plantillas: PR de T7.3 a `qa` y E2E en QA con `WHATSAPP_TEST_PHONE`
+   (el usuario recibe "cita_agendada" con datos reales).
+2. T7.4 — Recordatorios: proponer el texto de la plantilla de recordatorio con botones Confirmar /
+   Cancelar (que el usuario crea en Meta) y el job programado según el negocio.

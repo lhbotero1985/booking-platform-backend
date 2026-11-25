@@ -986,3 +986,17 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | PR #57 — ci + security | ✅ 6/6 | 1.ª corrida: gitleaks marcó el token **falso** de una prueba (`AccessToken: "EAAtest…"`, regla genérica); corregido con una constante y la huella revisada en `.gitleaksignore`. Squash `d9b29bb` |
 | `release-qa` | ✅ | El worker arranca con `whatsapp sender provider=meta allowlist=1` |
 | `scripts/e2e-qa.sh` (admin, `WHATSAPP_TEST_PHONE`) en QA | ✅ **203/203** | Mensajes sintéticos → `SKIPPED NOT_ALLOWLISTED`; **cita con el celular de prueba → Meta aceptó el WhatsApp (`SENT`, 1 intento)**; la cancelación del cliente no envía un segundo mensaje. El número no aparece en el log |
+
+## 2026-11-25 · Fase 7 · T7.3 — Mensajes de la cita
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestPlan` / `TestWhenES` (dominio) | ✅ 100 % | La cita del negocio es `APPOINTMENT_CREATED_BY_BUSINESS`; fecha en español con a. m./p. m., mediodía, medianoche, cambio de día por zona |
+| `TestTemplates` / `TestParamsAreSafeForMeta` (cliente) | ✅ 94,4 % | Nombre, idioma `es` y orden de los 5 parámetros de cada plantilla; limpieza de parámetros; motivo vacío |
+| `TestSendFillsTheContent` (aplicación) | ✅ 92,6 % | Nombres actuales y la hora en la zona del negocio; zona inválida → UTC |
+| `TestAppointmentsContract` (scheduling) | ✅ | El estado trae cliente, servicio, negocio, zona y barbero |
+| `TestWhatsAppClientOnPostgres` | ✅ | Con PostgreSQL real: `cita_agendada/es: … | Barbería Reservas | Corte | Juan | martes 5 de marzo, 9:00 a. m.`; cita manual → `cita_agendada_negocio` con el cliente escrito |
+| `TestAppDownload` / `TestAppDownloadURLConfig` | ✅ | Aviso HTML sin URL; 302 con URL; solo https |
+| Migración 00020 (up/down) / `sqlc:check` | ✅ | |
+| `task check` (lint 0, sin vulnerabilidades) / `shellcheck` / integración completa | ✅ | 83 rutas documentadas |
+| Despliegue y E2E en QA (envío real) | ⏳ | Tras la aprobación de las plantillas en Meta y el merge |

@@ -55,12 +55,19 @@ type EventListener interface {
 	AppointmentEventRecorded(ctx context.Context, e AppointmentEvent) error
 }
 
-// AppointmentState is the current state of an appointment, to re-check a pending notification.
+// AppointmentState is the current state of an appointment, to re-check a pending notification
+// and to fill its message (T7.3).
 type AppointmentState struct {
 	ID, BusinessID, ProfessionalID uuid.UUID
 	Status                         string
 	Start                          time.Time // UTC
 	Version                        int
+	CustomerName                   string
+	ServiceName                    string // snapshot taken when booked
+	CancelReason                   string // "" unless canceled with a reason
+	ProfessionalName               string // display name; "" if unknown
+	BusinessName                   string
+	TimeZone                       string // IANA zone of the business
 }
 
 // Appointments is what other modules read about appointments.

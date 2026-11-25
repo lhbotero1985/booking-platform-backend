@@ -150,7 +150,7 @@ construye ahora y se valida con la app real cuando exista.
 |---|---|---|
 | T7.1 ✅ | Base: módulo `notifications`, mensajes encolados en la transacción del cambio, envío por River con proveedor simulado, revalidación de la cita, interruptor y lista blanca | Un mensaje por cambio; nunca dos veces; si el cambio se deshace, el mensaje también |
 | T7.2 ✅ | Cliente de WhatsApp Cloud API (número de prueba), plantillas versionadas en código, reintentos y errores permanentes | Mensaje real al celular de prueba en QA |
-| T7.3 | Mensajes al cliente: cita creada, cancelada por el negocio, reprogramada; P40: enlace de la app en la cita manual | Textos aprobados por el usuario |
+| T7.3 ✅ | Mensajes al cliente: cita creada, cancelada por el negocio, reprogramada; P40: enlace de la app en la cita manual | Textos aprobados por el usuario |
 | T7.4 | Recordatorios según el negocio, con botones Confirmar / Cancelar | Un recordatorio viejo se descarta |
 | T7.5 | Webhook de Meta: firma, duplicados, estados de entrega y respuestas de los botones (token de un solo uso) | Firma falsa → rechazo; botón reusado → sin efecto |
 | T7.6 | Push (Expo): registro de dispositivos y avisos al barbero | Token inválido → se revoca |

@@ -349,3 +349,18 @@ func TestWhatsAppCloudAPIConfig(t *testing.T) {
 		t.Error("an id without a token must fail")
 	}
 }
+
+func TestAppDownloadURLConfig(t *testing.T) {
+	if cfg, err := Load(envFrom(map[string]string{"APP_ENV": "development"})); err != nil || cfg.AppDownloadURL != "" {
+		t.Fatalf("default: %q %v", cfg.AppDownloadURL, err)
+	}
+	if cfg, err := Load(envFrom(map[string]string{"APP_ENV": "development", "APP_DOWNLOAD_URL": "https://apps.apple.com/app/id1"})); err != nil ||
+		cfg.AppDownloadURL != "https://apps.apple.com/app/id1" {
+		t.Errorf("set: %q %v", cfg.AppDownloadURL, err)
+	}
+	for _, bad := range []string{"http://example.com/app", "/app", "javascript:alert(1)"} {
+		if _, err := Load(envFrom(map[string]string{"APP_ENV": "development", "APP_DOWNLOAD_URL": bad})); err == nil || !strings.Contains(err.Error(), "APP_DOWNLOAD_URL") {
+			t.Errorf("%q accepted: %v", bad, err)
+		}
+	}
+}

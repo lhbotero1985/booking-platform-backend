@@ -97,7 +97,7 @@ func (c *Client) Send(ctx context.Context, m application.Outgoing) (string, erro
 	}
 	body, err := json.Marshal(sendRequest{
 		MessagingProduct: "whatsapp", RecipientType: "individual", To: strings.TrimPrefix(m.To, "+"), Type: "template",
-		Template: t.ref(),
+		Template: t.ref(m.Content),
 	})
 	if err != nil {
 		return "", err

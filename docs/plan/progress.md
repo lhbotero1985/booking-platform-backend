@@ -466,6 +466,17 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-25 · Fase 7 · T7.3 — Mensajes de la cita
+
+- **Previo:** el usuario confirmó que recibió el "Hello World" de T7.2; aprobó los 5 textos y los
+  creó en Meta (Utilidad, Spanish; "En revisión"); decidió que los botones Confirmar / Cancelar
+  vayan solo en el recordatorio (T7.4).
+- **Estado:** ✅ en `feature/t7.3-appointment-templates` (commit y push; PR pendiente de
+  autorización y de la aprobación de las plantillas en Meta para el E2E con envío real).
+- **Hecho:** `AppointmentState` con cliente, servicio, barbero, negocio, zona y motivo; contenido y
+  fecha en español; las 5 plantillas con sus parámetros; tipo `APPOINTMENT_CREATED_BY_BUSINESS`
+  (migración 00020); `GET /app` con `APP_DOWNLOAD_URL`; el worker lee negocios y profesionales.
+
 ## 2026-11-25 · Fase 7 · T7.2 — Cliente de WhatsApp Cloud API
 
 - **Previo:** el usuario creó la app de Meta "booking-platform", registró su celular como

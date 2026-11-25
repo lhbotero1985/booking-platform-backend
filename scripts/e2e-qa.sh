@@ -335,6 +335,8 @@ done
 # QA writes only to WHATSAPP_ALLOWLIST: a synthetic number is skipped (simulated sender: sent).
 check "the worker processed them (sent, or skipped: not allowlisted)" "0 (SENT|SKIPPED NOT_ALLOWLISTED)"   "$(json '"\([.items[] | select(.status == "PENDING")] | length) \(.items[-1].status)\(if .items[-1].skipReason then " " + .items[-1].skipReason else "" end)"')"
 
+check "app download page (button of the manual booking message)" 200 "$(status GET /app)"
+
 # --- real WhatsApp through Meta (T7.2, optional) ------------------------------------------------
 # WHATSAPP_TEST_PHONE: a number registered as a test recipient in Meta and in WHATSAPP_ALLOWLIST.
 # It receives exactly one message; the number is never printed.

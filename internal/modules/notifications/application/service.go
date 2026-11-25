@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -48,6 +49,7 @@ type Outgoing struct {
 	Kind      domain.Kind
 	Channel   domain.Channel
 	To        string
+	Content   domain.Content
 }
 
 // Sender delivers a message through its channel and returns the provider's message id.
@@ -165,7 +167,15 @@ func (s *Service) Send(ctx context.Context, id uuid.UUID, lastAttempt bool) erro
 	if !ok {
 		return s.skip(ctx, m, domain.SkipChannelDisabled)
 	}
-	providerID, sendErr := sender.Send(ctx, Outgoing{MessageID: m.ID, Kind: m.Kind, Channel: m.Channel, To: m.Recipient})
+	loc, err := time.LoadLocation(st.TimeZone)
+	if err != nil || st.TimeZone == "" {
+		loc = time.UTC // never expected: the zone is validated when the business is created
+	}
+	content := domain.Content{
+		CustomerName: st.CustomerName, BusinessName: st.BusinessName, ServiceName: st.ServiceName,
+		ProfessionalName: st.ProfessionalName, Start: st.Start, Location: loc, CancelReason: st.CancelReason,
+	}
+	providerID, sendErr := sender.Send(ctx, Outgoing{MessageID: m.ID, Kind: m.Kind, Channel: m.Channel, To: m.Recipient, Content: content})
 	m.UpdatedAt = s.d.Clock.Now()
 	if sendErr != nil {
 		m.ErrorCode = "UNKNOWN"
