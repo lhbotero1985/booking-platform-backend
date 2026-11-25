@@ -1051,6 +1051,23 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `task check` (lint 0, sin vulnerabilidades) / `sqlc:check` / `shellcheck` / integración completa (migración 00023) / gitleaks | ✅ | |
 | Despliegue y E2E en QA (PR #61, `3cf9b43`) | ✅ 209/209 | CI 6/6; el primer despliegue falló por el droplet apagado (el usuario lo apagó para cambiar recursos), relanzado con éxito tras encenderlo; migración 00023 aplicada. Mailpit: al cliente "está agendada", dos "cambió de hora" y "fue cancelada"; al especialista "Nueva cita", "Cita reprogramada" y "Cita cancelada"; direcciones enmascaradas. Diseño aprobado por el usuario |
 
+## 2026-11-25 · Integración frontend · portales web en QA
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `shellcheck -S style` (web-deploy.sh, qa-env.sh, deploy.sh) | ✅ | Tras corregir SC2015 en `env_value` |
+| `caddy validate` (Caddyfile con los dos portales) | ✅ | "Valid configuration" |
+| Compose web local con la imagen real de business-web en la red `booking-qa_default` | ✅ | `healthy`, raíz de solo lectura, caché en tmpfs escribible, `/healthz` por el alias `business-web:3000`, 116 MiB de 192 MiB |
+| Despliegue real en QA | ⏳ | Droplet activo; tras el merge, pasos de operador (`qa-deployment.md` §3B) |
+
+## 2026-11-25 · Integración frontend · slugs reservados (ADR-F006 del frontend)
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `go test ./internal/modules/businesses/...` | ✅ | Nuevos casos: rutas del portal → `ErrReservedSlug`; "Contacto" → `negocio-contacto`; toda palabra reservada tiene forma de slug |
+| `task check` (build, vet, lint 0 issues, test, govulncheck) | ✅ | govulncheck falló una vez por DNS local (`vuln.go.dev: no such host`); reintento: sin vulnerabilidades |
+| Verificar en QA que ningún slug existente quede reservado | ✅ | 4 ciudades, 0 negocios públicos: sin conflictos (los no públicos no son visibles por la API pública) |
+
 ## 2026-11-25 · Fase 7 · T7.7 — Acciones desde el correo
 
 | Comando / verificación | Resultado | Observaciones |

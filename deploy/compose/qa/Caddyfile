@@ -38,3 +38,46 @@
 		lb_try_interval 250ms
 	}
 }
+
+# --- Web portals of the frontend (booking-platform-frontend, ADR-F003/F006) ----------------
+# Each portal has its own host; /api/* on that same origin goes to the API, so the browser only
+# talks to one origin and the HttpOnly session cookie stays per portal. The portals run in their
+# own Compose projects (qa/web/docker-compose.yml) on this network; until one is deployed its
+# host answers 502 without affecting the API site above.
+(portal) {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+		-Via
+	}
+
+	request_body {
+		max_size 2MB
+	}
+
+	handle /api/* {
+		reverse_proxy api:8080 {
+			header_down -Server
+			lb_try_duration 10s
+			lb_try_interval 250ms
+		}
+	}
+
+	handle {
+		reverse_proxy {args[0]}:3000 {
+			header_down -Server
+			lb_try_duration 5s
+			lb_try_interval 250ms
+		}
+	}
+}
+
+{$APP_DOMAIN} {
+	import portal business-web
+}
+
+{$ADMIN_DOMAIN} {
+	import portal admin-web
+}
