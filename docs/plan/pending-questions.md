@@ -59,3 +59,10 @@ la Fase 0, se adopta la propuesta.
 | P36 | Cloud Firewall de DigitalOcean | ✅ Decidido 2026-11-22: **solo firewall propio (`ufw`)**; Caddy será el único servicio expuesto (80/443). |
 | P30 | Retención y acceso a `audit_log` | Propuesta Fase 12: 12 meses en línea, consulta solo PLATFORM_ADMIN (auditada), purga programada con River; revisar requisitos legales de protección de datos (Colombia, Ley 1581). |
 | P29 | Límites por IP detrás de NAT (p. ej. wifi de un salón) | 10/min en endpoints de credenciales es holgado para pocos dispositivos; revisar con datos reales de QA. Requiere IP real vía Caddy (Fase 3). |
+
+## Nuevas (2026-11-25, integración con el frontend)
+
+| # | Pregunta | Propuesta por defecto |
+|---|---|---|
+| P42 | Contratos que pide el frontend (`docs/plan/frontend-contract-proposals.md`): P-1 membresías con datos del negocio, P-2 lecturas admin de geografía inactiva, P-3 `PATCH /me`, P-4 detalle de cita para el personal e historial por cliente, P-5 usuarios y auditoría para el admin | ✅ El usuario aprobó llevarlas al backend (2026-11-25). Propuesta: P-1 y P-3 como tareas cortas tras la Fase 7; P-2 y P-4 antes de las fases 8–11 del portal; P-5 junto con MFA de administradores (P32, Fase 12). Requiere priorización del usuario. |
+| P43 | Portales web en QA (ADR-F003 del frontend): Caddy enruta `app`/`admin` QA a sus contenedores y `/api/*` del mismo origen al backend; `CORS_ALLOWED_ORIGINS` y `PUBLIC_APP_URL` con las URL de los portales QA | Se propondrá con detalle en la Fase F2 del frontend (cambio en `deploy/`, requiere autorización). El Droplet QA ya tiene 2 GB (`s-1vcpu-2gb-70gb-intel`). |
