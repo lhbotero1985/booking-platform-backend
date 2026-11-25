@@ -967,4 +967,6 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Aislamiento / credenciales (guiadas por el contrato) | ✅ | 40 operaciones con otro negocio, 25 con ids ajenos; 67 autenticadas |
 | `TestNotificationsConfig` | ✅ | Valores por defecto, lista E.164, booleano inválido y número inválido sin repetir el valor |
 | `task check` (lint 0; `govulncheck` sin vulnerabilidades, tras reintentar por DNS) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
-| Despliegue y E2E en QA | ⏳ | Tras el merge |
+| PR #56 — ci + security | ✅ 6/6 | Squash `20ed86f`; `-race` en CI |
+| `release-qa` | ✅ | Smoke test ✅ |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **197/197** | Mensajes de la cita: creada y las dos reprogramaciones (la cancelación del cliente no genera); WhatsApp al cliente con el número enmascarado; el worker los procesó y el último quedó `SENT` (envío simulado). Dos corridas previas tuvieron fallos `000` (DNS intermitente de la máquina local, la petición no salió); con `CURL_EXTRA=--resolve …` 0 fallos |

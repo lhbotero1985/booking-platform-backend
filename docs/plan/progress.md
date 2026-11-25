@@ -479,8 +479,8 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - **Pruebas:** dominio 100 %, aplicación 92,2 %; integración con PostgreSQL y River reales (el
   mensaje se deshace con el cambio; el worker real entrega); mutación detectada; E2E con 3
   comprobaciones nuevas.
-- **Próximo:** PR a `qa` (requiere autorización), E2E en QA; luego T7.2 (requiere el número de
-  prueba y el token de Meta).
+- **Cierre:** PR #56 → `qa` autorizado: CI 6/6 ✅, squash `20ed86f`, rama borrada; `release-qa` ✅;
+  E2E en QA **197/197**.
 
 ## 2026-11-24 · Fase 6 · T6.8 — Cierre de la Fase 6
 
