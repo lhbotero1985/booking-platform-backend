@@ -10,7 +10,6 @@ solo al pasar a producción.
 
 ## Próxima tarea
 
-1. Parte B: el usuario registra el webhook en Meta (URL, token de verificación, campo `messages`).
-2. Cuando Meta apruebe las plantillas: prueba real — reserva con el celular de prueba, el
+1. Cuando Meta apruebe las plantillas: prueba real — reserva con el celular de prueba, el
    recordatorio llega con botones, "Confirmar cita" confirma y responde.
-3. T7.6 — Push (Expo): registro de dispositivos y avisos al barbero.
+2. T7.6 — Push (Expo): registro de dispositivos y avisos al barbero.

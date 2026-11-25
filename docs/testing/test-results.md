@@ -1034,3 +1034,4 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `TestContractWhatsAppWebhook` | ✅ | Contra OpenAPI; **85 rutas documentadas** |
 | `task check` (lint 0 tras corregir G705, sin vulnerabilidades) / `sqlc:check` / `shellcheck` / integración completa (migración 00022) | ✅ | |
 | Despliegue y E2E en QA (PR #60, `8363924`) | ✅ 203/203 | CI 6/6 (incl. `-race` e integración); release-qa ✅; `scripts/e2e-qa.sh` 203 PASS, 0 FAIL: webhook con token equivocado → 403, sin firma → 401 `INVALID_SIGNATURE`; recordatorios 2; worker: avisos SKIPPED `NOT_ALLOWLISTED` (cliente de prueba fuera de la lista blanca) |
+| Registro del webhook en Meta (parte B) | ✅ | `GET /webhooks/whatsapp` desde Meta → 200 (12:56 UTC); suscripción a `messages` |

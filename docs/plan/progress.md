@@ -471,8 +471,9 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - **Previo:** el usuario cargó en el servidor `WHATSAPP_APP_SECRET` y
   `WHATSAPP_WEBHOOK_VERIFY_TOKEN` (verificados sin ver valores: formato correcto, 6 variables,
   archivo `600`).
-- **Estado:** ✅ validada en QA: PR #60 (squash `8363924`), CI 6/6, E2E 203/203. Pendiente: el
-  usuario registra el webhook en Meta (parte B) y la prueba real de botones cuando Meta apruebe
+- **Estado:** ✅ validada en QA: PR #60 (squash `8363924`), CI 6/6, E2E 203/203. Parte B hecha: el
+  usuario registró el webhook en Meta y se suscribió a `messages`; la verificación de Meta llegó y
+  se respondió 200 (2026-11-25 12:56 UTC). Pendiente: la prueba real de botones cuando Meta apruebe
   las plantillas.
 - **Hecho:** `GET/POST /webhooks/whatsapp` (verificación y firma), `webhook_events`,
   `appointment_action_tokens`, índice único de `provider_message_id` (migración 00022); estados
