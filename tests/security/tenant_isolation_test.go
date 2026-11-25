@@ -35,6 +35,8 @@ var tenantBodies = map[string]string{
 	"PATCH /api/v1/business/{businessId}/services/{serviceId}":                                `{"priceMinor":100}`,
 	"POST /api/v1/business/{businessId}/customers":                                            `{"fullName":"Intruso","phone":"3009990000"}`,
 	"PATCH /api/v1/business/{businessId}/customers/{customerId}":                              `{"fullName":"Hackeado"}`,
+	"POST /api/v1/business/{businessId}/appointments/{appointmentId}/cancel":                  `{"reason":"Intruso"}`,
+	"POST /api/v1/business/{businessId}/appointments/{appointmentId}/reschedule":              `{"startAt":"2026-11-23T15:00:00Z"}`,
 }
 
 func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
@@ -89,7 +91,16 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 	if r := h.call(t, http.MethodPut, "/api/v1/business/"+bobBiz+"/professionals/"+prof.ID+"/services", `{"serviceIds":["`+serviceID+`"]}`, bearerH(bob)); r.status != http.StatusOK {
 		t.Fatalf("bob assigns a service: %d %s", r.status, r.body)
 	}
+	// An appointment in Bob's agenda: Monday 23 November 2026, 09:00 in Cali (T6.6).
+	bookH := bearerH(bob)
+	bookH["Idempotency-Key"] = "bob-aislamiento-1"
+	br := h.call(t, http.MethodPost, "/api/v1/business/"+bobBiz+"/appointments", `{"professionalId":"`+prof.ID+`","serviceId":"`+serviceID+`","startAt":"2026-11-23T14:00:00Z","customer":{"fullName":"Cliente","phone":"3002223344"}}`, bookH)
+	var appt struct{ ID string }
+	if br.status != http.StatusCreated || json.Unmarshal([]byte(br.body), &appt) != nil {
+		t.Fatalf("bob books: %d %s", br.status, br.body)
+	}
 	catalogURLs := []string{"/api/v1/business/" + bobBiz + "/services", "/api/v1/business/" + bobBiz + "/service-categories",
+		"/api/v1/business/" + bobBiz + "/agenda?view=week&date=2026-11-23", "/api/v1/business/" + bobBiz + "/appointments/" + appt.ID + "/history",
 		"/api/v1/business/" + bobBiz + "/customers",
 		"/api/v1/business/" + bobBiz + "/professionals/" + prof.ID + "/services"}
 	catalogBefore := map[string]string{}
@@ -122,7 +133,7 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 				body = "{}"
 			}
 			url := func(biz string) string {
-				return strings.NewReplacer("{businessId}", biz, "{userId}", staffID, "{professionalId}", prof.ID, "{absenceId}", absence.ID, "{categoryId}", categoryID, "{serviceId}", serviceID, "{customerId}", customerID).Replace(path)
+				return strings.NewReplacer("{businessId}", biz, "{userId}", staffID, "{professionalId}", prof.ID, "{absenceId}", absence.ID, "{categoryId}", categoryID, "{serviceId}", serviceID, "{customerId}", customerID, "{appointmentId}", appt.ID).Replace(path)
 			}
 			if strings.Contains(url(bobBiz), "{") {
 				t.Fatalf("%s: unresolved path placeholder in %s", op, url(bobBiz))
@@ -156,7 +167,7 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 			}
 			url := func(child func(string) string) string {
 				return strings.NewReplacer("{businessId}", anaBiz, "{userId}", child(staffID), "{professionalId}", child(prof.ID),
-					"{absenceId}", child(absence.ID), "{categoryId}", child(categoryID), "{serviceId}", child(serviceID), "{customerId}", child(customerID)).Replace(path)
+					"{absenceId}", child(absence.ID), "{categoryId}", child(categoryID), "{serviceId}", child(serviceID), "{customerId}", child(customerID), "{appointmentId}", child(appt.ID)).Replace(path)
 			}
 			foreign := h.call(t, method, url(func(id string) string { return id }), body, bearerH(ana))
 			none := h.call(t, method, url(func(string) string { return missing }), body, bearerH(ana))

@@ -305,6 +305,23 @@ check "agenda paginated" true "$(status GET "$ag&limit=1" "" "$T1" >/dev/null; j
 check "my appointments (customer, every business)" "1 $myname" "$(status GET /api/v1/me/appointments "" "$T1" >/dev/null; json '"\(.items | length) \(.items[0].business.name)"')"
 check "my appointment detail" 200 "$(status GET "/api/v1/me/appointments/$appt" "" "$T1")"
 check "someone else's appointment -> 404" 404 "$(status GET "/api/v1/me/appointments/$appt" "" "$TS")"
+
+# --- changes of an appointment (T6.6) ------------------------------------------------------------
+me_appt="/api/v1/me/appointments/$appt"
+st_appt="/api/v1/business/$mine/appointments/$appt"
+check "customer confirms" "CONFIRMED 2" "$(status POST "$me_appt/confirm" "" "$T1" >/dev/null; json '"\(.status) \(.version)"')"
+check "confirm again (no change)" "CONFIRMED 2" "$(status POST "$me_appt/confirm" "" "$T1" >/dev/null; json '"\(.status) \(.version)"')"
+free1=$(status GET "$av&date=$tue" >/dev/null; json '.slots[0].startAt')
+free2=$(json '.slots[1].startAt')
+check "customer reschedules (stays confirmed)" "200 CONFIRMED" "$(status POST "$me_appt/reschedule" "{\"startAt\":\"$free1\"}" "$T1") $(json .status)"
+check "barber reschedules (customer must confirm again)" "200 PENDING_CONFIRMATION" "$(status POST "$st_appt/reschedule" "{\"startAt\":\"$free2\"}" "$TS") $(json .status)"
+check "history: created, confirmed, moved twice" "CREATED,CONFIRMED,RESCHEDULED,RESCHEDULED" "$(status GET "$st_appt/history" "" "$T1" >/dev/null; json '[.items[].type] | join(",")')"
+check "staff cancel needs a reason" 400 "$(status POST "$st_appt/cancel" '{"reason":""}' "$TS")"
+check "start days before -> 409" 409 "$(status POST "$st_appt/start" "" "$TS")"
+check "  code TOO_EARLY" TOO_EARLY "$(json .code)"
+check "customer cancels with a reason" "CANCELLED CUSTOMER" "$(status POST "$me_appt/cancel" '{"reason":"Viaje"}' "$T1" >/dev/null; json '"\(.status) \(.cancelledBy)"')"
+check "cancel again (no change)" 200 "$(status POST "$me_appt/cancel" "" "$T1")"
+check "a cancelled one cannot be confirmed" 409 "$(status POST "$st_appt/confirm" "" "$TS")"
 status POST /api/v1/auth/logout "" "$TS" >/dev/null
 check "  one per account" 409 "$(status POST /api/v1/businesses "$own" "$T1")"
 check "  code ALREADY_OWNER" ALREADY_OWNER "$(json .code)"

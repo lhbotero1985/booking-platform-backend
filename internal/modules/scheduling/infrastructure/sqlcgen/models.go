@@ -32,6 +32,26 @@ type Appointment struct {
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 	CustomerID      *uuid.UUID
+	CancelledAt     *time.Time
+	CancelReason    *string
+	CancelledBy     *string
+}
+
+type AppointmentEvent struct {
+	ID                     uuid.UUID
+	BusinessID             uuid.UUID
+	AppointmentID          uuid.UUID
+	Type                   string
+	Status                 string
+	ProfessionalID         uuid.UUID
+	StartAt                time.Time
+	ActorUserID            *uuid.UUID
+	OccurredAt             time.Time
+	ActorRole              *string
+	FromStatus             *string
+	PreviousStartAt        *time.Time
+	PreviousProfessionalID *uuid.UUID
+	Reason                 *string
 }
 
 type Customer struct {

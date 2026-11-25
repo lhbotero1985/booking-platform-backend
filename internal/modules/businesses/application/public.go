@@ -306,5 +306,6 @@ func bookingPolicyOf(b *domain.Business) bizcontract.BookingPolicy {
 	return bizcontract.BookingPolicy{
 		BusinessID: b.ID(), TimeZone: b.TimeZone(), SlotIntervalMinutes: p.SlotIntervalMinutes,
 		BufferMinutes: p.BufferMinutes, MinLeadMinutes: p.MinLeadMinutes, MaxAdvanceDays: p.MaxAdvanceDays,
+		CancellationCutoffHours: p.CancellationCutoffHours, RescheduleCutoffHours: p.RescheduleCutoffHours,
 	}
 }

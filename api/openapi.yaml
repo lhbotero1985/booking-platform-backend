@@ -1591,6 +1591,491 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/me/appointments/{appointmentId}/confirm:
+    parameters:
+      - name: appointmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [Appointments]
+      operationId: confirmMyAppointment
+      summary: Confirm your appointment
+      description: |
+        Pending → CONFIRMED; confirming a confirmed appointment changes nothing.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The appointment after the change (unchanged when it was already so).
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/me/appointments/{appointmentId}/cancel:
+    parameters:
+      - name: appointmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [Appointments]
+      operationId: cancelMyAppointment
+      summary: Cancel your appointment
+      description: |
+        Before the start and at least `cancellationCutoffHours` before (409 `CUTOFF_PASSED`; then contact the business). Reason optional. Frees the slot.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reason:
+                  type: string
+                  maxLength: 300
+      responses:
+        "200":
+          description: The appointment after the change (unchanged when it was already so).
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/me/appointments/{appointmentId}/reschedule:
+    parameters:
+      - name: appointmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [Appointments]
+      operationId: rescheduleMyAppointment
+      summary: Move your appointment to another time
+      description: |
+        Same appointment and professional, a start offered by the availability, at least `rescheduleCutoffHours` before (409 `CUTOFF_PASSED`) and while the business is public. The status does not change. 409 `SLOT_UNAVAILABLE` if the time is taken.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [startAt]
+              properties:
+                startAt:
+                  type: string
+                  format: date-time
+      responses:
+        "200":
+          description: The appointment after the change (unchanged when it was already so).
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/business/{businessId}/appointments/{appointmentId}/confirm:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: appointmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [Appointments]
+      operationId: confirmAppointment
+      summary: Confirm an appointment (staff)
+      description: |
+        Pending → CONFIRMED. A PROFESSIONAL only in its own agenda (403). Invalid change from the current status → 409 `INVALID_TRANSITION`.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The appointment after the change (unchanged when it was already so).
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/business/{businessId}/appointments/{appointmentId}/cancel:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: appointmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [Appointments]
+      operationId: cancelAppointment
+      summary: Cancel an appointment (staff)
+      description: |
+        Before its start (409 `APPOINTMENT_STARTED` after). Reason mandatory. Frees the slot. Invalid change from the current status → 409 `INVALID_TRANSITION`.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  maxLength: 300
+      responses:
+        "200":
+          description: The appointment after the change (unchanged when it was already so).
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/business/{businessId}/appointments/{appointmentId}/start:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: appointmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [Appointments]
+      operationId: startAppointment
+      summary: Start an appointment (staff)
+      description: |
+        Pending or confirmed → IN_PROGRESS, from 15 minutes before its start (409 `TOO_EARLY`). Invalid change from the current status → 409 `INVALID_TRANSITION`.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The appointment after the change (unchanged when it was already so).
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/business/{businessId}/appointments/{appointmentId}/complete:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: appointmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [Appointments]
+      operationId: completeAppointment
+      summary: Complete an appointment (staff)
+      description: |
+        IN_PROGRESS → COMPLETED, or CONFIRMED → COMPLETED once its start time came. Invalid change from the current status → 409 `INVALID_TRANSITION`.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The appointment after the change (unchanged when it was already so).
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/business/{businessId}/appointments/{appointmentId}/no-show:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: appointmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [Appointments]
+      operationId: markAppointmentNoShow
+      summary: Mark that the customer did not come (staff)
+      description: |
+        Pending or confirmed → NO_SHOW, from its start time. Frees the rest of the slot at once. Invalid change from the current status → 409 `INVALID_TRANSITION`.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The appointment after the change (unchanged when it was already so).
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/business/{businessId}/appointments/{appointmentId}/reschedule:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: appointmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [Appointments]
+      operationId: rescheduleAppointment
+      summary: Move an appointment (staff)
+      description: |
+        Another start (without the minimum notice) and, for the OWNER only, another professional who performs the service (`professionalId`; a PROFESSIONAL gets 403). Before its start. Both agendas are locked; the slot is revalidated. Afterwards PENDING_CONFIRMATION if the customer has an account, CONFIRMED otherwise.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [startAt]
+              properties:
+                startAt:
+                  type: string
+                  format: date-time
+                professionalId:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: The appointment after the change (unchanged when it was already so).
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/business/{businessId}/appointments/{appointmentId}/history:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: appointmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Appointments]
+      operationId: getAppointmentHistory
+      summary: Changes of an appointment (staff)
+      description: Oldest first. A PROFESSIONAL only for its own agenda (403).
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The history.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppointmentHistory"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/admin/businesses/{id}/subscription:
     get:
       tags: [Subscriptions]
@@ -4102,7 +4587,8 @@ components:
       type: object
       additionalProperties: false
       required: [id, businessId, professionalId, serviceId, serviceName, durationMinutes, priceMinor,
-                 currency, startAt, endAt, status, customerName, createdAt]
+                 currency, startAt, endAt, status, customerName, version, cancelledAt, cancelReason,
+                 cancelledBy, createdAt]
       properties:
         id:
           type: string
@@ -4138,9 +4624,60 @@ components:
           enum: [PENDING_CONFIRMATION, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW]
         customerName:
           type: string
+        version:
+          type: integer
+          description: Increases with every change.
+        cancelledAt:
+          type: [string, "null"]
+          format: date-time
+        cancelReason:
+          type: [string, "null"]
+        cancelledBy:
+          type: [string, "null"]
+          enum: [CUSTOMER, BUSINESS, null]
         createdAt:
           type: string
           format: date-time
+    AppointmentHistory:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [type, status, fromStatus, professionalId, startAt, previousStartAt, previousProfessionalId,
+                       reason, actorRole, occurredAt]
+            properties:
+              type:
+                type: string
+                enum: [CREATED, CONFIRMED, CANCELLED, RESCHEDULED, REASSIGNED, STARTED, COMPLETED, NO_SHOW]
+              status:
+                type: string
+              fromStatus:
+                type: [string, "null"]
+              professionalId:
+                type: string
+                format: uuid
+              startAt:
+                type: string
+                format: date-time
+              previousStartAt:
+                type: [string, "null"]
+                format: date-time
+              previousProfessionalId:
+                type: [string, "null"]
+                format: uuid
+              reason:
+                type: [string, "null"]
+              actorRole:
+                type: [string, "null"]
+                enum: [CUSTOMER, BUSINESS, null]
+              occurredAt:
+                type: string
+                format: date-time
     Availability:
       type: object
       additionalProperties: false
@@ -4360,8 +4897,10 @@ components:
         already owns a business (`ALREADY_OWNER`), the subscription is not a demo
         (`NOT_EXTENDABLE`), the account is already a member (`ALREADY_MEMBER`) or the change
         would leave the business without an OWNER (`LAST_OWNER`), or the account already has a
-        professional profile in the business (`ALREADY_PROFESSIONAL`), or the start time is not
-        available (`SLOT_UNAVAILABLE`).
+        professional profile in the business (`ALREADY_PROFESSIONAL`), the start time is not
+        available (`SLOT_UNAVAILABLE`), or an appointment change is not allowed
+        (`INVALID_TRANSITION`, `TOO_EARLY`, `APPOINTMENT_STARTED`, `CUTOFF_PASSED`,
+        `APPOINTMENT_CHANGED`).
       headers:
         X-Request-ID:
           $ref: "#/components/headers/XRequestID"

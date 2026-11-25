@@ -70,7 +70,8 @@ func newBookingEnv(t *testing.T) bookingEnv {
 		ana: identity.Principal{UserID: uuid.Must(uuid.NewV7())}, bob: identity.Principal{UserID: uuid.Must(uuid.NewV7())},
 		day: func(h, m int) time.Time { return time.Date(2030, 3, 5, h, m, 0, 0, bog) },
 	}
-	pol := businesses.BookingPolicy{BusinessID: e.biz, TimeZone: "America/Bogota", SlotIntervalMinutes: 10, BufferMinutes: 10, MinLeadMinutes: 60, MaxAdvanceDays: 60}
+	pol := businesses.BookingPolicy{BusinessID: e.biz, TimeZone: "America/Bogota", SlotIntervalMinutes: 10, BufferMinutes: 10, MinLeadMinutes: 60, MaxAdvanceDays: 60,
+		CancellationCutoffHours: 2, RescheduleCutoffHours: 2}
 	e.roles = fakeAuthz{}
 	e.clk = clock.NewFixed(time.Date(2030, 3, 1, 17, 0, 0, 0, time.UTC))
 	e.svc = application.NewService(application.Deps{

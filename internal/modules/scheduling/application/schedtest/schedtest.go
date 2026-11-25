@@ -33,6 +33,7 @@ type Event struct {
 	AppointmentID uuid.UUID
 	Type          domain.EventType
 	Actor         uuid.UUID
+	Event         domain.Event
 }
 
 // Store is the in-memory store.
@@ -116,9 +117,39 @@ func (t *tx) InsertAppointment(_ context.Context, a domain.Appointment) error {
 	return nil
 }
 
-func (t *tx) InsertAppointmentEvent(_ context.Context, _ uuid.UUID, a domain.Appointment, typ domain.EventType, actor uuid.UUID, _ time.Time) error {
-	t.events = append(t.events, Event{AppointmentID: a.ID, Type: typ, Actor: actor})
+func (t *tx) InsertAppointmentEvent(_ context.Context, _, appointmentID uuid.UUID, e domain.Event) error {
+	t.events = append(t.events, Event{AppointmentID: appointmentID, Type: e.Type, Actor: e.Actor, Event: e})
 	return nil
+}
+
+func (t *tx) LockAppointment(ctx context.Context, id uuid.UUID) (domain.Appointment, error) {
+	return t.AppointmentByID(ctx, id)
+}
+
+func (t *tx) UpdateAppointment(_ context.Context, a domain.Appointment, version int) error {
+	cur, ok := t.appts[a.ID]
+	if !ok || cur.Version != version {
+		return application.ErrAppointmentChanged
+	}
+	for _, b := range t.appts {
+		if b.ID != a.ID && b.ProfessionalID == a.ProfessionalID && b.Status.Occupies() && a.Status.Occupies() &&
+			a.Start.Before(b.OccupiedUntil()) && b.Start.Before(a.OccupiedUntil()) {
+			return application.ErrSlotUnavailable
+		}
+	}
+	a.Version = version + 1
+	t.appts[a.ID] = a
+	return nil
+}
+
+func (t *tx) AppointmentEvents(_ context.Context, appointmentID uuid.UUID) ([]domain.Event, error) {
+	var out []domain.Event
+	for _, e := range t.events {
+		if e.AppointmentID == appointmentID {
+			out = append(out, e.Event)
+		}
+	}
+	return out, nil
 }
 
 func (t *tx) AppointmentByID(_ context.Context, id uuid.UUID) (domain.Appointment, error) {
@@ -186,7 +217,7 @@ func (t *tx) ActiveAppointments(_ context.Context, businessID, professionalID uu
 	for _, a := range t.appts {
 		if a.BusinessID == businessID && a.ProfessionalID == professionalID && a.Status.Occupies() &&
 			a.Start.Before(to) && a.OccupiedUntil().After(from) {
-			out = append(out, domain.Booked{Start: a.Start, End: a.End, Buffer: a.Buffer})
+			out = append(out, domain.Booked{ID: a.ID, Start: a.Start, End: a.End, Buffer: a.Buffer})
 		}
 	}
 	return out, nil

@@ -37,7 +37,12 @@ stateDiagram-v2
     NO_SHOW --> [*]
 ```
 
-Implementación: tabla de transiciones en el dominio
+**Implementado en T6.6** (`scheduling/domain/transitions.go`): cancelar y reprogramar solo antes
+de la hora de inicio; "no vino" desde la hora de inicio y libera el resto del horario; solo el
+OWNER reasigna a otro profesional; reprogramación por el negocio → pendiente si el cliente tiene
+cuenta, confirmada si no.
+
+Implementación original propuesta: tabla de transiciones en el dominio
 (`map[Status]map[Action]Status` + guardas temporales y de actor). Cualquier transición no listada
 devuelve `ErrInvalidTransition` → HTTP 409.
 

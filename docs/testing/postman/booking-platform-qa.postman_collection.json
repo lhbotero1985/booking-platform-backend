@@ -1,8 +1,8 @@
 {
   "info": {
-    "name": "Booking Platform — QA (Fase 6: reservas, citas manuales y agenda)",
+    "name": "Booking Platform — QA (Fase 6: reservas, agenda y cambios de citas)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Validación manual de la API en QA hasta la disponibilidad pública (T6.2).\n\n**Antes de empezar:** en la pestaña *Variables* de la colección escriba `email` y `password` de una cuenta **verificada** de QA que sea responsable (OWNER) de un negocio, o que aún no tenga negocio (el paso 3b lo crea). Ejecute las carpetas en orden (o *Run collection*).\n\nLos pasos 4–6 **modifican datos de QA** de esa cuenta: registran al responsable como barbero, reemplazan su horario semanal (lunes a sábado 09:00–18:00, descanso 13:00–14:00), crean una ausencia de 15:00 a 16:00 el día `targetDate` y el servicio \"Corte Postman\" (30 min). Necesita un teléfono (`customerPhone`). El paso 8 reserva como cliente la primera hora libre (la cita queda creada; se podrá cancelar con T6.6) y prueba la repetición con la misma clave y el 409; el 9, como responsable, agenda una cita manual escribiendo nombre, celular y correo del cliente (si no existe se crea); el 10 muestra la agenda (día, semana, mes, año) y «mis citas»; el 11 borra la ausencia.\n\n`targetDate` se calcula sola (dentro de 2 días, saltando domingo) si está vacía; puede fijarla (AAAA-MM-DD). Las horas libres aparecen en la consola de Postman (View → Show Postman Console)."
+    "description": "Validación manual de la API en QA hasta la disponibilidad pública (T6.2).\n\n**Antes de empezar:** en la pestaña *Variables* de la colección escriba `email` y `password` de una cuenta **verificada** de QA que sea responsable (OWNER) de un negocio, o que aún no tenga negocio (el paso 3b lo crea). Ejecute las carpetas en orden (o *Run collection*).\n\nLos pasos 4–6 **modifican datos de QA** de esa cuenta: registran al responsable como barbero, reemplazan su horario semanal (lunes a sábado 09:00–18:00, descanso 13:00–14:00), crean una ausencia de 15:00 a 16:00 el día `targetDate` y el servicio \"Corte Postman\" (30 min). Necesita un teléfono (`customerPhone`). El paso 8 reserva como cliente la primera hora libre (la cita queda creada; se podrá cancelar con T6.6) y prueba la repetición con la misma clave y el 409; el 9, como responsable, agenda una cita manual escribiendo nombre, celular y correo del cliente (si no existe se crea); el 10 muestra la agenda (día, semana, mes, año) y «mis citas»; el 11 confirma, reprograma y cancela la cita del paso 8 (con su historial); el 12 borra la ausencia.\n\n`targetDate` se calcula sola (dentro de 2 días, saltando domingo) si está vacía; puede fijarla (AAAA-MM-DD). Las horas libres aparecen en la consola de Postman (View → Show Postman Console)."
   },
   "auth": {
     "type": "bearer",
@@ -113,6 +113,10 @@
     },
     {
       "key": "manualKey",
+      "value": ""
+    },
+    {
+      "key": "moveTo",
       "value": ""
     }
   ],
@@ -1960,7 +1964,350 @@
       ]
     },
     {
-      "name": "11. Limpieza",
+      "name": "11. Cambios de la cita del paso 8",
+      "description": "Confirmar, reprogramar, historial y cancelar. Iniciar, completar y 'no vino' dependen de la hora real de la cita.",
+      "item": [
+        {
+          "name": "11a. Confirmar mi cita (como cliente)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me/appointments/{{appointmentId}}/confirm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "me",
+                "appointments",
+                "{{appointmentId}}",
+                "confirm"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('confirmada', () => pm.expect(pm.response.json().status).to.eql('CONFIRMED'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11b. Siguiente hora libre",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/{{slug}}/availability?serviceId={{serviceId}}&professionalId={{professionalId}}&date={{targetDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "businesses",
+                "{{slug}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "serviceId",
+                  "value": "{{serviceId}}"
+                },
+                {
+                  "key": "professionalId",
+                  "value": "{{professionalId}}"
+                },
+                {
+                  "key": "date",
+                  "value": "{{targetDate}}"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const sl = pm.response.json().slots;",
+                  "pm.collectionVariables.set('moveTo', sl[sl.length - 1].startAt);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11c. Reprogramar mi cita (sigue confirmada)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me/appointments/{{appointmentId}}/reschedule",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "me",
+                "appointments",
+                "{{appointmentId}}",
+                "reschedule"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startAt\": \"{{moveTo}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const a = pm.response.json();",
+                  "pm.test('nueva hora', () => pm.expect(a.startAt).to.eql(pm.variables.get('moveTo')));",
+                  "pm.test('sigue confirmada', () => pm.expect(a.status).to.eql('CONFIRMED'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11d. Historial de la cita (como responsable)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}/appointments/{{appointmentId}}/history",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "business",
+                "{{businessId}}",
+                "appointments",
+                "{{appointmentId}}",
+                "history"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const types = pm.response.json().items.map(i => i.type);",
+                  "console.log('Historial:', types.join(' → '));",
+                  "pm.test('creada, confirmada y reprogramada', () => pm.expect(types.slice(0, 3)).to.eql(['CREATED', 'CONFIRMED', 'RESCHEDULED']));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11e. El negocio no cancela sin motivo -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}/appointments/{{appointmentId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "business",
+                "{{businessId}}",
+                "appointments",
+                "{{appointmentId}}",
+                "cancel"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11f. Iniciar días antes -> 409 TOO_EARLY",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}/appointments/{{appointmentId}}/start",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "business",
+                "{{businessId}}",
+                "appointments",
+                "{{appointmentId}}",
+                "start"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "pm.test('TOO_EARLY', () => pm.expect(pm.response.json().code).to.eql('TOO_EARLY'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11g. Cancelar mi cita con motivo (libera la hora)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me/appointments/{{appointmentId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "me",
+                "appointments",
+                "{{appointmentId}}",
+                "cancel"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Prueba Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const a = pm.response.json();",
+                  "pm.test('cancelada por el cliente', () => pm.expect(a.status + ' ' + a.cancelledBy).to.eql('CANCELLED CUSTOMER'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11h. Cancelar otra vez no cambia nada",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me/appointments/{{appointmentId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "me",
+                "appointments",
+                "{{appointmentId}}",
+                "cancel"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "12. Limpieza",
       "description": "",
       "item": [
         {

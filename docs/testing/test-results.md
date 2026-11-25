@@ -901,4 +901,21 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `TestEveryBusinessRouteIsTenantIsolated` / credenciales | ✅ | La agenda entra sola a la suite de aislamiento; las rutas `/me/appointments` a la matriz de credenciales |
 | Postman + Newman (entorno local temporal) | ✅ 2 corridas | 40 peticiones, 72 comprobaciones, 0 fallos; la consola muestra la agenda del día (hora, barbero, servicio, cliente, celular, estado) |
 | `task check` (lint 0, vuln) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
-| Despliegue y E2E en QA | ⏳ | Tras el merge (agenda del responsable y del barbero, 403, paginación, mis citas, 404 ajena) |
+| PR #52 — ci + security | ✅ 6/6 | Squash `66d3020` |
+| `release-qa` | ✅ | Smoke test ✅ |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **174/174** | Agenda del responsable y del barbero, 403 agenda ajena, paginación, mis citas con el negocio, detalle, 404 cita ajena |
+
+## 2026-11-24 · Fase 6 · T6.6 — Cambios de estado de la cita
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestTransitions` (dominio) | ✅ | Cada acción desde cada uno de los 6 estados (permitidas y 409); 15 min para iniciar; completar y "no vino" desde la hora; cancelar en la hora → empezada; límite del cliente exacto; mover: cliente sin cambio de estado, negocio → pendiente con cuenta / confirmada sin cuenta; motivo normalizado e inválido. Dominio 99,4 % |
+| `TestCustomerChanges` | ✅ | Confirmar (versión 2) y repetir sin cambio; cita ajena → no encontrada; el cliente no puede iniciar; mover sobre su propio horario (09:00 → 09:10); sobre otra cita → 409; límite de 2 h para cancelar y mover; cancelar con motivo y repetir |
+| `TestStaffChanges` | ✅ | Cancelar sin motivo → 400; agenda ajena → 403; otro negocio → 404; mover cliente sin cuenta (confirmada) y con cuenta (pendiente); solo el responsable reasigna; historial CREATED → CONFIRMED → RESCHEDULED → REASSIGNED con hora y barbero anteriores; el barbero ya no ve el historial de una cita reasignada a otra agenda; iniciar 20 min antes → 409; "no vino" libera y se agenda otra a las 09:10; iniciar, completar; cancelar completada → 409 |
+| `TestAppointmentChangesOnPostgres` | ✅ | 8 rondas cancelar ∥ reprogramar la misma cita: estado y versión coherentes, un evento por cambio; 5 rondas de reasignaciones cruzadas Juan ↔ Pedro en paralelo sin deadlock; reprogramación ∥ 6 reservas por las 10:00 → 1 gana; "no vino" libera el horario (10:50 rechazada antes, aceptada después) |
+| Mutación: sin orden fijo de bloqueos al mover | ✅ detectada | `deadlock detected (SQLSTATE 40P01)` en la 1.ª ronda; código restaurado |
+| `TestContractAppointmentChanges` (contra OpenAPI) | ✅ | Cliente: confirmar, ajena 404, reprogramar; personal: reprogramar → pendiente, cancelar sin motivo 400, agenda ajena 403, reasignar solo responsable, historial; `CUTOFF_PASSED`, `TOO_EARLY`, iniciar y completar, `INVALID_TRANSITION`, `APPOINTMENT_STARTED`, "no vino". **80 rutas documentadas** |
+| `TestEveryBusinessRouteIsTenantIsolated` / credenciales | ✅ | **38 operaciones** con otro negocio y **24** con ids ajenos (incluye `{appointmentId}`); la agenda y el historial de Bob no cambian; **65 operaciones autenticadas** |
+| Postman + Newman (entorno local temporal) | ✅ 2 corridas | 48 peticiones, 86 comprobaciones, 0 fallos |
+| `task check` (lint 0, vuln) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
+| Despliegue y E2E en QA | ⏳ | Tras el merge (confirmar, reprogramar cliente y barbero, historial, 400, 409, cancelar) |

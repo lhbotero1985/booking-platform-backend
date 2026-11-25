@@ -466,6 +466,22 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 6 · T6.6 — Cambios de estado de la cita
+
+- **Previo:** PR #52 (T6.5) → `qa`: CI 6/6 ✅, squash `66d3020`, rama borrada; `release-qa` ✅;
+  E2E en QA **174/174**.
+- **Plan aprobado por el usuario** (flujos, estados, permisos y 3 decisiones; "no vino" libera
+  el horario).
+- **Estado:** ✅ en `feature/t6.6-appointment-changes` (commit y push; PR pendiente).
+- **Archivos:** migración `00018_appointment_changes.sql`; queries (`LockAppointment`,
+  `UpdateAppointment` con versión, `AppointmentEvents`, id en citas activas); dominio
+  `transitions.go`; aplicación `changes.go`; store PostgreSQL y en memoria; HTTP `changes.go` (10
+  rutas); contrato `businesses.BookingPolicy` con los límites de horas; OpenAPI (80 rutas); pruebas
+  (dominio, aplicación, contrato, PostgreSQL con concurrencia, aislamiento); E2E; Postman (paso 11).
+- **Hallazgos:** mutación sin orden fijo de bloqueos → deadlock detectado por PostgreSQL (la
+  prueba de reasignaciones cruzadas lo atrapa). Dos fallos de mis pruebas corregidos antes de
+  correrlas (destinos ocupados entre sí; "no vino" sobre una hora ya pasada).
+
 ## 2026-11-24 · Fase 6 · T6.5 — Agenda y mis citas
 
 - **Previo:** PR #51 (T6.4) → `qa`: CI 6/6 ✅, squash `15ac654`, rama borrada; `release-qa` ✅;

@@ -95,6 +95,14 @@ sin centavos) + `currency` del negocio. `categoryId: null` en PATCH quita la cat
 `{"serviceIds": [...]}` (OWNER) que reemplaza la lista completa; `SERVICE_NOT_FOUND` en
 `serviceIds[i]` si el servicio no es del negocio; profesional inexistente o ajeno → 404.
 
+### Cambios de una cita (T6.6)
+Cliente: `POST /api/v1/me/appointments/{id}/confirm | cancel | reschedule` (cancel: `reason`
+opcional; reschedule: `startAt`). Personal: `POST /api/v1/business/{businessId}/appointments/{id}/
+confirm | cancel | reschedule | start | complete | no-show` (cancel: `reason` obligatorio;
+reschedule: `startAt` y, solo OWNER, `professionalId`) y `GET …/{id}/history`. Respuestas: la cita
+con `version` y datos de cancelación. 409: `INVALID_TRANSITION`, `TOO_EARLY`,
+`APPOINTMENT_STARTED`, `CUTOFF_PASSED`, `APPOINTMENT_CHANGED`, `SLOT_UNAVAILABLE`.
+
 ### Agenda y mis citas (T6.5)
 `GET /api/v1/business/{businessId}/agenda?view=day|week|month|year&date=&professionalId=&cursor=&limit=`
 (fecha por defecto: hoy en el negocio): `from`/`to` (días locales, inclusivos), `timeZone`,

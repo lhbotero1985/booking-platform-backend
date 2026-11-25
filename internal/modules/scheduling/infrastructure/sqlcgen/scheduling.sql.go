@@ -13,7 +13,7 @@ import (
 )
 
 const activeAppointmentsOverlapping = `-- name: ActiveAppointmentsOverlapping :many
-SELECT start_at, end_at, occupied_until FROM appointments
+SELECT id, start_at, end_at, occupied_until FROM appointments
 WHERE business_id = $1 AND professional_id = $2
   AND status IN ('PENDING_CONFIRMATION', 'CONFIRMED', 'IN_PROGRESS')
   AND start_at < $3 AND occupied_until > $4
@@ -28,6 +28,7 @@ type ActiveAppointmentsOverlappingParams struct {
 }
 
 type ActiveAppointmentsOverlappingRow struct {
+	ID            uuid.UUID
 	StartAt       time.Time
 	EndAt         time.Time
 	OccupiedUntil time.Time
@@ -49,7 +50,12 @@ func (q *Queries) ActiveAppointmentsOverlapping(ctx context.Context, arg ActiveA
 	items := []ActiveAppointmentsOverlappingRow{}
 	for rows.Next() {
 		var i ActiveAppointmentsOverlappingRow
-		if err := rows.Scan(&i.StartAt, &i.EndAt, &i.OccupiedUntil); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.StartAt,
+			&i.EndAt,
+			&i.OccupiedUntil,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -61,7 +67,7 @@ func (q *Queries) ActiveAppointmentsOverlapping(ctx context.Context, arg ActiveA
 }
 
 const agendaAppointments = `-- name: AgendaAppointments :many
-SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id FROM appointments
+SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id, cancelled_at, cancel_reason, cancelled_by FROM appointments
 WHERE business_id = $1
   AND ($2::bool OR professional_id = ANY($3::uuid[]))
   AND start_at >= $4 AND start_at < $5
@@ -125,6 +131,9 @@ func (q *Queries) AgendaAppointments(ctx context.Context, arg AgendaAppointments
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.CustomerID,
+			&i.CancelledAt,
+			&i.CancelReason,
+			&i.CancelledBy,
 		); err != nil {
 			return nil, err
 		}
@@ -137,7 +146,7 @@ func (q *Queries) AgendaAppointments(ctx context.Context, arg AgendaAppointments
 }
 
 const appointmentByID = `-- name: AppointmentByID :one
-SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id FROM appointments WHERE id = $1
+SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id, cancelled_at, cancel_reason, cancelled_by FROM appointments WHERE id = $1
 `
 
 func (q *Queries) AppointmentByID(ctx context.Context, id uuid.UUID) (Appointment, error) {
@@ -165,8 +174,50 @@ func (q *Queries) AppointmentByID(ctx context.Context, id uuid.UUID) (Appointmen
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CustomerID,
+		&i.CancelledAt,
+		&i.CancelReason,
+		&i.CancelledBy,
 	)
 	return i, err
+}
+
+const appointmentEvents = `-- name: AppointmentEvents :many
+SELECT id, business_id, appointment_id, type, status, professional_id, start_at, actor_user_id, occurred_at, actor_role, from_status, previous_start_at, previous_professional_id, reason FROM appointment_events WHERE appointment_id = $1 ORDER BY occurred_at, id
+`
+
+func (q *Queries) AppointmentEvents(ctx context.Context, appointmentID uuid.UUID) ([]AppointmentEvent, error) {
+	rows, err := q.db.Query(ctx, appointmentEvents, appointmentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AppointmentEvent{}
+	for rows.Next() {
+		var i AppointmentEvent
+		if err := rows.Scan(
+			&i.ID,
+			&i.BusinessID,
+			&i.AppointmentID,
+			&i.Type,
+			&i.Status,
+			&i.ProfessionalID,
+			&i.StartAt,
+			&i.ActorUserID,
+			&i.OccurredAt,
+			&i.ActorRole,
+			&i.FromStatus,
+			&i.PreviousStartAt,
+			&i.PreviousProfessionalID,
+			&i.Reason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const claimIdempotencyKey = `-- name: ClaimIdempotencyKey :many
@@ -262,7 +313,7 @@ func (q *Queries) CustomerByPhone(ctx context.Context, arg CustomerByPhoneParams
 }
 
 const customerPastAppointments = `-- name: CustomerPastAppointments :many
-SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id FROM appointments
+SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id, cancelled_at, cancel_reason, cancelled_by FROM appointments
 WHERE customer_user_id = $1 AND start_at < $2
   AND (NOT $3::bool OR (start_at, id) < ($4::timestamptz, $5::uuid))
 ORDER BY start_at DESC, id DESC
@@ -317,6 +368,9 @@ func (q *Queries) CustomerPastAppointments(ctx context.Context, arg CustomerPast
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.CustomerID,
+			&i.CancelledAt,
+			&i.CancelReason,
+			&i.CancelledBy,
 		); err != nil {
 			return nil, err
 		}
@@ -329,7 +383,7 @@ func (q *Queries) CustomerPastAppointments(ctx context.Context, arg CustomerPast
 }
 
 const customerUpcomingAppointments = `-- name: CustomerUpcomingAppointments :many
-SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id FROM appointments
+SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id, cancelled_at, cancel_reason, cancelled_by FROM appointments
 WHERE customer_user_id = $1 AND start_at >= $2
   AND (NOT $3::bool OR (start_at, id) > ($4::timestamptz, $5::uuid))
 ORDER BY start_at, id
@@ -384,6 +438,9 @@ func (q *Queries) CustomerUpcomingAppointments(ctx context.Context, arg Customer
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.CustomerID,
+			&i.CancelledAt,
+			&i.CancelReason,
+			&i.CancelledBy,
 		); err != nil {
 			return nil, err
 		}
@@ -419,10 +476,12 @@ func (q *Queries) IdempotencyKeyOf(ctx context.Context, arg IdempotencyKeyOfPara
 const insertAppointment = `-- name: InsertAppointment :exec
 INSERT INTO appointments (id, business_id, professional_id, service_id, customer_id, customer_user_id,
     customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name,
-    duration_minutes, price_minor, currency, version, created_by, created_at, updated_at)
+    duration_minutes, price_minor, currency, version, created_by, created_at, updated_at,
+    cancelled_at, cancel_reason, cancelled_by)
 VALUES ($1, $2, $3, $4, $5, $6,
     $7, $8, $9, $10, $11, $12, $13, $14,
-    $15, $16, $17, $18, $19, $20, $21)
+    $15, $16, $17, $18, $19, $20, $21,
+    $22, $23, $24)
 `
 
 type InsertAppointmentParams struct {
@@ -447,6 +506,9 @@ type InsertAppointmentParams struct {
 	CreatedBy       uuid.UUID
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+	CancelledAt     *time.Time
+	CancelReason    *string
+	CancelledBy     *string
 }
 
 func (q *Queries) InsertAppointment(ctx context.Context, arg InsertAppointmentParams) error {
@@ -472,27 +534,35 @@ func (q *Queries) InsertAppointment(ctx context.Context, arg InsertAppointmentPa
 		arg.CreatedBy,
 		arg.CreatedAt,
 		arg.UpdatedAt,
+		arg.CancelledAt,
+		arg.CancelReason,
+		arg.CancelledBy,
 	)
 	return err
 }
 
 const insertAppointmentEvent = `-- name: InsertAppointmentEvent :exec
 INSERT INTO appointment_events (id, business_id, appointment_id, type, status, professional_id, start_at,
-    actor_user_id, occurred_at)
+    actor_user_id, occurred_at, actor_role, from_status, previous_start_at, previous_professional_id, reason)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
-    $9)
+    $9, $10, $11, $12, $13, $14)
 `
 
 type InsertAppointmentEventParams struct {
-	ID             uuid.UUID
-	BusinessID     uuid.UUID
-	AppointmentID  uuid.UUID
-	Type           string
-	Status         string
-	ProfessionalID uuid.UUID
-	StartAt        time.Time
-	ActorUserID    *uuid.UUID
-	OccurredAt     time.Time
+	ID                     uuid.UUID
+	BusinessID             uuid.UUID
+	AppointmentID          uuid.UUID
+	Type                   string
+	Status                 string
+	ProfessionalID         uuid.UUID
+	StartAt                time.Time
+	ActorUserID            *uuid.UUID
+	OccurredAt             time.Time
+	ActorRole              *string
+	FromStatus             *string
+	PreviousStartAt        *time.Time
+	PreviousProfessionalID *uuid.UUID
+	Reason                 *string
 }
 
 func (q *Queries) InsertAppointmentEvent(ctx context.Context, arg InsertAppointmentEventParams) error {
@@ -506,6 +576,11 @@ func (q *Queries) InsertAppointmentEvent(ctx context.Context, arg InsertAppointm
 		arg.StartAt,
 		arg.ActorUserID,
 		arg.OccurredAt,
+		arg.ActorRole,
+		arg.FromStatus,
+		arg.PreviousStartAt,
+		arg.PreviousProfessionalID,
+		arg.Reason,
 	)
 	return err
 }
@@ -588,6 +663,43 @@ func (q *Queries) ListCustomers(ctx context.Context, arg ListCustomersParams) ([
 	return items, nil
 }
 
+const lockAppointment = `-- name: LockAppointment :one
+SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id, cancelled_at, cancel_reason, cancelled_by FROM appointments WHERE id = $1 FOR UPDATE
+`
+
+// Serializes the changes of one appointment (T6.6).
+func (q *Queries) LockAppointment(ctx context.Context, id uuid.UUID) (Appointment, error) {
+	row := q.db.QueryRow(ctx, lockAppointment, id)
+	var i Appointment
+	err := row.Scan(
+		&i.ID,
+		&i.BusinessID,
+		&i.ProfessionalID,
+		&i.ServiceID,
+		&i.CustomerUserID,
+		&i.CustomerName,
+		&i.CustomerPhone,
+		&i.StartAt,
+		&i.EndAt,
+		&i.BufferMinutes,
+		&i.OccupiedUntil,
+		&i.Status,
+		&i.ServiceName,
+		&i.DurationMinutes,
+		&i.PriceMinor,
+		&i.Currency,
+		&i.Version,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CustomerID,
+		&i.CancelledAt,
+		&i.CancelReason,
+		&i.CancelledBy,
+	)
+	return i, err
+}
+
 const setBookingTimeouts = `-- name: SetBookingTimeouts :exec
 SELECT set_config('lock_timeout', '3s', true), set_config('statement_timeout', '5s', true)
 `
@@ -612,6 +724,49 @@ type SetIdempotencyAppointmentParams struct {
 func (q *Queries) SetIdempotencyAppointment(ctx context.Context, arg SetIdempotencyAppointmentParams) error {
 	_, err := q.db.Exec(ctx, setIdempotencyAppointment, arg.AppointmentID, arg.UserID, arg.Key)
 	return err
+}
+
+const updateAppointment = `-- name: UpdateAppointment :execrows
+UPDATE appointments
+SET professional_id = $1, start_at = $2, end_at = $3, occupied_until = $4,
+    status = $5, cancelled_at = $6, cancel_reason = $7, cancelled_by = $8,
+    version = version + 1, updated_at = $9
+WHERE id = $10 AND version = $11
+`
+
+type UpdateAppointmentParams struct {
+	ProfessionalID uuid.UUID
+	StartAt        time.Time
+	EndAt          time.Time
+	OccupiedUntil  time.Time
+	Status         string
+	CancelledAt    *time.Time
+	CancelReason   *string
+	CancelledBy    *string
+	UpdatedAt      time.Time
+	ID             uuid.UUID
+	Version        int32
+}
+
+// Writes a change; the version guard makes a lost update impossible (0 rows = changed meanwhile).
+func (q *Queries) UpdateAppointment(ctx context.Context, arg UpdateAppointmentParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateAppointment,
+		arg.ProfessionalID,
+		arg.StartAt,
+		arg.EndAt,
+		arg.OccupiedUntil,
+		arg.Status,
+		arg.CancelledAt,
+		arg.CancelReason,
+		arg.CancelledBy,
+		arg.UpdatedAt,
+		arg.ID,
+		arg.Version,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateCustomer = `-- name: UpdateCustomer :exec

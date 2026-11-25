@@ -19,16 +19,18 @@ UPDATE idempotency_keys SET appointment_id = @appointment_id WHERE user_id = @us
 -- name: InsertAppointment :exec
 INSERT INTO appointments (id, business_id, professional_id, service_id, customer_id, customer_user_id,
     customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name,
-    duration_minutes, price_minor, currency, version, created_by, created_at, updated_at)
+    duration_minutes, price_minor, currency, version, created_by, created_at, updated_at,
+    cancelled_at, cancel_reason, cancelled_by)
 VALUES (@id, @business_id, @professional_id, @service_id, @customer_id, @customer_user_id,
     @customer_name, @customer_phone, @start_at, @end_at, @buffer_minutes, @occupied_until, @status, @service_name,
-    @duration_minutes, @price_minor, @currency, @version, @created_by, @created_at, @updated_at);
+    @duration_minutes, @price_minor, @currency, @version, @created_by, @created_at, @updated_at,
+    @cancelled_at, @cancel_reason, @cancelled_by);
 
 -- name: InsertAppointmentEvent :exec
 INSERT INTO appointment_events (id, business_id, appointment_id, type, status, professional_id, start_at,
-    actor_user_id, occurred_at)
+    actor_user_id, occurred_at, actor_role, from_status, previous_start_at, previous_professional_id, reason)
 VALUES (@id, @business_id, @appointment_id, @type, @status, @professional_id, @start_at, @actor_user_id,
-    @occurred_at);
+    @occurred_at, @actor_role, @from_status, @previous_start_at, @previous_professional_id, @reason);
 
 -- name: AppointmentByID :one
 SELECT * FROM appointments WHERE id = @id;
@@ -36,7 +38,7 @@ SELECT * FROM appointments WHERE id = @id;
 -- Active appointments of a professional whose occupied range [start_at, occupied_until)
 -- overlaps [from_at, to_at).
 -- name: ActiveAppointmentsOverlapping :many
-SELECT start_at, end_at, occupied_until FROM appointments
+SELECT id, start_at, end_at, occupied_until FROM appointments
 WHERE business_id = @business_id AND professional_id = @professional_id
   AND status IN ('PENDING_CONFIRMATION', 'CONFIRMED', 'IN_PROGRESS')
   AND start_at < @to_at AND occupied_until > @from_at
@@ -91,3 +93,18 @@ WHERE customer_user_id = @user_id AND start_at < @now_at
   AND (NOT @has_cursor::bool OR (start_at, id) < (@after_start::timestamptz, @after_id::uuid))
 ORDER BY start_at DESC, id DESC
 LIMIT @max_rows;
+
+-- Serializes the changes of one appointment (T6.6).
+-- name: LockAppointment :one
+SELECT * FROM appointments WHERE id = @id FOR UPDATE;
+
+-- Writes a change; the version guard makes a lost update impossible (0 rows = changed meanwhile).
+-- name: UpdateAppointment :execrows
+UPDATE appointments
+SET professional_id = @professional_id, start_at = @start_at, end_at = @end_at, occupied_until = @occupied_until,
+    status = @status, cancelled_at = @cancelled_at, cancel_reason = @cancel_reason, cancelled_by = @cancelled_by,
+    version = version + 1, updated_at = @updated_at
+WHERE id = @id AND version = @version;
+
+-- name: AppointmentEvents :many
+SELECT * FROM appointment_events WHERE appointment_id = @appointment_id ORDER BY occurred_at, id;
