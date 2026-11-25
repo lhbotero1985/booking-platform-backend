@@ -5,12 +5,14 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	businesses "github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/contract"
 	identity "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/domain"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/infrastructure/postgres"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/infrastructure/simulated"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/infrastructure/whatsapp"
+	professionals "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/contract"
 	schedapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/application"
 	scheduling "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/contract"
 	schedpg "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/infrastructure/postgres"
@@ -55,7 +57,7 @@ func LinkNotifications(sched interface {
 }
 
 // NewSchedulingReader is the part of scheduling the worker needs: the current state of an
-// appointment (no other module is read).
-func NewSchedulingReader(pool *pgxpool.Pool, authz identity.Authorizer) scheduling.Appointments {
-	return schedapp.NewService(schedapp.Deps{Store: schedpg.NewStore(pool), Authz: authz, Clock: clock.System{}})
+// appointment with the names of its business and professional (T7.3).
+func NewSchedulingReader(pool *pgxpool.Pool, authz identity.Authorizer, biz businesses.PublicBooking, profs professionals.Agenda) scheduling.Appointments {
+	return schedapp.NewService(schedapp.Deps{Store: schedpg.NewStore(pool), Authz: authz, Businesses: biz, Professionals: profs, Clock: clock.System{}})
 }

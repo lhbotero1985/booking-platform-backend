@@ -131,6 +131,9 @@ type Config struct {
 	RateLimit RateLimit
 	// Notifications switches WhatsApp and push.
 	Notifications Notifications
+	// AppDownloadURL is where GET /app redirects (store page of the app, P40); empty shows a
+	// "coming soon" page.
+	AppDownloadURL string
 	// PublicAppURL is the base URL of the client app used in email links (/verify-email, …).
 	PublicAppURL string
 }
@@ -186,7 +189,8 @@ func Load(getenv func(string) string) (Config, error) {
 			LoginBackoffThreshold: int(p.intRange("LOGIN_BACKOFF_THRESHOLD", 5, 1, 100)),
 			LoginBackoffMax:       p.duration("LOGIN_BACKOFF_MAX", 15*time.Minute),
 		},
-		PublicAppURL: p.str("PUBLIC_APP_URL", "http://localhost:3000"),
+		PublicAppURL:   p.str("PUBLIC_APP_URL", "http://localhost:3000"),
+		AppDownloadURL: p.str("APP_DOWNLOAD_URL", ""),
 		Notifications: Notifications{
 			WhatsAppEnabled:           p.boolean("WHATSAPP_ENABLED", false),
 			WhatsAppAllowlist:         p.phones("WHATSAPP_ALLOWLIST"),
@@ -205,6 +209,11 @@ func Load(getenv func(string) string) (Config, error) {
 	p.validateSMTP(cfg.Env, cfg.SMTP)
 	p.validatePublicURL(cfg.Env, cfg.PublicAppURL)
 	p.validateWhatsApp(cfg.Env, cfg.Notifications)
+	if u := cfg.AppDownloadURL; u != "" {
+		if pu, err := url.Parse(u); err != nil || pu.Scheme != "https" || pu.Host == "" {
+			p.fail("APP_DOWNLOAD_URL", "must be an absolute https URL")
+		}
+	}
 	if m := cfg.RateLimit.LoginBackoffMax; m < time.Second || m > 24*time.Hour {
 		p.fail("LOGIN_BACKOFF_MAX", "must be between 1s and 24h")
 	}

@@ -1,6 +1,6 @@
 # Notificaciones: WhatsApp y push
 
-Estado: **Fase 7 en curso** (T7.1 y T7.2 implementadas: §7 y §8). ADR-0008, ADR-0009, ADR-0010.
+Estado: **Fase 7 en curso** (T7.1–T7.3 implementadas: §7–§9). ADR-0008, ADR-0009, ADR-0010.
 
 ## 1. Principios
 
@@ -110,9 +110,8 @@ El cliente puede desactivar recordatorios por canal. Las notificaciones transacc
 - **Cliente** `infrastructure/whatsapp`: `POST {WHATSAPP_API_BASE_URL}/{WHATSAPP_GRAPH_VERSION}/{WHATSAPP_PHONE_NUMBER_ID}/messages`
   con `Authorization: Bearer <token>`, cuerpo de plantilla (`messaging_product: whatsapp`, número sin
   `+`), respuesta → `messages[0].id` (wamid) como `provider_message_id`. Timeout 15 s.
-- **Plantillas en el código** (`templates.go`): por ahora todos los tipos envían `hello_world`
-  (`en_US`), la plantilla que Meta da aprobada, para probar la conexión de punta a punta. T7.3 la
-  reemplaza por las plantillas de la cita, con parámetros, cuando Meta las apruebe.
+- **Plantillas en el código** (`templates.go`): en T7.2 todos los tipos enviaban `hello_world`
+  para probar la conexión; desde T7.3, las plantillas de la cita (§9).
 - **Clasificación de errores de Meta:**
 
 | Situación | Código guardado | ¿Reintenta? |
@@ -134,3 +133,28 @@ El cliente puede desactivar recordatorios por canal. Las notificaciones transacc
   número es obligatorio y numérico, y **fuera de producción `WHATSAPP_ALLOWLIST` es obligatorio**
   (la aplicación no arranca sin ella). En QA las credenciales están en `/opt/booking/qa/.env` y el
   compose solo se las pasa al **worker** (la API no envía).
+
+## 9. Plantillas de la cita (T7.3)
+
+Textos aprobados por el usuario el 2026-11-25 y creados por él en Meta (categoría **Utilidad**,
+idioma `es`, variables numéricas). Los parámetros se llenan al enviar con el estado actual de la
+cita (`scheduling.AppointmentState`: cliente, servicio del snapshot, barbero, negocio, zona y
+motivo); la fecha va en la zona del negocio y en español: *"martes 2 de diciembre, 10:00 a. m."*.
+
+| Tipo | Plantilla | Parámetros |
+|---|---|---|
+| `APPOINTMENT_CREATED` (el cliente reservó) | `cita_agendada` | cliente, negocio, servicio, barbero, fecha |
+| `APPOINTMENT_CREATED_BY_BUSINESS` (P40) | `cita_agendada_negocio` + botón estático "Descargar la app" → `https://<dominio>/app` | cliente, negocio, servicio, barbero, fecha |
+| `APPOINTMENT_CANCELLED` (por el negocio) | `cita_cancelada` | cliente, negocio, servicio, fecha, motivo |
+| `APPOINTMENT_RESCHEDULED` | `cita_reprogramada` | cliente, servicio, negocio, nueva fecha, barbero |
+| `APPOINTMENT_REASSIGNED` | `cita_cambio_barbero` | cliente, servicio, negocio, fecha, nuevo barbero |
+
+- Cada parámetro se limpia para Meta: sin saltos de línea ni tabulaciones, sin espacios repetidos,
+  máximo 120 caracteres, nunca vacío (`-`; motivo vacío → "Sin motivo indicado").
+- **`GET /app`**: destino del botón. Con `APP_DOWNLOAD_URL` (https) redirige (302) a la tienda; sin
+  ella muestra un aviso "la app estará disponible muy pronto". El enlace de la plantilla no cambia
+  cuando la app se publique.
+- **Botones Confirmar / Cancelar:** solo en el recordatorio (T7.4), decisión del usuario
+  2026-11-25; necesitan el webhook (T7.5).
+- Si una plantilla no existe o no está aprobada, Meta responde 132xxx → `FAILED TEMPLATE_INVALID`
+  sin reintento.

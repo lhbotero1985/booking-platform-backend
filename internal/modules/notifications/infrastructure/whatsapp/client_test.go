@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -44,8 +45,32 @@ func newClient(t *testing.T, f http.Handler) *Client {
 	return New(Config{BaseURL: srv.URL, GraphVersion: "v23.0", PhoneNumberID: "106540352242922", AccessToken: token})
 }
 
+var bogota, _ = time.LoadLocation("America/Bogota")
+
 func outgoing() application.Outgoing {
-	return application.Outgoing{MessageID: uuid.Must(uuid.NewV7()), Kind: domain.KindCreated, Channel: domain.ChannelWhatsApp, To: "+573001234567"}
+	return application.Outgoing{
+		MessageID: uuid.Must(uuid.NewV7()), Kind: domain.KindCreated, Channel: domain.ChannelWhatsApp, To: "+573001234567",
+		Content: domain.Content{
+			CustomerName: "Laura", BusinessName: "Barbería El Paisa", ServiceName: "Corte + barba", ProfessionalName: "Juan",
+			Start: time.Date(2026, 12, 2, 15, 0, 0, 0, time.UTC), Location: bogota, CancelReason: "El barbero está incapacitado",
+		},
+	}
+}
+
+func params(r sendRequest) []string {
+	var out []string
+	for _, c := range r.Template.Components {
+		if c.Type != "body" {
+			continue
+		}
+		for _, p := range c.Parameters {
+			if p.Type != "text" {
+				return nil
+			}
+			out = append(out, p.Text)
+		}
+	}
+	return out
 }
 
 func TestSendTemplate(t *testing.T) {
@@ -59,14 +84,64 @@ func TestSendTemplate(t *testing.T) {
 		t.Errorf("request to %s with %q", f.path, f.auth)
 	}
 	r := f.req
-	if r.MessagingProduct != "whatsapp" || r.RecipientType != "individual" || r.To != "573001234567" || r.Type != "template" ||
-		r.Template.Name != "hello_world" || r.Template.Language.Code != "en_US" {
+	if r.MessagingProduct != "whatsapp" || r.RecipientType != "individual" || r.To != "573001234567" || r.Type != "template" {
 		t.Errorf("body %+v", r)
 	}
-	for _, k := range []domain.Kind{domain.KindCreated, domain.KindCancelled, domain.KindRescheduled, domain.KindReassigned} {
-		if _, ok := templateFor(k); !ok {
-			t.Errorf("no template for %s", k)
+}
+
+// TestTemplates: the name, language and order of the parameters of each template, as approved in
+// Meta on 2026-11-25.
+func TestTemplates(t *testing.T) {
+	when := "miércoles 2 de diciembre, 10:00 a. m."
+	cases := []struct {
+		kind   domain.Kind
+		name   string
+		params []string
+	}{
+		{domain.KindCreated, "cita_agendada", []string{"Laura", "Barbería El Paisa", "Corte + barba", "Juan", when}},
+		{domain.KindCreatedByBusiness, "cita_agendada_negocio", []string{"Laura", "Barbería El Paisa", "Corte + barba", "Juan", when}},
+		{domain.KindCancelled, "cita_cancelada", []string{"Laura", "Barbería El Paisa", "Corte + barba", when, "El barbero está incapacitado"}},
+		{domain.KindRescheduled, "cita_reprogramada", []string{"Laura", "Corte + barba", "Barbería El Paisa", when, "Juan"}},
+		{domain.KindReassigned, "cita_cambio_barbero", []string{"Laura", "Corte + barba", "Barbería El Paisa", when, "Juan"}},
+	}
+	for _, c := range cases {
+		f := &fakeMeta{status: http.StatusOK, body: `{"messages":[{"id":"wamid.1"}]}`}
+		m := outgoing()
+		m.Kind = c.kind
+		if _, err := newClient(t, f).Send(context.Background(), m); err != nil {
+			t.Fatalf("%s: %v", c.kind, err)
 		}
+		got := params(f.req)
+		if f.req.Template.Name != c.name || f.req.Template.Language.Code != "es" || strings.Join(got, "|") != strings.Join(c.params, "|") {
+			t.Errorf("%s: %s/%s %q", c.kind, f.req.Template.Name, f.req.Template.Language.Code, got)
+		}
+	}
+	if len(templates) != len(cases) {
+		t.Errorf("%d templates, %d tested", len(templates), len(cases))
+	}
+}
+
+func TestParamsAreSafeForMeta(t *testing.T) {
+	long := strings.Repeat("á", 300)
+	for in, want := range map[string]string{
+		"  Laura \n\t Gómez  ": "Laura Gómez",
+		"":                     "-",
+		"   ":                  "-",
+		"a    b":               "a b",
+	} {
+		if got := param(in); got != want {
+			t.Errorf("param(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if got := param(long); utf8.RuneCountInString(got) != maxParam || !strings.HasSuffix(got, "…") {
+		t.Errorf("long: %d runes", utf8.RuneCountInString(got))
+	}
+	// A canceled appointment without a reason still fills {{5}}.
+	m := outgoing()
+	m.Kind, m.Content.CancelReason = domain.KindCancelled, ""
+	f := &fakeMeta{status: http.StatusOK, body: `{"messages":[{"id":"wamid.1"}]}`}
+	if _, err := newClient(t, f).Send(context.Background(), m); err != nil || params(f.req)[4] != "Sin motivo indicado" {
+		t.Errorf("no reason: %v %q", err, params(f.req))
 	}
 }
 

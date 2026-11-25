@@ -28,7 +28,7 @@ func TestPlan(t *testing.T) {
 		want       domain.Kind // "" = no message
 	}{
 		{"CREATED", "CUSTOMER", domain.KindCreated},
-		{"CREATED", "BUSINESS", domain.KindCreated},
+		{"CREATED", "BUSINESS", domain.KindCreatedByBusiness}, // P40: booked by the staff
 		{"RESCHEDULED", "CUSTOMER", domain.KindRescheduled},
 		{"RESCHEDULED", "BUSINESS", domain.KindRescheduled},
 		{"REASSIGNED", "BUSINESS", domain.KindReassigned},
@@ -106,6 +106,27 @@ func TestMaskPhone(t *testing.T) {
 	} {
 		if got := domain.MaskPhone(in); got != want {
 			t.Errorf("MaskPhone(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestWhenES(t *testing.T) {
+	bogota, _ := time.LoadLocation("America/Bogota")
+	cases := []struct {
+		utc  time.Time
+		loc  *time.Location
+		want string
+	}{
+		{time.Date(2026, 12, 2, 15, 0, 0, 0, time.UTC), bogota, "miércoles 2 de diciembre, 10:00 a. m."},
+		{time.Date(2026, 12, 2, 17, 0, 0, 0, time.UTC), bogota, "miércoles 2 de diciembre, 12:00 p. m."},
+		{time.Date(2026, 12, 2, 21, 30, 0, 0, time.UTC), bogota, "miércoles 2 de diciembre, 4:30 p. m."},
+		{time.Date(2027, 1, 1, 5, 5, 0, 0, time.UTC), bogota, "viernes 1 de enero, 12:05 a. m."},     // midnight local
+		{time.Date(2026, 12, 2, 2, 0, 0, 0, time.UTC), bogota, "martes 1 de diciembre, 9:00 p. m."},  // the day before locally
+		{time.Date(2026, 9, 6, 23, 59, 0, 0, time.UTC), nil, "domingo 6 de septiembre, 11:59 p. m."}, // no zone: UTC
+	}
+	for _, c := range cases {
+		if got := (domain.Content{Start: c.utc, Location: c.loc}).WhenES(); got != c.want {
+			t.Errorf("%s: %q, want %q", c.utc, got, c.want)
 		}
 	}
 }

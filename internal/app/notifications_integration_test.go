@@ -4,11 +4,13 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,6 +23,7 @@ import (
 	notifpg "github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/infrastructure/postgres"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/infrastructure/whatsapp"
 	notifworker "github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/infrastructure/worker"
+	schedapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/application"
 	schedcontract "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/jobs"
 )
@@ -188,10 +191,29 @@ func TestWhatsAppClientOnPostgres(t *testing.T) {
 	w := newNotifWorld(t)
 	reply := `{"messages":[{"id":"wamid.REAL1"}]}`
 	status := http.StatusOK
-	meta := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, _ *http.Request) {
+	var sent struct {
+		Template struct {
+			Name       string                `json:"name"`
+			Language   struct{ Code string } `json:"language"`
+			Components []struct {
+				Parameters []struct{ Text string } `json:"parameters"`
+			} `json:"components"`
+		} `json:"template"`
+	}
+	meta := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&sent)
 		rw.WriteHeader(status)
 		_, _ = io.WriteString(rw, reply)
 	}))
+	params := func() string {
+		var ps []string
+		for _, c := range sent.Template.Components {
+			for _, p := range c.Parameters {
+				ps = append(ps, p.Text)
+			}
+		}
+		return sent.Template.Name + "/" + sent.Template.Language.Code + ": " + strings.Join(ps, " | ")
+	}
 	t.Cleanup(meta.Close)
 	inserter, err := jobs.NewInsertClient(w.pool, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
@@ -217,6 +239,26 @@ func TestWhatsAppClientOnPostgres(t *testing.T) {
 	}
 	if got := w.messages(t, a.ID)[0]; got.Status != notifdomain.StatusSent || got.ProviderMessageID != "wamid.REAL1" {
 		t.Errorf("sent: %+v", got)
+	}
+	// T7.3: the approved template with the real names, the start in Bogota and in Spanish.
+	if got := params(); !strings.HasPrefix(got, "cita_agendada/es: ") ||
+		!strings.HasSuffix(got, " | Barbería Reservas | Corte | Juan | martes 5 de marzo, 9:00 a. m.") {
+		t.Errorf("customer booking: %s", got)
+	}
+
+	// Booked by the staff (P40): the template with the app button; the customer is the one typed.
+	manual, err := w.sched.BookManual(ctx, w.owner, w.biz, schedapp.ManualInput{
+		ProfessionalID: w.pro, ServiceID: w.svc, Start: w.at(11, 0), Confirmed: true, IdempotencyKey: "meta-manual-0001",
+		Customer: &schedapp.CustomerInput{FullName: "Laura Gómez", Phone: "3005550199"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := w.notif.Send(ctx, w.messages(t, manual.ID)[0].ID, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := params(); got != "cita_agendada_negocio/es: Laura Gómez | Barbería Reservas | Corte | Juan | martes 5 de marzo, 11:00 a. m." {
+		t.Errorf("manual booking: %s", got)
 	}
 
 	status, reply = http.StatusBadRequest, `{"error":{"code":131030,"fbtrace_id":"X"}}`

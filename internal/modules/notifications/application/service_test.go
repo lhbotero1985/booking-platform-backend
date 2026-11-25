@@ -104,7 +104,7 @@ func TestEventsQueueTheirMessagesOnce(t *testing.T) {
 	ctx := context.Background()
 	e := event("CREATED", "BUSINESS")
 	m := w.queued(t, e)
-	if m.Kind != domain.KindCreated || m.Status != domain.StatusPending || len(w.st.Enqueued()) != 1 || w.st.Enqueued()[0] != m.ID {
+	if m.Kind != domain.KindCreatedByBusiness || m.Status != domain.StatusPending || len(w.st.Enqueued()) != 1 || w.st.Enqueued()[0] != m.ID {
 		t.Fatalf("message %+v, jobs %v", m, w.st.Enqueued())
 	}
 	// The same event again (a retried transaction): no second message, no second job.
@@ -260,5 +260,34 @@ func TestAppointmentMessages(t *testing.T) {
 	w.appts.authErr = scheduling.ErrAppointmentNotFound
 	if _, err := w.svc.AppointmentMessages(ctx, identity.Principal{}, biz, appt); !errors.Is(err, scheduling.ErrAppointmentNotFound) {
 		t.Errorf("not allowed: %v", err)
+	}
+}
+
+// TestSendFillsTheContent (T7.3): the message carries the current names of the appointment and
+// its start in the business's zone.
+func TestSendFillsTheContent(t *testing.T) {
+	w := newWorld(application.Policy{WhatsAppEnabled: true})
+	w.appts.state.CustomerName, w.appts.state.BusinessName, w.appts.state.ServiceName = "Laura", "Barbería El Paisa", "Corte"
+	w.appts.state.ProfessionalName, w.appts.state.TimeZone, w.appts.state.CancelReason = "Juan", "America/Bogota", "Cierre"
+	m := w.queued(t, event("CREATED", "BUSINESS"))
+	if m.Kind != domain.KindCreatedByBusiness {
+		t.Fatalf("kind %s", m.Kind)
+	}
+	if err := w.svc.Send(context.Background(), m.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	c := w.sender.sent[0].Content
+	if c.CustomerName != "Laura" || c.BusinessName != "Barbería El Paisa" || c.ServiceName != "Corte" || c.ProfessionalName != "Juan" ||
+		c.CancelReason != "Cierre" || !c.Start.Equal(start) || c.Location.String() != "America/Bogota" ||
+		c.WhenES() != "martes 5 de marzo, 10:00 a. m." {
+		t.Errorf("content %+v (%s)", c, c.WhenES())
+	}
+
+	// An unknown zone falls back to UTC instead of failing the message.
+	w = newWorld(application.Policy{WhatsAppEnabled: true})
+	w.appts.state.TimeZone = "Nowhere/Nada"
+	m = w.queued(t, event("CREATED", "CUSTOMER"))
+	if err := w.svc.Send(context.Background(), m.ID, false); err != nil || w.sender.sent[0].Content.Location != time.UTC {
+		t.Errorf("bad zone: %v %v", err, w.sender.sent[0].Content.Location)
 	}
 }

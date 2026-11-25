@@ -200,6 +200,9 @@ WHATSAPP_ALLOWLIST=+57XXXXXXXXXX[,+57…]   # obligatorio fuera de PROD; máx. 5
 - El log del worker dice al arrancar `whatsapp sender` con `provider=meta` o `simulated`.
 - Token comprometido: revocarlo en el usuario del sistema de Meta, generar otro y reemplazarlo.
 - **Nunca enviar capturas del `.env`** (contiene también las contraseñas de la base).
+- Enlace de la app (`GET /app`, botón de `cita_agendada_negocio`): sin `APP_DOWNLOAD_URL` muestra
+  "muy pronto"; cuando la app esté en las tiendas, agregar `APP_DOWNLOAD_URL=https://…` al `.env`
+  (y al compose de la API) y redesplegar.
 - E2E con un envío real: `WHATSAPP_TEST_PHONE=<número de la lista blanca> scripts/e2e-qa.sh …`
   (recibe exactamente un mensaje; el número no se imprime).
 

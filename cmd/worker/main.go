@@ -93,7 +93,11 @@ func run() error {
 	if err := subscriptionsworker.Register(workers, subscriptionsSvc, logger); err != nil {
 		return err
 	}
-	notificationsSvc := app.NewNotificationsService(cfg.Notifications, pool, inserter, app.NewSchedulingReader(pool, identitySvc), logger)
+	// Messages name the business and the professional (T7.3).
+	businessesSvc := app.NewBusinessesService(pool, identitySvc, app.NewGeographyService(pool, identitySvc), subscriptionsSvc)
+	professionalsSvc := app.NewProfessionalsService(pool, identitySvc)
+	notificationsSvc := app.NewNotificationsService(cfg.Notifications, pool, inserter,
+		app.NewSchedulingReader(pool, identitySvc, businessesSvc, professionalsSvc), logger)
 	if err := notificationsworker.Register(workers, notificationsSvc); err != nil {
 		return err
 	}

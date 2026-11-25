@@ -14,10 +14,12 @@ type Kind string
 
 // Kinds.
 const (
-	KindCreated     Kind = "APPOINTMENT_CREATED"
-	KindCancelled   Kind = "APPOINTMENT_CANCELLED" //nolint:misspell // stored value
-	KindRescheduled Kind = "APPOINTMENT_RESCHEDULED"
-	KindReassigned  Kind = "APPOINTMENT_REASSIGNED"
+	KindCreated Kind = "APPOINTMENT_CREATED"
+	// KindCreatedByBusiness: booked by the staff for the customer (P40: carries the app link).
+	KindCreatedByBusiness Kind = "APPOINTMENT_CREATED_BY_BUSINESS"
+	KindCancelled         Kind = "APPOINTMENT_CANCELLED" //nolint:misspell // stored value
+	KindRescheduled       Kind = "APPOINTMENT_RESCHEDULED"
+	KindReassigned        Kind = "APPOINTMENT_REASSIGNED"
 )
 
 // Channel of delivery.
@@ -105,7 +107,7 @@ type Change struct {
 }
 
 // Plan returns the messages a change produces (notifications.md §2): to the customer by
-// WhatsApp when the appointment is created, moved to another time or professional, or canceled
+// WhatsApp when the appointment is created (by the customer or by the staff), moved to another time or professional, or canceled
 // by the business (a customer who cancels knows it). Confirmations and the changes of the
 // service itself (start, completion, no-show) send nothing. Push to the professional: T7.6.
 func Plan(c Change, newID func() uuid.UUID) []Message {
@@ -113,6 +115,9 @@ func Plan(c Change, newID func() uuid.UUID) []Message {
 	switch c.Type {
 	case eventCreated:
 		kind = KindCreated
+		if c.ActorRole == actorBusiness {
+			kind = KindCreatedByBusiness
+		}
 	case eventRescheduled:
 		kind = KindRescheduled
 	case eventReassigned:

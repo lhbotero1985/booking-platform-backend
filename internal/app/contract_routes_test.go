@@ -15,7 +15,7 @@ func TestEveryRouteIsDocumented(t *testing.T) {
 	c := loadContract(t)
 	e := newGeoServer(t)
 	registered := map[string]bool{}
-	for _, p := range newRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), Deps{Modules: e.modules}).Patterns() {
+	for _, p := range newRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), Deps{Modules: e.modules}, "").Patterns() {
 		registered[p] = true
 	}
 	model, err := c.doc.BuildV3Model()
