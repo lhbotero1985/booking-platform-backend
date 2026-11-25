@@ -4,6 +4,7 @@ Decisiones relevantes no arquitectónicas (las arquitectónicas tienen ADR en `d
 
 | Fecha | Decisión | Motivo | Estado |
 |---|---|---|---|
+| 2026-11-25 | Página pública de cada negocio en la raíz del sitio (`booka.com/{slug}`, ADR-F006 del frontend): se reservan como slugs las rutas de primer nivel del portal web (`verify-email`, `reset-password`, `contacto`, `planes`, `privacidad`, `panel`…), sincronizadas con `PLATFORM_ROUTE_SEGMENTS` del frontend | Decisión del usuario; un negocio no puede tomar una URL de la plataforma | Aplicado (rama `feature/frontend-route-slugs`); solo afecta altas nuevas (`SlugFromName` antepone `negocio-`); revisar en QA que ningún slug existente use esas palabras |
 | 2026-11-18 | Código e identificadores en inglés; documentación en español | Convención del ecosistema Go; documentación para el equipo | Propuesto |
 | 2026-11-18 | Git en `booking-platform-backend/` → movido a la raíz (monorepo) → **devuelto al backend** | Aclaración del usuario: dos repos en GitHub (backend y frontend). ADR-0016 reemplaza a ADR-0014 | Aplicado |
 | 2026-11-18 | Repositorios GitHub **privados** | Decisión del usuario (P2) | Aceptado |

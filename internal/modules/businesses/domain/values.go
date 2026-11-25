@@ -109,6 +109,18 @@ var reservedSlugs = map[string]bool{
 	"booking": true, "reservas": true, "www": true, "static": true, "assets": true, "me": true,
 	"business": true, "businesses": true, "negocio": true, "negocios": true, "root": true,
 	"null": true, "undefined": true, "test": true, "status": true, "security": true,
+	// First-level routes of the frontend's business-web, where each business has its public page
+	// at the site root (frontend ADR-F006). Keep in sync with PLATFORM_ROUTE_SEGMENTS in
+	// booking-platform-frontend/packages/core/src/routes.ts.
+	"verify-email": true, "reset-password": true, "forgot-password": true, "healthz": true,
+	"readyz": true, "ingresar": true, "entrar": true, "salir": true, "registro": true,
+	"recuperar": true, "crear-negocio": true, "planes": true, "precios": true, "pricing": true,
+	"funcionalidades": true, "features": true, "preguntas": true, "faq": true, "contacto": true,
+	"contact": true, "legal": true, "terminos": true, "terms": true, "privacidad": true,
+	"privacy": true, "panel": true, "dashboard": true, "cuenta": true, "account": true,
+	"perfil": true, "profile": true, "citas": true, "mis-citas": true, "agenda": true,
+	"descargar": true, "download": true, "auth": true, "callback": true, "blog": true,
+	"nosotros": true, "about": true, "booka": true,
 }
 
 // ParseSlug validates a slug: 3–60 of [a-z0-9-], no leading, trailing or double hyphen, not

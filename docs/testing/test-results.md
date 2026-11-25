@@ -1050,3 +1050,11 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Vista previa en Chrome sin interfaz (correo del cliente y del barbero) | ✅ | Revisión visual del diseño |
 | `task check` (lint 0, sin vulnerabilidades) / `sqlc:check` / `shellcheck` / integración completa (migración 00023) / gitleaks | ✅ | |
 | Despliegue y E2E en QA | ⏳ | Tras el merge: correos en Mailpit (comprobante del cliente, aviso al barbero) |
+
+## 2026-11-25 · Integración frontend · slugs reservados (ADR-F006 del frontend)
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `go test ./internal/modules/businesses/...` | ✅ | Nuevos casos: rutas del portal → `ErrReservedSlug`; "Contacto" → `negocio-contacto`; toda palabra reservada tiene forma de slug |
+| `task check` (build, vet, lint 0 issues, test, govulncheck) | ✅ | govulncheck falló una vez por DNS local (`vuln.go.dev: no such host`); reintento: sin vulnerabilidades |
+| Verificar en QA que ningún slug existente quede reservado | ⏳ | El Droplet QA estaba apagado |

@@ -54,12 +54,25 @@ func TestSlugs(t *testing.T) {
 	if _, err := ParseSlug("admin"); !errors.Is(err, ErrReservedSlug) {
 		t.Errorf("reserved slug err = %v", err)
 	}
+	// Frontend routes at the site root (frontend ADR-F006) are reserved too.
+	for _, in := range []string{"contacto", "verify-email", "reset-password", "planes", "privacidad", "panel"} {
+		if _, err := ParseSlug(in); !errors.Is(err, ErrReservedSlug) {
+			t.Errorf("ParseSlug(%q) err = %v, want ErrReservedSlug", in, err)
+		}
+	}
+	// Every reserved word must itself be slug-shaped, or reserving it would have no effect.
+	for word := range reservedSlugs {
+		if !slugRe.MatchString(word) && len(word) >= 3 {
+			t.Errorf("reserved word %q is not a valid slug shape", word)
+		}
+	}
 
 	for in, want := range map[string]Slug{
 		"Barbería El Paisa":         "barberia-el-paisa",
 		"  Peluquería Ñandú & Co. ": "peluqueria-nandu-co",
 		"Uñas___Spa!!!  Cali":       "unas-spa-cali",
 		"Admin":                     "negocio-admin",
+		"Contacto":                  "negocio-contacto",
 		"AB":                        "negocio-ab",
 		"¡!":                        "mi-negocio",
 		"日本の店":                      "mi-negocio",
