@@ -470,8 +470,8 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 
 - **Previo:** el usuario aprobó el texto de `recordatorio_cita` y decidió: sin recordatorio para
   citas confirmadas; inmediato si se agenda dentro de la ventana.
-- **Estado:** ✅ en `feature/t7.4-reminders` (commit y push; PR pendiente de autorización). El
-  usuario debe crear `recordatorio_cita` en Meta.
+- **Estado:** ✅ PR #59 → `qa`: CI 6/6, squash `195faad`; `release-qa` ✅; E2E en QA **200/200**.
+  El usuario creó `recordatorio_cita` en Meta (en revisión, como las 5 de T7.3).
 - **Hecho:** tipo `APPOINTMENT_REMINDER`, `send_at` y unicidad por tipo (migración 00021); plan
   del recordatorio en la transacción del cambio con job River programado; revalidación al vencer
   (`APPOINTMENT_CONFIRMED`); plantilla con sus parámetros; `sendAt` en la vista del personal;

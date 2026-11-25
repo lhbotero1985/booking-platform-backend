@@ -1015,4 +1015,6 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Pruebas de T7.1/T7.2 con recordatorios | ✅ | Encontraron que los avisos inmediatos se programaban con la hora del cambio (reloj fijo de prueba → job en el futuro): ahora solo se programa lo que vence después |
 | Expresión jq del E2E (vencimiento del recordatorio) | ✅ | Probada con datos de ejemplo: 24 h antes → `true`; inmediato dentro de la ventana → `true`; incoherente → `false` |
 | `task check` (lint 0; `govulncheck` tras reintento por DNS) / `sqlc:check` / `shellcheck` / integración completa (migración 00021 up/down) | ✅ | |
-| Despliegue y E2E en QA | ⏳ | Tras el merge |
+| PR #59 — ci + security | ✅ 6/6 | Squash `195faad` |
+| `release-qa` | ✅ | Migración 00021 aplicada |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **200/200** | 2 recordatorios (al reservar y al mover el barbero; ninguno con la cita confirmada); el último vence 24 h antes; avisos procesados |
