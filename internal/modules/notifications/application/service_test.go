@@ -350,3 +350,7 @@ func TestReminders(t *testing.T) {
 		t.Errorf("setting unreadable: %v", err)
 	}
 }
+
+func reminderPolicy() businesses.BookingPolicy {
+	return businesses.BookingPolicy{RemindersEnabled: true, ReminderHoursBefore: 24}
+}

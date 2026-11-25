@@ -1015,4 +1015,22 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Pruebas de T7.1/T7.2 con recordatorios | ✅ | Encontraron que los avisos inmediatos se programaban con la hora del cambio (reloj fijo de prueba → job en el futuro): ahora solo se programa lo que vence después |
 | Expresión jq del E2E (vencimiento del recordatorio) | ✅ | Probada con datos de ejemplo: 24 h antes → `true`; inmediato dentro de la ventana → `true`; incoherente → `false` |
 | `task check` (lint 0; `govulncheck` tras reintento por DNS) / `sqlc:check` / `shellcheck` / integración completa (migración 00021 up/down) | ✅ | |
-| Despliegue y E2E en QA | ⏳ | Tras el merge |
+| PR #59 — ci + security | ✅ 6/6 | Squash `195faad` |
+| `release-qa` | ✅ | Migración 00021 aplicada |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **200/200** | 2 recordatorios (al reservar y al mover el barbero; ninguno con la cita confirmada); el último vence 24 h antes; avisos procesados |
+
+## 2026-11-25 · Fase 7 · T7.5 — Webhook de WhatsApp
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestWebhookVerification` / `TestWebhookReceive` (HTTP) | ✅ | Desafío correcto → 200 (solo número); token, modo o desafío inválidos → 403/400; sin configurar → 404. Firma válida → elementos (delivered, read, failed con código, botón); `sent`, textos y otros campos ignorados. Firma ausente, de otro secreto, de otro cuerpo, no hex o sin prefijo → 401 sin llegar al servicio; no JSON → 400; error interno → 500; > 1 MiB → 413 |
+| Pruebas de los botones (aplicación) | ✅ 90,5 % | Códigos de 43 caracteres, solo hash guardado, uno por botón, vencen al inicio; confirmar y cancelar con su respuesta; el otro botón y el mismo otra vez → inválido; límite de cancelación, cita inactiva o inexistente, otro número, después del inicio, cita movida → respuesta adecuada sin aplicar; falla temporal → reintento sin gastar el código; webhook repetido → una vez; estados solo hacia adelante; respuesta descartada si el canal está apagado o fuera de la lista |
+| `TestActionTokens` / `TestReplyTexts` (dominio) | ✅ 100 % | |
+| `TestRepliesAsCustomer` (scheduling) | ✅ | Otro negocio → no encontrada; confirma con el actor del cliente; límite de 2 h → `ErrCutoffPassed`; cancelada → `ErrNotActive` |
+| `TestReminderButtonsAndTextReplies` (cliente) | ✅ 94,9 % | Botones `quick_reply` con índice y payload; respuesta de texto |
+| `TestWhatsAppButtonsOnPostgres` | ✅ | Recordatorio con botones por el cliente de Meta (falso) → webhook dos veces → 2 jobs (sin duplicados) → "Confirmar cita" confirma la cita y encola la respuesta; recordatorio `READ`; "Cancelar cita" ya gastado; el código crudo no se guarda |
+| `TestWhatsAppButtonsConcurrently` | ✅ | **Confirmar ∥ Cancelar del mismo recordatorio, 5 rondas: exactamente uno se aplica** |
+| Mutación: sin el bloqueo de los códigos del recordatorio | ✅ detectada | Se aplicaron los dos (cancelada y luego "ya no está activa") en la 1.ª ronda; código restaurado |
+| `TestContractWhatsAppWebhook` | ✅ | Contra OpenAPI; **85 rutas documentadas** |
+| `task check` (lint 0 tras corregir G705, sin vulnerabilidades) / `sqlc:check` / `shellcheck` / integración completa (migración 00022) | ✅ | |
+| Despliegue y E2E en QA | ⏳ | Tras el merge (token equivocado → 403, sin firma → 401) |

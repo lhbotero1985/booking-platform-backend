@@ -114,6 +114,10 @@ type Notifications struct {
 	WhatsAppBusinessAccountID string
 	WhatsAppAPIBaseURL        string // https://graph.facebook.com
 	WhatsAppGraphVersion      string // v23.0
+	// Webhook (T7.5): App Secret of the Meta app (checks X-Hub-Signature-256) and the verify
+	// token Meta sends when the URL is registered. Both secret; both or none (none: 404).
+	WhatsAppAppSecret          string
+	WhatsAppWebhookVerifyToken string
 }
 
 // WhatsAppConfigured reports whether the Meta credentials are present.
@@ -192,13 +196,15 @@ func Load(getenv func(string) string) (Config, error) {
 		PublicAppURL:   p.str("PUBLIC_APP_URL", "http://localhost:3000"),
 		AppDownloadURL: p.str("APP_DOWNLOAD_URL", ""),
 		Notifications: Notifications{
-			WhatsAppEnabled:           p.boolean("WHATSAPP_ENABLED", false),
-			WhatsAppAllowlist:         p.phones("WHATSAPP_ALLOWLIST"),
-			WhatsAppAccessToken:       strings.TrimSpace(p.getenv("WHATSAPP_ACCESS_TOKEN")),
-			WhatsAppPhoneNumberID:     p.str("WHATSAPP_PHONE_NUMBER_ID", ""),
-			WhatsAppBusinessAccountID: p.str("WHATSAPP_BUSINESS_ACCOUNT_ID", ""),
-			WhatsAppAPIBaseURL:        strings.TrimRight(p.str("WHATSAPP_API_BASE_URL", "https://graph.facebook.com"), "/"),
-			WhatsAppGraphVersion:      p.str("WHATSAPP_GRAPH_VERSION", "v23.0"),
+			WhatsAppEnabled:            p.boolean("WHATSAPP_ENABLED", false),
+			WhatsAppAllowlist:          p.phones("WHATSAPP_ALLOWLIST"),
+			WhatsAppAccessToken:        strings.TrimSpace(p.getenv("WHATSAPP_ACCESS_TOKEN")),
+			WhatsAppPhoneNumberID:      p.str("WHATSAPP_PHONE_NUMBER_ID", ""),
+			WhatsAppBusinessAccountID:  p.str("WHATSAPP_BUSINESS_ACCOUNT_ID", ""),
+			WhatsAppAPIBaseURL:         strings.TrimRight(p.str("WHATSAPP_API_BASE_URL", "https://graph.facebook.com"), "/"),
+			WhatsAppGraphVersion:       p.str("WHATSAPP_GRAPH_VERSION", "v23.0"),
+			WhatsAppAppSecret:          strings.TrimSpace(p.getenv("WHATSAPP_APP_SECRET")),
+			WhatsAppWebhookVerifyToken: strings.TrimSpace(p.getenv("WHATSAPP_WEBHOOK_VERIFY_TOKEN")),
 		},
 	}
 	if cfg.Database.MigratorURL == "" {
@@ -209,6 +215,7 @@ func Load(getenv func(string) string) (Config, error) {
 	p.validateSMTP(cfg.Env, cfg.SMTP)
 	p.validatePublicURL(cfg.Env, cfg.PublicAppURL)
 	p.validateWhatsApp(cfg.Env, cfg.Notifications)
+	p.validateWebhook(cfg.Notifications)
 	if u := cfg.AppDownloadURL; u != "" {
 		if pu, err := url.Parse(u); err != nil || pu.Scheme != "https" || pu.Host == "" {
 			p.fail("APP_DOWNLOAD_URL", "must be an absolute https URL")
@@ -418,6 +425,24 @@ var (
 	graphVersion = regexp.MustCompile(`^v[0-9]{1,3}\.[0-9]$`)
 	metaToken    = regexp.MustCompile(`^[A-Za-z0-9_-]{20,1000}$`)
 )
+
+var (
+	appSecret   = regexp.MustCompile(`^[0-9a-f]{32}$`)
+	verifyToken = regexp.MustCompile(`^[A-Za-z0-9_-]{16,200}$`)
+)
+
+// validateWebhook: the webhook's secrets go together; values are never echoed.
+func (p *parser) validateWebhook(n Notifications) {
+	switch {
+	case n.WhatsAppAppSecret == "" && n.WhatsAppWebhookVerifyToken == "":
+		return
+	case !appSecret.MatchString(n.WhatsAppAppSecret):
+		p.fail("WHATSAPP_APP_SECRET", "must be the 32-character App Secret of the Meta app (and is required with WHATSAPP_WEBHOOK_VERIFY_TOKEN)")
+	}
+	if !verifyToken.MatchString(n.WhatsAppWebhookVerifyToken) {
+		p.fail("WHATSAPP_WEBHOOK_VERIFY_TOKEN", "must be 16-200 letters, digits, - or _ (and is required with WHATSAPP_APP_SECRET)")
+	}
+}
 
 // validateWhatsApp checks the Meta settings only when a token is set; values are never echoed.
 func (p *parser) validateWhatsApp(env Env, n Notifications) {

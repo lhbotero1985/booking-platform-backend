@@ -44,6 +44,9 @@ type actor struct {
 	role       domain.ActorRole
 	businessID uuid.UUID     // staff: the business in the path
 	staffRole  identity.Role // staff: OWNER or PROFESSIONAL
+	// onBehalf: the customer of the appointment answering a message (T7.5), already
+	// authenticated by the caller; it acts in businessID only.
+	onBehalf bool
 }
 
 // CustomerChange applies a status change of one of the caller's appointments (confirm or cancel;
@@ -69,6 +72,12 @@ func (s *Service) StaffChange(ctx context.Context, p identity.Principal, busines
 
 // authorize checks that the actor may change a (it must be read first).
 func (s *Service) authorize(ctx context.Context, who actor, a domain.Appointment) error {
+	if who.onBehalf {
+		if a.BusinessID != who.businessID {
+			return ErrAppointmentNotFound
+		}
+		return nil
+	}
 	if who.role == domain.ActorCustomer {
 		if a.Customer.UserID != who.p.UserID {
 			return ErrAppointmentNotFound
@@ -104,6 +113,9 @@ func (s *Service) change(ctx context.Context, who actor, id uuid.UUID, action Ac
 		}
 		if err := s.authorize(ctx, who, a); err != nil {
 			return err
+		}
+		if who.onBehalf {
+			who.p.UserID = a.Customer.UserID // the event's actor: the customer's account, if any
 		}
 		before := a
 		now := s.d.Clock.Now()

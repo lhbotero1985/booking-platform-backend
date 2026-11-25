@@ -341,6 +341,10 @@ done
 check "the worker processed the notices (sent, or skipped: not allowlisted)" "0 (SENT|SKIPPED NOT_ALLOWLISTED)"   "$(json '[.items[] | select(.kind != "APPOINTMENT_REMINDER")] | "\([.[] | select(.status == "PENDING")] | length) \(.[-1].status)\(if .[-1].skipReason then " " + .[-1].skipReason else "" end)"')"
 
 check "app download page (button of the manual booking message)" 200 "$(status GET /app)"
+# WhatsApp webhook (T7.5): only Meta (verify token, signed bodies).
+check "webhook verification with a wrong token -> 403" 403 "$(status GET "/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=1")"
+check "unsigned webhook -> 401" 401 "$(status POST /webhooks/whatsapp '{"object":"whatsapp_business_account","entry":[]}')"
+check "  code INVALID_SIGNATURE" INVALID_SIGNATURE "$(json .code)"
 
 # --- real WhatsApp through Meta (T7.2, optional) ------------------------------------------------
 # WHATSAPP_TEST_PHONE: a number registered as a test recipient in Meta and in WHATSAPP_ALLOWLIST.

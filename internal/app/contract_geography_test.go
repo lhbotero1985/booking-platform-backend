@@ -86,6 +86,7 @@ func newGeoServer(t *testing.T) geoEnv {
 		cataloghttp.New(cat, logger, idh.RequireAuth),
 		schedulinghttp.New(sched, logger, idh.RequireAuth),
 		notificationshttp.New(notif, logger, idh.RequireAuth),
+		notificationshttp.NewWebhook(notif, notificationshttp.WebhookConfig{AppSecret: testWebhookSecret, VerifyToken: testWebhookVerifyToken}, logger),
 	}
 	e.srv = httptest.NewServer(NewHTTPHandler(cfg, logger, Deps{Modules: e.modules}))
 	t.Cleanup(e.srv.Close)
@@ -168,3 +169,9 @@ func TestContractGeographyEndpoints(t *testing.T) {
 		t.Errorf("denied admin attempts must be audited by identity: %v", e.users.AuditActions())
 	}
 }
+
+// Webhook secrets of the test servers (built, not literal: they are not credentials).
+var (
+	testWebhookSecret      = strings.Repeat("ab", 16)
+	testWebhookVerifyToken = strings.Repeat("verify", 4)
+)

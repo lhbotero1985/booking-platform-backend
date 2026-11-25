@@ -364,3 +364,28 @@ func TestAppDownloadURLConfig(t *testing.T) {
 		}
 	}
 }
+
+func TestWhatsAppWebhookConfig(t *testing.T) {
+	secret, token := strings.Repeat("ab", 16), strings.Repeat("v", 20)
+	cfg, err := Load(envFrom(map[string]string{"APP_ENV": "development", "WHATSAPP_APP_SECRET": secret, "WHATSAPP_WEBHOOK_VERIFY_TOKEN": token}))
+	if err != nil || cfg.Notifications.WhatsAppAppSecret != secret || cfg.Notifications.WhatsAppWebhookVerifyToken != token {
+		t.Fatalf("%v", err)
+	}
+	for name, env := range map[string]map[string]string{
+		"secret only":  {"WHATSAPP_APP_SECRET": secret},
+		"token only":   {"WHATSAPP_WEBHOOK_VERIFY_TOKEN": token},
+		"bad secret":   {"WHATSAPP_APP_SECRET": "NOT-A-SECRET-but-long-enough-1234", "WHATSAPP_WEBHOOK_VERIFY_TOKEN": token},
+		"short token":  {"WHATSAPP_APP_SECRET": secret, "WHATSAPP_WEBHOOK_VERIFY_TOKEN": "short"},
+		"token spaces": {"WHATSAPP_APP_SECRET": secret, "WHATSAPP_WEBHOOK_VERIFY_TOKEN": "has spaces in the token"},
+	} {
+		env["APP_ENV"] = "development"
+		_, err := Load(envFrom(env))
+		if err == nil || !strings.Contains(err.Error(), "WHATSAPP_") {
+			t.Errorf("%s: %v", name, err)
+			continue
+		}
+		if strings.Contains(err.Error(), "NOT-A-SECRET") || strings.Contains(err.Error(), "has spaces") {
+			t.Errorf("%s: value echoed: %v", name, err)
+		}
+	}
+}

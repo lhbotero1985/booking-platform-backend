@@ -99,6 +99,7 @@ func startAuth(t *testing.T) authHarness {
 		cataloghttp.New(cat, logger, idh.RequireAuth),
 		schedulinghttp.New(sched, logger, idh.RequireAuth),
 		notificationshttp.New(notif, logger, idh.RequireAuth),
+		notificationshttp.NewWebhook(notif, notificationshttp.WebhookConfig{AppSecret: testWebhookSecret, VerifyToken: testWebhookVerifyToken}, logger),
 	}}))
 	t.Cleanup(h.srv.Close)
 	return h
@@ -482,3 +483,9 @@ func TestSecretsNeverReachLogsOrAudit(t *testing.T) {
 		t.Errorf("expected the flow to be audited, got %v", h.store.AuditActions())
 	}
 }
+
+// Webhook secrets of the test server (built, not literal: they are not credentials).
+var (
+	testWebhookSecret      = strings.Repeat("ab", 16)
+	testWebhookVerifyToken = strings.Repeat("verify", 4)
+)

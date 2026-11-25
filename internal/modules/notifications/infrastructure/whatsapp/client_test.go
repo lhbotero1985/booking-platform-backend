@@ -32,6 +32,7 @@ type fakeMeta struct {
 func (f *fakeMeta) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	f.path, f.auth = r.URL.Path, r.Header.Get("Authorization")
 	raw, _ := io.ReadAll(r.Body)
+	f.req = sendRequest{}
 	_ = json.Unmarshal(raw, &f.req)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(f.status)
@@ -215,5 +216,33 @@ func TestSendUnreachable(t *testing.T) {
 	m.Kind = "UNKNOWN"
 	if _, err := c.Send(context.Background(), m); !errors.As(err, &de) || de.Code != "TEMPLATE_MISSING" {
 		t.Errorf("unknown kind: %v", err)
+	}
+}
+
+func TestReminderButtonsAndTextReplies(t *testing.T) {
+	f := &fakeMeta{status: http.StatusOK, body: `{"messages":[{"id":"wamid.1"}]}`}
+	c := newClient(t, f)
+	m := outgoing()
+	m.Kind, m.ButtonPayloads = domain.KindReminder, []string{"tok-confirm", "tok-cancel"}
+	if _, err := c.Send(context.Background(), m); err != nil {
+		t.Fatal(err)
+	}
+	var buttons []string
+	for _, comp := range f.req.Template.Components {
+		if comp.Type == "button" {
+			if comp.SubType != "quick_reply" || len(comp.Parameters) != 1 || comp.Parameters[0].Type != "payload" {
+				t.Errorf("button %+v", comp)
+			}
+			buttons = append(buttons, comp.Index+"="+comp.Parameters[0].Payload)
+		}
+	}
+	if strings.Join(buttons, ",") != "0=tok-confirm,1=tok-cancel" {
+		t.Errorf("buttons %v", buttons)
+	}
+
+	id, err := c.SendText(context.Background(), "+573001234567", "¡Listo!")
+	if err != nil || id != "wamid.1" || f.req.Type != "text" || f.req.Text == nil || f.req.Text.Body != "¡Listo!" || f.req.To != "573001234567" ||
+		f.req.Template != nil || f.req.Text.PreviewURL {
+		t.Errorf("text: %q %v %+v", id, err, f.req)
 	}
 }

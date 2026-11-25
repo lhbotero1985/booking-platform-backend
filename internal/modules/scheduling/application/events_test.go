@@ -117,3 +117,42 @@ func TestAppointmentsContract(t *testing.T) {
 		t.Error("not a member")
 	}
 }
+
+// TestRepliesAsCustomer (T7.5): the customer's answer from WhatsApp, with the customer's rules.
+func TestRepliesAsCustomer(t *testing.T) {
+	ctx := context.Background()
+	e := newChangeEnv(t)
+	a, err := e.svc.Book(ctx, e.bookingEnv.ana, e.in(e.day(9, 0), "respuesta-ana-1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.svc.ConfirmAsCustomer(ctx, uuid.Must(uuid.NewV7()), a.ID); !errors.Is(err, contract.ErrAppointmentNotFound) {
+		t.Errorf("another business: %v", err)
+	}
+	if err := e.svc.ConfirmAsCustomer(ctx, e.biz, a.ID); err != nil {
+		t.Fatal(err)
+	}
+	st, _ := e.svc.AppointmentState(ctx, e.biz, a.ID)
+	if st.Status != "CONFIRMED" || st.Version != 2 {
+		t.Errorf("confirmed: %+v", st)
+	}
+	last := e.store.Events[len(e.store.Events)-1]
+	if last.Type != "CONFIRMED" || last.Event.ActorRole != "CUSTOMER" || last.Actor != e.bookingEnv.ana.UserID {
+		t.Errorf("event %+v", last)
+	}
+	if err := e.svc.ConfirmAsCustomer(ctx, e.biz, a.ID); err != nil {
+		t.Errorf("confirm again: %v", err)
+	}
+	// Inside the 2-hour cut-off the customer cannot cancel.
+	e.at(t, e.day(7, 30))
+	if err := e.svc.CancelAsCustomer(ctx, e.biz, a.ID); !errors.Is(err, contract.ErrCutoffPassed) {
+		t.Errorf("inside the cut-off: %v", err)
+	}
+	e.at(t, e.day(6, 0))
+	if err := e.svc.CancelAsCustomer(ctx, e.biz, a.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.svc.ConfirmAsCustomer(ctx, e.biz, a.ID); !errors.Is(err, contract.ErrNotActive) {
+		t.Errorf("confirm a canceled one: %v", err)
+	}
+}

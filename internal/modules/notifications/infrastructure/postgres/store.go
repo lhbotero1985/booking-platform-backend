@@ -131,3 +131,65 @@ func text(s string) *string {
 	}
 	return &s
 }
+
+// UpdateDeliveryStatus implements application.Store.
+func (s *Store) UpdateDeliveryStatus(ctx context.Context, providerMessageID string, status domain.Status, errorCode string, at time.Time) (bool, error) {
+	n, err := sqlcgen.New(s.pool).UpdateDeliveryStatus(ctx, sqlcgen.UpdateDeliveryStatusParams{
+		Status: string(status), ErrorCode: text(errorCode), UpdatedAt: at, ProviderMessageID: &providerMessageID,
+	})
+	return n == 1, err
+}
+
+func (t *txStore) ClaimWebhookEvent(ctx context.Context, eventID string, at time.Time) (bool, error) {
+	ids, err := t.q.ClaimWebhookEvent(ctx, sqlcgen.ClaimWebhookEventParams{Provider: "whatsapp", EventID: eventID, ReceivedAt: at})
+	return len(ids) == 1, err
+}
+
+func (t *txStore) EnqueueWebhookItem(ctx context.Context, item domain.WebhookItem) error {
+	_, err := t.jobs.InsertTx(ctx, t.tx, worker.ProcessWebhookItemArgs{Item: item}, nil)
+	return err
+}
+
+func (t *txStore) InsertActionTokens(ctx context.Context, tokens []domain.ActionToken) error {
+	for _, k := range tokens {
+		if err := t.q.InsertActionToken(ctx, sqlcgen.InsertActionTokenParams{
+			TokenHash: k.Hash, MessageID: k.MessageID, BusinessID: k.BusinessID, AppointmentID: k.AppointmentID,
+			Action: string(k.Action), Recipient: k.Recipient, ExpiresAt: k.ExpiresAt, CreatedAt: k.CreatedAt,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (t *txStore) ActionToken(ctx context.Context, hash []byte) (domain.ActionToken, error) {
+	r, err := t.q.ActionTokenByHash(ctx, hash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ActionToken{}, application.ErrTokenNotFound
+	}
+	if err != nil {
+		return domain.ActionToken{}, err
+	}
+	k := domain.ActionToken{
+		Hash: r.TokenHash, MessageID: r.MessageID, BusinessID: r.BusinessID, AppointmentID: r.AppointmentID,
+		Action: domain.Action(r.Action), Recipient: r.Recipient, ExpiresAt: r.ExpiresAt.UTC(), CreatedAt: r.CreatedAt.UTC(),
+	}
+	if r.UsedAt != nil {
+		k.UsedAt = r.UsedAt.UTC()
+	}
+	return k, nil
+}
+
+func (t *txStore) LockMessageTokens(ctx context.Context, messageID uuid.UUID) error {
+	_, err := t.q.LockMessageTokens(ctx, messageID)
+	return err
+}
+
+func (t *txStore) UseMessageTokens(ctx context.Context, messageID uuid.UUID, at time.Time) error {
+	return t.q.UseMessageTokens(ctx, sqlcgen.UseMessageTokensParams{UsedAt: &at, MessageID: messageID})
+}
+
+func (t *txStore) EnqueueReply(ctx context.Context, to, text string) error {
+	_, err := t.jobs.InsertTx(ctx, t.tx, worker.SendReplyArgs{To: to, Text: text}, nil)
+	return err
+}

@@ -466,12 +466,27 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-25 · Fase 7 · T7.5 — Webhook de WhatsApp
+
+- **Previo:** el usuario cargó en el servidor `WHATSAPP_APP_SECRET` y
+  `WHATSAPP_WEBHOOK_VERIFY_TOKEN` (verificados sin ver valores: formato correcto, 6 variables,
+  archivo `600`).
+- **Estado:** ✅ en `feature/t7.5-whatsapp-webhook` (commit y push; PR pendiente de autorización).
+  Después del despliegue, el usuario registra el webhook en Meta (parte B).
+- **Hecho:** `GET/POST /webhooks/whatsapp` (verificación y firma), `webhook_events`,
+  `appointment_action_tokens`, índice único de `provider_message_id` (migración 00022); estados
+  de entrega; botones del recordatorio con códigos de un solo uso; confirmación/cancelación como
+  el cliente (`scheduling.CustomerReplies`); respuestas de sesión; jobs
+  `process_webhook_item` y `send_reply`; el worker enlaza scheduling → notifications. 85 rutas.
+- **Hallazgos:** gosec marcó el eco del `hub.challenge` (ahora solo número); el Meta falso de una
+  prueba de T7.3 devolvía siempre el mismo id (ahora único por el nuevo índice).
+
 ## 2026-11-25 · Fase 7 · T7.4 — Recordatorios
 
 - **Previo:** el usuario aprobó el texto de `recordatorio_cita` y decidió: sin recordatorio para
   citas confirmadas; inmediato si se agenda dentro de la ventana.
-- **Estado:** ✅ en `feature/t7.4-reminders` (commit y push; PR pendiente de autorización). El
-  usuario debe crear `recordatorio_cita` en Meta.
+- **Estado:** ✅ PR #59 → `qa`: CI 6/6, squash `195faad`; `release-qa` ✅; E2E en QA **200/200**.
+  El usuario creó `recordatorio_cita` en Meta (en revisión, como las 5 de T7.3).
 - **Hecho:** tipo `APPOINTMENT_REMINDER`, `send_at` y unicidad por tipo (migración 00021); plan
   del recordatorio en la transacción del cambio con job River programado; revalidación al vencer
   (`APPOINTMENT_CONFIRMED`); plantilla con sus parámetros; `sendAt` en la vista del personal;

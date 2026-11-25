@@ -27,3 +27,9 @@ func (s *Sender) Send(ctx context.Context, m application.Outgoing) (string, erro
 	)
 	return "simulated-" + m.MessageID.String(), nil
 }
+
+// SendText implements application.TextSender.
+func (s *Sender) SendText(ctx context.Context, to, text string) (string, error) {
+	s.logger.InfoContext(ctx, "reply simulated", slog.String("to", domain.MaskPhone(to)), slog.Int("length", len(text)))
+	return "simulated-reply", nil
+}
