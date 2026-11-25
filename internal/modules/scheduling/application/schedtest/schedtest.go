@@ -283,3 +283,14 @@ func (t *tx) ListCustomers(_ context.Context, businessID uuid.UUID, q string, li
 	}
 	return out, nil
 }
+
+func (t *tx) AppointmentsDuring(_ context.Context, businessID, professionalID uuid.UUID, from, to time.Time) ([]domain.Appointment, error) {
+	var out []domain.Appointment
+	for _, a := range t.appts {
+		if a.BusinessID == businessID && a.ProfessionalID == professionalID && a.Status.Occupies() && a.Start.Before(to) && a.End.After(from) {
+			out = append(out, a)
+		}
+	}
+	sortAppointments(out, true)
+	return out, nil
+}

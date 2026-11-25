@@ -466,6 +466,21 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 6 · T6.7 — Coherencia de la agenda
+
+- **Previo:** PR #53 (T6.6) → `qa`: CI 6/6 ✅, squash `3106e54`, rama borrada; `release-qa` ✅
+  (migración 18); E2E en QA **185/185**.
+- **Estado:** ✅ en `feature/t6.7-agenda-coherence` (commit y push; PR pendiente).
+- **Archivos:** contrato nuevo `scheduling/contract` (`AgendaGuard`); `scheduling/application/
+  guard.go` (conflictos, por reasignar), query `ActiveAppointmentsDuring`; professionals: bloqueo en
+  ausencias, `ConflictError`, `SetAgendaGuard`, verificación en ausencias y horario, HTTP 409 con
+  la lista; `httpx.Problem.Conflicts`; `internal/app` (`LinkAgendaGuard`, dependencia `Bookable`);
+  depguard (professionals puede usar `scheduling/contract`); OpenAPI (81 rutas); pruebas; E2E;
+  Postman (paso 12).
+- **Hallazgo:** la primera versión de la prueba de carrera reserva ∥ ausencia no detectaba la
+  mutación "sin bloqueo" (ventana demasiado estrecha). Se hizo determinista con una pausa de 100 ms
+  en el contrato entre la verificación y la escritura: ahora la mutación falla en la 1.ª ronda.
+
 ## 2026-11-24 · Fase 6 · T6.6 — Cambios de estado de la cita
 
 - **Previo:** PR #52 (T6.5) → `qa`: CI 6/6 ✅, squash `66d3020`, rama borrada; `release-qa` ✅;

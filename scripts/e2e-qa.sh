@@ -322,6 +322,20 @@ check "  code TOO_EARLY" TOO_EARLY "$(json .code)"
 check "customer cancels with a reason" "CANCELLED CUSTOMER" "$(status POST "$me_appt/cancel" '{"reason":"Viaje"}' "$T1" >/dev/null; json '"\(.status) \(.cancelledBy)"')"
 check "cancel again (no change)" 200 "$(status POST "$me_appt/cancel" "" "$T1")"
 check "a cancelled one cannot be confirmed" 409 "$(status POST "$st_appt/confirm" "" "$TS")"
+
+# --- coherence of the agenda (T6.7) ------------------------------------------------------------
+free3=$(status GET "$av&date=$tue" >/dev/null; json '.slots[0].startAt')
+check "customer books again" 201 "$(book "$free3" "e2e-$(date +%s)-t67" "$T1")"
+appt2=$(json .id)
+end3=$(json .endAt)
+check "absence over it -> 409" 409 "$(status POST "/api/v1/business/$mine/professionals/$pbarber/absences" "{\"start\":\"$free3\",\"end\":\"$end3\",\"reason\":\"Diligencia\"}" "$T1")"
+check "  code AGENDA_CONFLICTS, lists it" "AGENDA_CONFLICTS $appt2" "$(json '"\(.code) \(.conflicts[0].id)"')"
+check "barber drops Tuesday -> 409" 409 "$(status PUT "/api/v1/business/$mine/professionals/$pbarber/schedule" '{"days":[{"weekday":"MONDAY","workingHours":[{"start":"09:00","end":"18:00"}]}]}' "$TS")"
+check "nothing to reassign" 0 "$(status GET "/api/v1/business/$mine/appointments/to-reassign" "" "$T1" >/dev/null; json '.items | length')"
+check "owner deactivates the barber" 200 "$(status PATCH "/api/v1/business/$mine/professionals/$pbarber" '{"status":"INACTIVE"}' "$T1")"
+check "his appointments are left to reassign" true "$(status GET "/api/v1/business/$mine/appointments/to-reassign" "" "$T1" >/dev/null; json '(.items | length) > 0 and all(.items[]; .needsReassignment)')"
+check "owner reactivates the barber" 200 "$(status PATCH "/api/v1/business/$mine/professionals/$pbarber" '{"status":"ACTIVE"}' "$T1")"
+check "nothing to reassign again" 0 "$(status GET "/api/v1/business/$mine/appointments/to-reassign" "" "$T1" >/dev/null; json '.items | length')"
 status POST /api/v1/auth/logout "" "$TS" >/dev/null
 check "  one per account" 409 "$(status POST /api/v1/businesses "$own" "$T1")"
 check "  code ALREADY_OWNER" ALREADY_OWNER "$(json .code)"

@@ -918,4 +918,21 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `TestEveryBusinessRouteIsTenantIsolated` / credenciales | ✅ | **38 operaciones** con otro negocio y **24** con ids ajenos (incluye `{appointmentId}`); la agenda y el historial de Bob no cambian; **65 operaciones autenticadas** |
 | Postman + Newman (entorno local temporal) | ✅ 2 corridas | 48 peticiones, 86 comprobaciones, 0 fallos |
 | `task check` (lint 0, vuln) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
-| Despliegue y E2E en QA | ⏳ | Tras el merge (confirmar, reprogramar cliente y barbero, historial, 400, 409, cancelar) |
+| PR #53 — ci + security | ✅ 6/6 | Squash `3106e54` |
+| `release-qa` | ✅ | Migración 18 aplicada, smoke test ✅ |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **185/185** | Confirmar y repetir, reprogramar cliente (sigue confirmada) y barbero (pendiente), historial, 400 sin motivo, 409 `TOO_EARLY`, cancelar con motivo y repetir, confirmar cancelada 409 |
+
+## 2026-11-24 · Fase 6 · T6.7 — Coherencia de la agenda
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestAgendaChangesAgainstAppointments` (professionals) | ✅ | Ausencia sobre una cita → `ConflictError` con la lista y sin auditoría; justo después → OK; estirarla encima → rechazo; cambiar solo el motivo → OK; horario sin el martes → rechazo; horario que lo conserva → OK |
+| `TestAgendaGuard` (scheduling) | ✅ | Cruce con el servicio (no con la preparación); fuera de horario: inicio tardío, descanso encima, día libre, franja partida; justo al borde → OK; una cancelada no cuenta |
+| `TestToReassign` (scheduling) | ✅ | Vacía mientras el barbero es reservable; al irse, su cita aparece con `needsReassignment` (también en la agenda); barbero → 403, ajeno → 404; tras reasignar → vacía |
+| `TestAgendaCoherenceOnPostgres` | ✅ | **Reserva ∥ ausencia sobre la misma hora, 10 rondas: exactamente una gana** (con pausa de 100 ms entre verificación y escritura); horario que deja una cita fuera → rechazo con la cita; barbero INACTIVE → por reasignar → reasignada a Pedro → vacía |
+| Mutación: ausencias sin el bloqueo del profesional | ✅ detectada | "booking <nil>, absence <nil>" en la 1.ª ronda; código restaurado. (Sin la pausa la carrera no se reproducía: se corrigió la prueba) |
+| `TestContractAgendaCoherence` (contra OpenAPI) | ✅ | 409 `AGENDA_CONFLICTS` con `conflicts`; ausencia sin cruce 201; horario 409; por reasignar vacío / con la cita tras desactivar; bandera en la agenda; no miembro 404. **81 rutas documentadas** |
+| `TestEveryBusinessRouteIsTenantIsolated` / credenciales | ✅ | 39 operaciones con otro negocio y 24 con ids ajenos; 66 operaciones autenticadas |
+| Postman + Newman (entorno local temporal) | ✅ 2 corridas | 53 peticiones, 93 comprobaciones, 0 fallos |
+| `task check` (lint 0, vuln) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
+| Despliegue y E2E en QA | ⏳ | Tras el merge (ausencia 409 con la lista, horario 409, desactivar → por reasignar, reactivar) |

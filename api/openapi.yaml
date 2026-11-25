@@ -1437,6 +1437,42 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
+  /api/v1/business/{businessId}/appointments/to-reassign:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Appointments]
+      operationId: listAppointmentsToReassign
+      summary: Appointments to move to another professional (OWNER)
+      description: |
+        Active appointments not finished yet whose professional is no longer bookable (profile
+        INACTIVE or account removed from the business), by start, up to 500. Move each one with
+        `POST …/appointments/{appointmentId}/reschedule` and a `professionalId` (T6.7).
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The appointments to reassign.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agenda"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/business/{businessId}/agenda:
     parameters:
       - name: businessId
@@ -2601,6 +2637,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
 
@@ -3216,6 +3254,29 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/FieldError"
+        conflicts:
+          type: array
+          description: |
+            Records that block the request. With `AGENDA_CONFLICTS` (T6.7): the active
+            appointments an absence or a weekly schedule would break.
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, startAt, endAt, customerName, status]
+            properties:
+              id:
+                type: string
+                format: uuid
+              startAt:
+                type: string
+                format: date-time
+              endAt:
+                type: string
+                format: date-time
+              customerName:
+                type: string
+              status:
+                type: string
 
     FieldError:
       type: object
@@ -4432,7 +4493,7 @@ components:
       type: object
       additionalProperties: false
       required: [id, professionalId, professionalName, serviceId, serviceName, durationMinutes, priceMinor,
-                 currency, startAt, endAt, startLocal, status, customer, createdAt]
+                 currency, startAt, endAt, startLocal, status, customer, needsReassignment, createdAt]
       properties:
         id:
           type: string
@@ -4480,6 +4541,11 @@ components:
               type: string
             hasAccount:
               type: boolean
+        needsReassignment:
+          type: boolean
+          description: |
+            Active and not finished, but its professional is no longer bookable (inactive or
+            left the business): the OWNER should move it to another professional (T6.7).
         createdAt:
           type: string
           format: date-time
@@ -4900,7 +4966,8 @@ components:
         professional profile in the business (`ALREADY_PROFESSIONAL`), the start time is not
         available (`SLOT_UNAVAILABLE`), or an appointment change is not allowed
         (`INVALID_TRANSITION`, `TOO_EARLY`, `APPOINTMENT_STARTED`, `CUTOFF_PASSED`,
-        `APPOINTMENT_CHANGED`).
+        `APPOINTMENT_CHANGED`), or an absence or weekly schedule would break active appointments
+        (`AGENDA_CONFLICTS`, listed in `conflicts`).
       headers:
         X-Request-ID:
           $ref: "#/components/headers/XRequestID"

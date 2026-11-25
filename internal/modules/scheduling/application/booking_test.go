@@ -75,7 +75,7 @@ func newBookingEnv(t *testing.T) bookingEnv {
 	e.roles = fakeAuthz{}
 	e.clk = clock.NewFixed(time.Date(2030, 3, 1, 17, 0, 0, 0, time.UTC))
 	e.svc = application.NewService(application.Deps{
-		Store: e.store, Authz: e.roles, Businesses: fakeBiz{pol: pol}, Catalog: e.cat, Professionals: e.ag,
+		Store: e.store, Authz: e.roles, Businesses: fakeBiz{pol: pol}, Catalog: e.cat, Professionals: e.ag, Bookable: e.ag,
 		Customers: fakeCustomers{
 			e.ana.UserID: {UserID: e.ana.UserID, FullName: "Ana Cliente", Phone: "+573001112233"},
 			e.bob.UserID: {UserID: e.bob.UserID, FullName: "Bob Cliente", Phone: "+573004445566"},

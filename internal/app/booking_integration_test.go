@@ -24,6 +24,7 @@ import (
 	profapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/application"
 	profdomain "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/domain"
 	schedapp "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/application"
+	schedcontract "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/contract"
 	scheddomain "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/domain"
 	schedpg "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/infrastructure/postgres"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
@@ -64,9 +65,10 @@ func newBookingWorld(t *testing.T) bookingWorld {
 	w := bookingWorld{pool: pool, identity: identity, catalog: catalog, profs: profs, clk: clock.NewFixed(time.Date(2030, 3, 1, 17, 0, 0, 0, time.UTC))}
 	w.bogota, _ = time.LoadLocation("America/Bogota")
 	w.sched = schedapp.NewService(schedapp.Deps{
-		Store: schedpg.NewStore(pool), Authz: identity, Businesses: biz, Catalog: catalog, Professionals: profs, Customers: identity,
+		Store: schedpg.NewStore(pool), Authz: identity, Businesses: biz, Catalog: catalog, Professionals: profs, Bookable: profs, Customers: identity,
 		Clock: w.clk,
 	})
+	LinkAgendaGuard(profs, w.sched)
 
 	ownerID, _ := activeUser(t, pool, "ACTIVE")
 	w.owner = identitycontract.Principal{UserID: ownerID}
@@ -628,4 +630,104 @@ func TestAppointmentChangesOnPostgres(t *testing.T) {
 		IdempotencyKey: "tras-no-vino", Customer: &schedapp.CustomerInput{FullName: "Esperaba", Phone: "3019998877"}}); err != nil {
 		t.Errorf("10:50 after the no-show: %v", err)
 	}
+}
+
+// TestAgendaCoherenceOnPostgres (T6.7): absences and schedules against appointments with the
+// real modules and SQL, under concurrency; a professional who leaves leaves appointments to
+// reassign.
+func TestAgendaCoherenceOnPostgres(t *testing.T) {
+	ctx := t.Context()
+	w := newBookingWorld(t)
+	pedro := w.secondBarber(t)
+	ana := w.customer(t)
+
+	// 1. A booking and an absence on the same hour at the same time, 10 rounds: exactly one wins.
+	// The guard pauses 100 ms between the check and the insert of the absence, so a booking that
+	// did not wait for the professional's lock would slip in (shown by mutation).
+	w.profs.SetAgendaGuard(slowGuard{AgendaGuard: w.sched, pause: 100 * time.Millisecond})
+	for round := range 10 {
+		var (
+			wg         sync.WaitGroup
+			booked     scheddomain.Appointment
+			errBook    error
+			absence    profdomain.Absence
+			errAbsence error
+			gate       = make(chan struct{})
+		)
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			<-gate
+			booked, errBook = w.sched.Book(ctx, ana, w.in(w.at(9, 0), fmt.Sprintf("vs-ausencia-%02d", round)))
+		}()
+		go func() {
+			defer wg.Done()
+			<-gate
+			absence, errAbsence = w.profs.CreateAbsence(ctx, w.owner, w.biz, w.pro, profapp.AbsenceInput{Start: w.at(9, 0), End: w.at(10, 0), Reason: "Diligencia"})
+		}()
+		close(gate)
+		wg.Wait()
+		var conflict *profapp.ConflictError
+		switch {
+		case errBook == nil && errors.As(errAbsence, &conflict):
+			if len(conflict.Appointments) != 1 || conflict.Appointments[0].ID != booked.ID {
+				t.Fatalf("round %d: conflicts %+v", round, conflict.Appointments)
+			}
+			if _, err := w.sched.CustomerChange(ctx, ana, booked.ID, schedapp.ActionCancel, ""); err != nil {
+				t.Fatal(err)
+			}
+		case errAbsence == nil && errors.Is(errBook, schedapp.ErrSlotUnavailable):
+			if err := w.profs.DeleteAbsence(ctx, w.owner, w.biz, w.pro, absence.ID); err != nil {
+				t.Fatal(err)
+			}
+		default:
+			t.Fatalf("round %d: booking %v, absence %v (exactly one must win)", round, errBook, errAbsence)
+		}
+	}
+
+	w.profs.SetAgendaGuard(w.sched)
+
+	// 2. A weekly schedule that would leave an appointment out is refused with the list.
+	a, err := w.sched.Book(ctx, ana, w.in(w.at(11, 0), "fuera-de-horario"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var conflict *profapp.ConflictError
+	if _, err := w.profs.ReplaceSchedule(ctx, w.owner, w.biz, w.pro, []profdomain.DayInput{
+		{Weekday: "TUESDAY", WorkingHours: []profdomain.RangeInput{{Start: "09:00", End: "11:00"}}},
+	}); !errors.As(err, &conflict) || len(conflict.Appointments) != 1 || conflict.Appointments[0].ID != a.ID {
+		t.Fatalf("schedule leaving 11:00 out: %v", err)
+	}
+	if _, err := w.profs.ReplaceSchedule(ctx, w.owner, w.biz, w.pro, []profdomain.DayInput{
+		{Weekday: "TUESDAY", WorkingHours: []profdomain.RangeInput{{Start: "08:00", End: "12:00"}}, Breaks: []profdomain.RangeInput{{Start: "10:00", End: "10:30"}}},
+	}); err != nil {
+		t.Errorf("schedule keeping 11:00: %v", err)
+	}
+
+	// 3. Juan is deactivated: his appointment is left to reassign; the owner moves it to Pedro.
+	if _, err := w.profs.Update(ctx, w.owner, w.biz, w.pro, profapp.UpdateInput{Status: ptrTo("INACTIVE")}); err != nil {
+		t.Fatal(err)
+	}
+	page, err := w.sched.ToReassign(ctx, w.owner, w.biz)
+	if err != nil || len(page.Items) != 1 || page.Items[0].ID != a.ID || page.Items[0].ProfessionalName != "Juan" {
+		t.Fatalf("to reassign: %+v %v", page.Items, err)
+	}
+	if _, err := w.sched.StaffReschedule(ctx, w.owner, w.biz, a.ID, w.at(11, 0), pedro); err != nil {
+		t.Fatal(err)
+	}
+	if page, err := w.sched.ToReassign(ctx, w.owner, w.biz); err != nil || len(page.Items) != 0 {
+		t.Errorf("after reassigning: %+v %v", page.Items, err)
+	}
+}
+
+// slowGuard widens the window between an agenda check and the write that follows it.
+type slowGuard struct {
+	schedcontract.AgendaGuard
+	pause time.Duration
+}
+
+func (g slowGuard) AppointmentsDuring(ctx context.Context, businessID, professionalID uuid.UUID, from, to time.Time) ([]schedcontract.ConflictingAppointment, error) {
+	list, err := g.AgendaGuard.AppointmentsDuring(ctx, businessID, professionalID, from, to)
+	time.Sleep(g.pause)
+	return list, err
 }

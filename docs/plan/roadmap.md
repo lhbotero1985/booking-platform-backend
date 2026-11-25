@@ -134,7 +134,7 @@ aunque tenga citas futuras, que quedan por reasignar y el responsable las pasa a
 | T6.4 ✅ | Clientes del negocio y citas manuales (responsable; barbero solo en su agenda), pueden nacer confirmadas | Mismas garantías; barbero en agenda ajena → 403 |
 | T6.5 ✅ | Agenda del negocio y del barbero (día, semana, mes, año) y "mis citas" del cliente (todos los negocios) | Barbero solo la suya; responsable todas; cliente solo las suyas; otro negocio → 404 |
 | T6.6 ✅ | Transiciones: confirmar, cancelar, reprogramar (límites del negocio), iniciar, completar, no asistió; historial | Transición inválida → 409; idempotentes; concurrencia coherente (`version`) |
-| T6.7 | Coherencia de agenda: ausencias y horario toman el lock y se rechazan si chocan con citas activas; retiro/desactivación de barbero deja sus citas por reasignar y el responsable las reasigna | Reserva vs ausencia en paralelo: solo una gana |
+| T6.7 ✅ | Coherencia de agenda: ausencias y horario toman el lock y se rechazan si chocan con citas activas; retiro/desactivación de barbero deja sus citas por reasignar y el responsable las reasigna | Reserva vs ausencia en paralelo: solo una gana |
 | T6.8 | Suite de aislamiento, las 7 pruebas de concurrencia del diseño, E2E en QA, cierre | Aprobación del usuario |
 
 Las fases 7–13 se desglosarán en tareas al iniciar cada una.

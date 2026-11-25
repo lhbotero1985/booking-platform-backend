@@ -1,8 +1,8 @@
 {
   "info": {
-    "name": "Booking Platform — QA (Fase 6: reservas, agenda y cambios de citas)",
+    "name": "Booking Platform — QA (Fase 6: reservas, agenda, cambios y coherencia)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Validación manual de la API en QA hasta la disponibilidad pública (T6.2).\n\n**Antes de empezar:** en la pestaña *Variables* de la colección escriba `email` y `password` de una cuenta **verificada** de QA que sea responsable (OWNER) de un negocio, o que aún no tenga negocio (el paso 3b lo crea). Ejecute las carpetas en orden (o *Run collection*).\n\nLos pasos 4–6 **modifican datos de QA** de esa cuenta: registran al responsable como barbero, reemplazan su horario semanal (lunes a sábado 09:00–18:00, descanso 13:00–14:00), crean una ausencia de 15:00 a 16:00 el día `targetDate` y el servicio \"Corte Postman\" (30 min). Necesita un teléfono (`customerPhone`). El paso 8 reserva como cliente la primera hora libre (la cita queda creada; se podrá cancelar con T6.6) y prueba la repetición con la misma clave y el 409; el 9, como responsable, agenda una cita manual escribiendo nombre, celular y correo del cliente (si no existe se crea); el 10 muestra la agenda (día, semana, mes, año) y «mis citas»; el 11 confirma, reprograma y cancela la cita del paso 8 (con su historial); el 12 borra la ausencia.\n\n`targetDate` se calcula sola (dentro de 2 días, saltando domingo) si está vacía; puede fijarla (AAAA-MM-DD). Las horas libres aparecen en la consola de Postman (View → Show Postman Console)."
+    "description": "Validación manual de la API en QA hasta la disponibilidad pública (T6.2).\n\n**Antes de empezar:** en la pestaña *Variables* de la colección escriba `email` y `password` de una cuenta **verificada** de QA que sea responsable (OWNER) de un negocio, o que aún no tenga negocio (el paso 3b lo crea). Ejecute las carpetas en orden (o *Run collection*).\n\nLos pasos 4–6 **modifican datos de QA** de esa cuenta: registran al responsable como barbero, reemplazan su horario semanal (lunes a sábado 09:00–18:00, descanso 13:00–14:00), crean una ausencia de 15:00 a 16:00 el día `targetDate` y el servicio \"Corte Postman\" (30 min). Necesita un teléfono (`customerPhone`). El paso 8 reserva como cliente la primera hora libre (la cita queda creada; se podrá cancelar con T6.6) y prueba la repetición con la misma clave y el 409; el 9, como responsable, agenda una cita manual escribiendo nombre, celular y correo del cliente (si no existe se crea); el 10 muestra la agenda (día, semana, mes, año) y «mis citas»; el 11 confirma, reprograma y cancela la cita del paso 8 (con su historial); el 12 muestra que una ausencia encima de una cita se rechaza con la lista de citas en conflicto; el 13 borra la ausencia.\n\n`targetDate` se calcula sola (dentro de 2 días, saltando domingo) si está vacía; puede fijarla (AAAA-MM-DD). Las horas libres aparecen en la consola de Postman (View → Show Postman Console)."
   },
   "auth": {
     "type": "bearer",
@@ -117,6 +117,18 @@
     },
     {
       "key": "moveTo",
+      "value": ""
+    },
+    {
+      "key": "guardSlot",
+      "value": ""
+    },
+    {
+      "key": "guardEnd",
+      "value": ""
+    },
+    {
+      "key": "guardAppointmentId",
       "value": ""
     }
   ],
@@ -2307,7 +2319,256 @@
       ]
     },
     {
-      "name": "12. Limpieza",
+      "name": "12. Coherencia de la agenda",
+      "description": "Una ausencia o un cambio de horario que choca con citas se rechaza mostrando las citas. Si un barbero se desactiva o se retira, sus citas aparecen en 'por reasignar'.",
+      "item": [
+        {
+          "name": "12a. Siguiente hora libre",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/{{slug}}/availability?serviceId={{serviceId}}&professionalId={{professionalId}}&date={{targetDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "businesses",
+                "{{slug}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "serviceId",
+                  "value": "{{serviceId}}"
+                },
+                {
+                  "key": "professionalId",
+                  "value": "{{professionalId}}"
+                },
+                {
+                  "key": "date",
+                  "value": "{{targetDate}}"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const sl = pm.response.json().slots;",
+                  "pm.collectionVariables.set('guardSlot', sl[0].startAt);",
+                  "pm.collectionVariables.set('guardEnd', sl[0].endAt);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12b. Reservar esa hora (como cliente)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{guardKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/appointments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "appointments"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessId\": \"{{businessId}}\",\n  \"serviceId\": \"{{serviceId}}\",\n  \"professionalId\": \"{{professionalId}}\",\n  \"startAt\": \"{{guardSlot}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('guardKey', 'coherencia-' + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('guardAppointmentId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12c. Ausencia encima de la cita -> 409 con la lista",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}/professionals/{{professionalId}}/absences",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "business",
+                "{{businessId}}",
+                "professionals",
+                "{{professionalId}}",
+                "absences"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start\": \"{{guardSlot}}\",\n  \"end\": \"{{guardEnd}}\",\n  \"reason\": \"Prueba de choque\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "const pr = pm.response.json();",
+                  "pm.test('AGENDA_CONFLICTS', () => pm.expect(pr.code).to.eql('AGENDA_CONFLICTS'));",
+                  "pm.test('lista la cita', () => pm.expect(pr.conflicts.map(c => c.id)).to.include(pm.variables.get('guardAppointmentId')));",
+                  "pr.conflicts.forEach(c => console.log('  choca con', c.startAt, c.customerName, c.status));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12d. Citas por reasignar (responsable)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/business/{{businessId}}/appointments/to-reassign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "business",
+                "{{businessId}}",
+                "appointments",
+                "to-reassign"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "console.log('Por reasignar:', pm.response.json().items.length);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12e. Cancelar la cita de prueba",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me/appointments/{{guardAppointmentId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "me",
+                "appointments",
+                "{{guardAppointmentId}}",
+                "cancel"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Fin de la prueba\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "13. Limpieza",
       "description": "",
       "item": [
         {

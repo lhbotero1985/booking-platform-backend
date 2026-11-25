@@ -16,6 +16,7 @@ import (
 	identity "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 	profcontract "github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/domain"
+	scheduling "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/audit"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
 )
@@ -100,6 +101,31 @@ type Service struct {
 	store    Store
 	identity Identity
 	clock    clock.Clock
+	guard    scheduling.AgendaGuard // nil: no appointment checks (set by the composition root)
+}
+
+// SetAgendaGuard plugs the scheduling module's guard (composition root only, before serving):
+// absences and schedules that would break active appointments are refused (T6.7, P11).
+func (s *Service) SetAgendaGuard(g scheduling.AgendaGuard) { s.guard = g }
+
+// ConflictError refuses a change of the agenda that would break active appointments; they must
+// be rescheduled or canceled first (P11).
+type ConflictError struct {
+	Appointments []scheduling.ConflictingAppointment
+}
+
+func (e *ConflictError) Error() string {
+	return "professionals: the change conflicts with appointments"
+}
+
+func conflictsOrNil(list []scheduling.ConflictingAppointment, err error) error {
+	if err != nil {
+		return err
+	}
+	if len(list) > 0 {
+		return &ConflictError{Appointments: list}
+	}
+	return nil
 }
 
 // NewService builds the service; a nil clock defaults to the system clock.
