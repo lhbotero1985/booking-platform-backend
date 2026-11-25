@@ -1,6 +1,7 @@
-# Notificaciones: WhatsApp y push
+# Notificaciones: WhatsApp, correo y push
 
-Estado: **Fase 7 en curso** (T7.1–T7.5 implementadas: §7–§11). ADR-0008, ADR-0009, ADR-0010.
+Estado: **Fase 7 en curso** (T7.1–T7.6 implementadas: §7–§12). ADR-0008, ADR-0009, ADR-0010 (push
+aplazada por ADR-0019).
 
 ## 1. Principios
 
@@ -216,3 +217,46 @@ sale de inmediato**.
 
 - **Configuración:** `WHATSAPP_APP_SECRET` (32 hex) y `WHATSAPP_WEBHOOK_VERIFY_TOKEN` (16–200),
   los dos o ninguno; en QA solo los recibe la API.
+
+## 12. Correos de citas (T7.6, ADR-0019)
+
+- **Canal `EMAIL`** junto a `WHATSAPP`: los mismos mensajes, jobs, reintentos, revalidación de la
+  cita antes de enviar y lista de envíos de la cita (`GET …/notifications`, dirección enmascarada
+  `l•••@gmail.com`). Interruptor `NOTIFICATIONS_EMAIL_ENABLED` (activo por defecto). SMTP del
+  ambiente (Mailpit en QA; remitente `Booka QA`); proveedor de PROD pendiente (P13).
+- **Destinatarios** (decisiones del usuario, 2026-11-25):
+
+| Cambio | Cliente (WhatsApp) | Cliente (correo) | Barbero (correo) |
+|---|---|---|---|
+| Agendada por el cliente | ✅ | ✅ | ✅ "Nueva cita" |
+| Agendada por el negocio | ✅ (con enlace de la app) | ✅ | — |
+| Reprogramada por el cliente | ✅ | ✅ | ✅ "Cita reprogramada" |
+| Reprogramada o reasignada por el negocio | ✅ | ✅ | — |
+| Cancelada por el negocio | ✅ | ✅ (con motivo) | — |
+| Cancelada por el cliente | — | ✅ comprobante (`APPOINTMENT_CANCELLED_BY_CUSTOMER`) | ✅ "Cita cancelada" |
+| Recordatorio (cita pendiente) | ✅ con botones | ✅ (sin botones hasta T7.7) | — |
+
+  Al barbero solo se le avisa lo que hizo el cliente.
+- **Dirección:** se resuelve al enviar y se guarda en el mensaje. Cliente: el correo que registró
+  el negocio en su ficha; si no hay, el de su cuenta. Barbero: el de su cuenta. Cuenta inexistente
+  o deshabilitada, o sin correo → `SKIPPED NO_RECIPIENT`.
+- **Contenido** (HTML con versión de texto, `multipart/alternative`; todo valor escapado por
+  `html/template`): marca Booka, encabezado morado con el negocio, título, estado de la cita
+  (pendiente de confirmar, confirmada, cancelada…), servicio, fecha y hora en la zona del negocio,
+  barbero, dirección con enlace a Google Maps (coordenadas o dirección), motivo de cancelación,
+  políticas del negocio (límites de cancelación y reprogramación) y contacto (teléfono y enlace de
+  WhatsApp); pie "Agendado con Booka" y "Descarga la app" si `APP_DOWNLOAD_URL` está configurado.
+  El correo del barbero lleva cliente, servicio, fecha y hora (sin teléfono del cliente ni
+  políticas).
+
+| Tipo | Asunto |
+|---|---|
+| Agendada (cliente o negocio) | "Tu cita en {negocio} está agendada" |
+| Cancelada (por el negocio o por el cliente) | "Tu cita en {negocio} fue cancelada" |
+| Reprogramada | "Tu cita en {negocio} cambió de hora" |
+| Cambio de barbero | "Tu cita en {negocio} tiene otro barbero" |
+| Recordatorio | "Recordatorio: tu cita en {negocio} es el {fecha}" |
+| Barbero: nueva / cancelada / reprogramada | "Nueva cita: {cliente}, {fecha}" / "Cita cancelada: …" / "Cita reprogramada: …" |
+
+- **Errores:** dirección mal formada o respuesta 5xx del servidor SMTP → `FAILED` sin reintento
+  (`INVALID_EMAIL`, `SMTP_5xx`); lo demás se reintenta (`SMTP_ERROR`).

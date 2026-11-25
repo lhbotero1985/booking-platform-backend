@@ -326,11 +326,12 @@ check "cancel again (no change)" 200 "$(status POST "$me_appt/cancel" "" "$T1")"
 
 # --- notifications (T7.1): every change that notifies queued one WhatsApp message --------------
 notif="$st_appt/notifications"
-check "messages: created and both moves (customer cancel sends none)"   "APPOINTMENT_CREATED,APPOINTMENT_RESCHEDULED,APPOINTMENT_RESCHEDULED"   "$(status GET "$notif" "" "$TS" >/dev/null; json '[.items[] | select(.kind != "APPOINTMENT_REMINDER") | .kind] | join(",")')"
+wa='.items[] | select(.channel == "WHATSAPP")'
+check "messages: created and both moves (customer cancel sends none)"   "APPOINTMENT_CREATED,APPOINTMENT_RESCHEDULED,APPOINTMENT_RESCHEDULED"   "$(status GET "$notif" "" "$TS" >/dev/null; json "[$wa | select(.kind != \"APPOINTMENT_REMINDER\") | .kind] | join(\",\")")"
 # T7.4: a reminder each time it was left pending (booked; moved by the barber), none while
 # confirmed (the customer's own move). Due 24 h before the start, or at once inside that window.
-check "reminders: when booked and when the barber moved it" 2 "$(json '[.items[] | select(.kind == "APPOINTMENT_REMINDER")] | length')"
-check "  the last one due 24 h before (or at once)" true "$(jq -r --arg s "$free2" '[.items[] | select(.kind == "APPOINTMENT_REMINDER")][-1]
+check "reminders: when booked and when the barber moved it" 2 "$(json "[$wa | select(.kind == \"APPOINTMENT_REMINDER\")] | length")"
+check "  the last one due 24 h before (or at once)" true "$(jq -r --arg s "$free2" '[.items[] | select(.channel == "WHATSAPP" and .kind == "APPOINTMENT_REMINDER")][-1]
   | ((.sendAt[0:19] + "Z") | fromdateiso8601) == ([($s | fromdateiso8601) - 86400, ((.createdAt[0:19] + "Z") | fromdateiso8601)] | max)' "$tmp/b")"
 check "  WhatsApp to the customer, number masked" "WHATSAPP CUSTOMER \+57.*2233" "$(json '.items[0] | "\(.channel) \(.recipientRole) \(.to)"')"
 for _ in $(seq 1 30); do # the worker delivers the notices within seconds; reminders wait their time
@@ -338,7 +339,18 @@ for _ in $(seq 1 30); do # the worker delivers the notices within seconds; remin
   sleep 1
 done
 # QA writes only to WHATSAPP_ALLOWLIST: a synthetic number is skipped (simulated sender: sent).
-check "the worker processed the notices (sent, or skipped: not allowlisted)" "0 (SENT|SKIPPED NOT_ALLOWLISTED)"   "$(json '[.items[] | select(.kind != "APPOINTMENT_REMINDER")] | "\([.[] | select(.status == "PENDING")] | length) \(.[-1].status)\(if .[-1].skipReason then " " + .[-1].skipReason else "" end)"')"
+check "the worker processed the notices (sent, or skipped: not allowlisted)" "0 (SENT|SKIPPED NOT_ALLOWLISTED)"   "$(json '[.items[] | select(.channel == "WHATSAPP" and .kind != "APPOINTMENT_REMINDER")] | "\([.[] | select(.status == "PENDING")] | length) \(.[-1].status)\(if .[-1].skipReason then " " + .[-1].skipReason else "" end)"')"
+
+# Appointment emails (T7.6): to the customer for every change, its own cancellation included; to
+# the barber only what the customer did. Mailpit receives them.
+em='.items[] | select(.channel == "EMAIL" and .kind != "APPOINTMENT_REMINDER")'
+check "emails to the customer: created, both moves, its cancellation" "APPOINTMENT_CREATED,APPOINTMENT_RESCHEDULED,APPOINTMENT_RESCHEDULED,APPOINTMENT_CANCELLED_BY_CUSTOMER" "$(json "[$em | select(.recipientRole == \"CUSTOMER\") | .kind] | join(\",\")")"
+check "emails to the barber: what the customer did" "APPOINTMENT_CREATED,APPOINTMENT_RESCHEDULED,APPOINTMENT_CANCELLED_BY_CUSTOMER" "$(json "[$em | select(.recipientRole == \"PROFESSIONAL\") | .kind] | join(\",\")")"
+check "  the cancellation emails sent, addresses masked" "SENT q•••@example.test SENT" "$(json "[$em | select(.kind == \"APPOINTMENT_CANCELLED_BY_CUSTOMER\")] | \"\(.[0].status) \(.[0].to) \(.[1].status)\"")"
+check "  an email reminder too" 2 "$(json '[.items[] | select(.channel == "EMAIL" and .kind == "APPOINTMENT_REMINDER")] | length')"
+mail_subjects() { curl -s "$M/api/v1/search?query=to:$1" | jq -r '[.messages[].Subject] | join(" | ")'; }
+check "Mailpit: the customer's receipt" ".*fue cancelada.*" "$(mail_subjects "$EMAIL")"
+check "Mailpit: the barber's notice" ".*Cita cancelada: .*" "$(mail_subjects "$STAFF")"
 
 check "app download page (button of the manual booking message)" 200 "$(status GET /app)"
 # WhatsApp webhook (T7.5): only Meta (verify token, signed bodies).
@@ -360,7 +372,7 @@ if [[ -n ${WHATSAPP_TEST_PHONE:-} ]]; then
   done
   check "Meta accepted the WhatsApp" "SENT null 1" "$(json '.items[0] | "\(.status) \(.errorCode) \(.attempts)"')"
   check "customer cancels it (no second message)" 200 "$(status POST "/api/v1/me/appointments/$wa_appt/cancel" "" "$T1")"
-  check "  still one notice" 1 "$(status GET "/api/v1/business/$mine/appointments/$wa_appt/notifications" "" "$TS" >/dev/null; json '[.items[] | select(.kind != "APPOINTMENT_REMINDER")] | length')"
+  check "  still one notice" 1 "$(status GET "/api/v1/business/$mine/appointments/$wa_appt/notifications" "" "$TS" >/dev/null; json '[.items[] | select(.channel == "WHATSAPP" and .kind != "APPOINTMENT_REMINDER")] | length')"
   check "customer phone restored" 200 "$(status PUT /api/v1/me/phone '{"phone":"300 111 2233"}' "$T1")"
 fi
 check "a cancelled one cannot be confirmed" 409 "$(status POST "$st_appt/confirm" "" "$TS")"

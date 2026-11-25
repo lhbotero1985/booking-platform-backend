@@ -75,7 +75,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	for _, m := range msgs {
 		d := messageDTO{
 			ID: m.ID, Kind: string(m.Kind), Channel: string(m.Channel), RecipientRole: string(m.RecipientRole),
-			To: domain.MaskPhone(m.Recipient), Status: string(m.Status), SkipReason: optional(string(m.SkipReason)),
+			To: m.MaskRecipient(), Status: string(m.Status), SkipReason: optional(string(m.SkipReason)),
 			ErrorCode: optional(m.ErrorCode), Attempts: m.Attempts, SendAt: m.SendAt, CreatedAt: m.CreatedAt,
 		}
 		if !m.SentAt.IsZero() {

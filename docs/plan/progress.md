@@ -466,6 +466,20 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-25 · Fase 7 · T7.6 — Correos de citas (Booka)
+
+- **Estado:** ✅ en `feature/t7.6-appointment-emails` (commit y push; PR pendiente de autorización).
+  Criterio de aceptación: el usuario aprueba el diseño viendo un correo real en Mailpit QA.
+- **Hecho:** canal `EMAIL` (migración 00023); plan de mensajes con correo al cliente y al barbero
+  (solo lo que hizo el cliente) y comprobante de la cancelación del cliente; dirección resuelta al
+  enviar (`identity.Accounts`, ficha del cliente, cuenta del barbero); plantilla HTML + texto con la
+  marca Booka; SMTP `multipart/alternative`; interruptor `NOTIFICATIONS_EMAIL_ENABLED`; remitente
+  `Booka QA`; E2E con verificación en Mailpit.
+- **Hallazgos:** `html/template` bloquea los enlaces `tel:` (se arma solo con dígitos y se marca
+  como seguro); el enlace de WhatsApp sale del teléfono del negocio.
+- **Rama anterior:** `feature/t7.6-push` quedó con los commits de documentación (ya incluidos en
+  esta rama); borrarla requiere autorización.
+
 ## 2026-11-25 · Fase 7 · T7.5 — Webhook de WhatsApp
 
 - **Previo:** el usuario cargó en el servidor `WHATSAPP_APP_SECRET` y

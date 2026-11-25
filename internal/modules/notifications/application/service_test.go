@@ -105,14 +105,16 @@ func TestEventsQueueTheirMessagesOnce(t *testing.T) {
 	ctx := context.Background()
 	e := event("CREATED", "BUSINESS")
 	m := w.queued(t, e)
-	if m.Kind != domain.KindCreatedByBusiness || m.Status != domain.StatusPending || len(w.st.Enqueued()) != 1 || w.st.Enqueued()[0] != m.ID {
-		t.Fatalf("message %+v, jobs %v", m, w.st.Enqueued())
+	// WhatsApp and email to the customer (T7.6), each with its job.
+	if ms := w.st.Messages(); m.Kind != domain.KindCreatedByBusiness || m.Status != domain.StatusPending || len(ms) != 2 ||
+		ms[1].Channel != domain.ChannelEmail || len(w.st.Enqueued()) != 2 || w.st.Enqueued()[0] != m.ID {
+		t.Fatalf("messages %+v, jobs %v", ms, w.st.Enqueued())
 	}
 	// The same event again (a retried transaction): no second message, no second job.
 	if err := w.svc.AppointmentEventRecorded(ctx, e); err != nil {
 		t.Fatal(err)
 	}
-	if len(w.st.Messages()) != 1 || len(w.st.Enqueued()) != 1 {
+	if len(w.st.Messages()) != 2 || len(w.st.Enqueued()) != 2 {
 		t.Errorf("repeated event: %d messages, %d jobs", len(w.st.Messages()), len(w.st.Enqueued()))
 	}
 	// Changes without a message do not touch the store.
@@ -121,11 +123,8 @@ func TestEventsQueueTheirMessagesOnce(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := w.svc.AppointmentEventRecorded(ctx, event(scheduling.EventCancelled, "CUSTOMER")); err != nil {
-		t.Fatal(err)
-	}
-	if len(w.st.Messages()) != 1 {
-		t.Errorf("changes without a message stored %d", len(w.st.Messages()))
+	if len(w.st.Messages()) != 2 {
+		t.Errorf("changes without a message stored %d", len(w.st.Messages())-2)
 	}
 	// A failing transaction surfaces (the change is rolled back with it).
 	w.st.FailCommit = errors.New("boom")
@@ -255,7 +254,7 @@ func TestAppointmentMessages(t *testing.T) {
 	first := w.queued(t, event("CREATED", "BUSINESS"))
 	second := w.queued(t, event("RESCHEDULED", "BUSINESS"))
 	got, err := w.svc.AppointmentMessages(ctx, identity.Principal{UserID: uuid.Must(uuid.NewV7())}, biz, appt)
-	if err != nil || len(got) != 2 || got[0].ID != first.ID || got[1].ID != second.ID {
+	if err != nil || len(got) != 4 || got[0].ID != first.ID || got[2].ID != second.ID { // each with its email
 		t.Fatalf("%v %v", got, err)
 	}
 	w.appts.authErr = scheduling.ErrAppointmentNotFound
@@ -320,10 +319,12 @@ func TestReminders(t *testing.T) {
 	if err := w.svc.AppointmentEventRecorded(ctx, e); err != nil {
 		t.Fatal(err)
 	}
-	ms := w.st.Messages()
-	if len(ms) != 2 || ms[1].Kind != domain.KindReminder || !ms[1].SendAt.Equal(start.Add(-24*time.Hour)) || len(w.st.Enqueued()) != 2 {
+	ms := w.st.Messages() // notice, reminder (WhatsApp and email each) and the professional's email
+	if len(ms) != 5 || ms[2].Kind != domain.KindReminder || ms[2].Channel != domain.ChannelWhatsApp || !ms[2].SendAt.Equal(start.Add(-24*time.Hour)) ||
+		ms[3].Kind != domain.KindReminder || !ms[3].SendAt.Equal(ms[2].SendAt) || len(w.st.Enqueued()) != 5 {
 		t.Fatalf("messages %+v", ms)
 	}
+	ms = ms[1:] // ms[1] is the WhatsApp reminder below
 	// Confirmed meanwhile: when due, the reminder is skipped.
 	w.appts.state.Status = "CONFIRMED"
 	if err := w.svc.Send(ctx, ms[1].ID, false); err != nil || w.msg(ms[1].ID).SkipReason != domain.SkipConfirmed {

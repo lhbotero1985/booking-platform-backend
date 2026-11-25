@@ -1,6 +1,7 @@
 package domain_test
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -22,46 +23,63 @@ func change(typ, actor string) domain.Change {
 	}
 }
 
+// keys describes each message as kind/channel/recipient role.
+func keys(ms []domain.Message) []string {
+	out := make([]string, 0, len(ms))
+	for _, m := range ms {
+		out = append(out, string(m.Kind)+"/"+string(m.Channel)+"/"+string(m.RecipientRole))
+	}
+	return out
+}
+
+// TestPlan (T7.1, T7.6): to the customer by WhatsApp and email; to the professional by email only
+// what the customer did; a customer who cancels gets an email receipt, not a WhatsApp.
 func TestPlan(t *testing.T) {
+	const (
+		wa     = "/WHATSAPP/CUSTOMER"
+		email  = "/EMAIL/CUSTOMER"
+		barber = "/EMAIL/PROFESSIONAL"
+	)
 	cases := []struct {
 		typ, actor string
-		want       domain.Kind // "" = no message
+		want       []string
 	}{
-		{"CREATED", "CUSTOMER", domain.KindCreated},
-		{"CREATED", "BUSINESS", domain.KindCreatedByBusiness}, // P40: booked by the staff
-		{"RESCHEDULED", "CUSTOMER", domain.KindRescheduled},
-		{"RESCHEDULED", "BUSINESS", domain.KindRescheduled},
-		{"REASSIGNED", "BUSINESS", domain.KindReassigned},
-		{"CANCELLED", "BUSINESS", domain.KindCancelled}, //nolint:misspell // stored value
-		{"CANCELLED", "CUSTOMER", ""},                   //nolint:misspell // the customer knows
-		{"CONFIRMED", "CUSTOMER", ""},
-		{"CONFIRMED", "BUSINESS", ""},
-		{"STARTED", "BUSINESS", ""},
-		{"COMPLETED", "BUSINESS", ""},
-		{"NO_SHOW", "BUSINESS", ""},
-		{"UNKNOWN", "BUSINESS", ""},
+		{"CREATED", "CUSTOMER", []string{"APPOINTMENT_CREATED" + wa, "APPOINTMENT_CREATED" + email, "APPOINTMENT_CREATED" + barber}},
+		{"CREATED", "BUSINESS", []string{"APPOINTMENT_CREATED_BY_BUSINESS" + wa, "APPOINTMENT_CREATED_BY_BUSINESS" + email}}, // P40
+		{"RESCHEDULED", "CUSTOMER", []string{"APPOINTMENT_RESCHEDULED" + wa, "APPOINTMENT_RESCHEDULED" + email, "APPOINTMENT_RESCHEDULED" + barber}},
+		{"RESCHEDULED", "BUSINESS", []string{"APPOINTMENT_RESCHEDULED" + wa, "APPOINTMENT_RESCHEDULED" + email}},
+		{"REASSIGNED", "BUSINESS", []string{"APPOINTMENT_REASSIGNED" + wa, "APPOINTMENT_REASSIGNED" + email}},
+		{"CANCELLED", "BUSINESS", []string{"APPOINTMENT_CANCELLED" + wa, "APPOINTMENT_CANCELLED" + email}},                             //nolint:misspell // stored value
+		{"CANCELLED", "CUSTOMER", []string{"APPOINTMENT_CANCELLED_BY_CUSTOMER" + email, "APPOINTMENT_CANCELLED_BY_CUSTOMER" + barber}}, //nolint:misspell // stored value
+		{"CONFIRMED", "CUSTOMER", nil},
+		{"CONFIRMED", "BUSINESS", nil},
+		{"STARTED", "BUSINESS", nil},
+		{"COMPLETED", "BUSINESS", nil},
+		{"NO_SHOW", "BUSINESS", nil},
+		{"UNKNOWN", "CUSTOMER", nil},
 	}
 	for _, c := range cases {
 		ch := change(c.typ, c.actor)
-		id := uuid.Must(uuid.NewV7())
-		got := domain.Plan(ch, domain.Reminders{}, func() uuid.UUID { return id })
-		if c.want == "" {
-			if len(got) != 0 {
-				t.Errorf("%s by %s: %v, want none", c.typ, c.actor, got)
-			}
+		got := domain.Plan(ch, domain.Reminders{}, func() uuid.UUID { return uuid.Must(uuid.NewV7()) })
+		if k := keys(got); !slices.Equal(k, c.want) {
+			t.Errorf("%s by %s: %v, want %v", c.typ, c.actor, k, c.want)
 			continue
 		}
-		if len(got) != 1 {
-			t.Fatalf("%s by %s: %d messages", c.typ, c.actor, len(got))
+		ids := map[uuid.UUID]bool{}
+		for _, m := range got {
+			ids[m.ID] = true
+			to := ""
+			if m.Channel == domain.ChannelWhatsApp {
+				to = ch.CustomerPhone // emails: resolved when sent
+			}
+			if !m.SendAt.Equal(ch.At) || m.Recipient != to || m.EventID != ch.EventID || m.BusinessID != ch.BusinessID ||
+				m.AppointmentID != ch.AppointmentID || m.ProfessionalID != pro || !m.Start.Equal(start) || m.Status != domain.StatusPending ||
+				!m.CreatedAt.Equal(ch.At) {
+				t.Errorf("%s by %s: %+v", c.typ, c.actor, m)
+			}
 		}
-		m := got[0]
-		if !m.SendAt.Equal(ch.At) {
-			t.Errorf("%s: due %s, want at once", c.typ, m.SendAt)
-		}
-		if m.ID != id || m.Kind != c.want || m.Channel != domain.ChannelWhatsApp || m.RecipientRole != domain.RecipientCustomer ||
-			m.Recipient != ch.CustomerPhone || m.EventID != ch.EventID || m.BusinessID != ch.BusinessID || m.AppointmentID != ch.AppointmentID ||
-			m.ProfessionalID != pro || !m.Start.Equal(start) || m.Status != domain.StatusPending || !m.CreatedAt.Equal(ch.At) {
-			t.Errorf("%s by %s: %+v", c.typ, c.actor, m)
+		if len(ids) != len(got) {
+			t.Errorf("%s by %s: repeated ids", c.typ, c.actor)
 		}
 	}
 }
@@ -90,6 +108,7 @@ func TestStale(t *testing.T) {
 		{"moved meanwhile", msg(domain.KindCreated), domain.Appointment{Status: "CONFIRMED", ProfessionalID: pro, Start: start.Add(time.Hour)}, now, domain.SkipChanged},
 		{"reassigned meanwhile", msg(domain.KindRescheduled), domain.Appointment{Status: "CONFIRMED", ProfessionalID: other, Start: start}, now, domain.SkipChanged},
 		{"cancellation notice", msg(domain.KindCancelled), domain.Appointment{Status: canceled, ProfessionalID: pro, Start: start}, now, ""},
+		{"receipt of the customer's cancellation", msg(domain.KindCancelledByCustomer), domain.Appointment{Status: canceled, ProfessionalID: pro, Start: start}, now, ""},
 		{"cancellation of a past appointment", msg(domain.KindCancelled), domain.Appointment{Status: canceled, ProfessionalID: pro, Start: start}, start.Add(time.Minute), domain.SkipPassed},
 	}
 	for _, c := range cases {
@@ -146,7 +165,7 @@ func TestPlanReminder(t *testing.T) {
 	}
 	reminder := func(ms []domain.Message) *domain.Message {
 		for i := range ms {
-			if ms[i].Kind == domain.KindReminder {
+			if ms[i].Kind == domain.KindReminder && ms[i].Channel == domain.ChannelWhatsApp {
 				return &ms[i]
 			}
 		}
@@ -155,9 +174,11 @@ func TestPlanReminder(t *testing.T) {
 	twoDaysBefore := start.Add(-48 * time.Hour)
 
 	ms := plan("CREATED", "CUSTOMER", "PENDING_CONFIRMATION", twoDaysBefore, day)
-	if r := reminder(ms); len(ms) != 2 || ms[0].Kind != domain.KindCreated || r == nil || !r.SendAt.Equal(start.Add(-24*time.Hour)) ||
-		r.Recipient != "+573001234567" || !r.Start.Equal(start) || r.ID == ms[0].ID {
-		t.Fatalf("pending, two days before: %+v", ms)
+	want := []string{"APPOINTMENT_CREATED/WHATSAPP/CUSTOMER", "APPOINTMENT_CREATED/EMAIL/CUSTOMER", "APPOINTMENT_REMINDER/WHATSAPP/CUSTOMER",
+		"APPOINTMENT_REMINDER/EMAIL/CUSTOMER", "APPOINTMENT_CREATED/EMAIL/PROFESSIONAL"}
+	if r := reminder(ms); !slices.Equal(keys(ms), want) || r == nil || !r.SendAt.Equal(start.Add(-24*time.Hour)) ||
+		r.Recipient != "+573001234567" || !r.Start.Equal(start) || r.ID == ms[0].ID || !ms[3].SendAt.Equal(r.SendAt) {
+		t.Fatalf("pending, two days before: %v", keys(ms))
 	}
 	// Booked inside the window: the reminder goes at once (user's decision).
 	threeHoursBefore := start.Add(-3 * time.Hour)
@@ -178,7 +199,8 @@ func TestPlanReminder(t *testing.T) {
 	}{
 		{"confirmed", "CREATED", "BUSINESS", "CONFIRMED", twoDaysBefore, day},
 		{"disabled", "CREATED", "CUSTOMER", "PENDING_CONFIRMATION", twoDaysBefore, domain.Reminders{Before: 24 * time.Hour}},
-		{"canceled", "CANCELLED", "BUSINESS", "CANCELLED", twoDaysBefore, day}, //nolint:misspell // stored value
+		{"canceled", "CANCELLED", "BUSINESS", "CANCELLED", twoDaysBefore, day},                 //nolint:misspell // stored value
+		{"canceled by the customer", "CANCELLED", "CUSTOMER", "CANCELLED", twoDaysBefore, day}, //nolint:misspell // stored value
 		{"confirmation", "CONFIRMED", "CUSTOMER", "PENDING_CONFIRMATION", twoDaysBefore, day},
 		{"after the start", "CREATED", "BUSINESS", "PENDING_CONFIRMATION", start.Add(time.Minute), day},
 	}
@@ -203,5 +225,38 @@ func TestStaleReminder(t *testing.T) {
 	}
 	if got := domain.Stale(m, domain.Appointment{Status: "PENDING_CONFIRMATION", ProfessionalID: pro, Start: start.Add(time.Hour)}, now); got != domain.SkipChanged {
 		t.Errorf("moved: %q", got)
+	}
+}
+
+func TestMaskEmail(t *testing.T) {
+	for in, want := range map[string]string{
+		"laura.gomez@gmail.com": "l•••@gmail.com",
+		"a@b.co":                "a•••@b.co",
+		"@b.co":                 "•••••",
+		"nope":                  "••••",
+	} {
+		if got := domain.MaskEmail(in); got != want {
+			t.Errorf("MaskEmail(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if got := (domain.Message{Channel: domain.ChannelEmail, Recipient: "ana@x.co"}).MaskRecipient(); got != "a•••@x.co" {
+		t.Errorf("email: %q", got)
+	}
+	if got := (domain.Message{Channel: domain.ChannelWhatsApp, Recipient: "+573001234567"}).MaskRecipient(); got != "+57••••••4567" {
+		t.Errorf("whatsapp: %q", got)
+	}
+}
+
+func TestDateAndTimeES(t *testing.T) {
+	bogota, _ := time.LoadLocation("America/Bogota")
+	c := domain.Content{Start: time.Date(2026, 12, 2, 2, 0, 0, 0, time.UTC), Location: bogota} // the day before locally
+	if got := c.DateES(); got != "martes 1 de diciembre de 2026" {
+		t.Errorf("DateES %q", got)
+	}
+	if got := c.TimeES(); got != "9:00 p. m." {
+		t.Errorf("TimeES %q", got)
+	}
+	if got := (domain.Content{Start: time.Date(2027, 1, 1, 0, 5, 0, 0, time.UTC)}).DateES(); got != "viernes 1 de enero de 2027" {
+		t.Errorf("no zone: %q", got)
 	}
 }

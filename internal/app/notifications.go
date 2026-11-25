@@ -1,14 +1,18 @@
 package app
 
 import (
+	"context"
+	"errors"
 	"log/slog"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	businesses "github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/contract"
 	identity "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/domain"
+	"github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/infrastructure/email"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/infrastructure/postgres"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/infrastructure/simulated"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/notifications/infrastructure/whatsapp"
@@ -18,25 +22,65 @@ import (
 	schedpg "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/infrastructure/postgres"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/config"
+	"github.com/lhbotero1985/booking-platform-backend/internal/platform/mail"
 )
 
 // NewNotificationsService wires the notification use cases (T7.1). WhatsApp goes through the
 // Cloud API of Meta when its credentials are configured (T7.2); otherwise through the simulated
-// sender, and nothing leaves the server.
-func NewNotificationsService(cfg config.Notifications, pool *pgxpool.Pool, jobs postgres.JobInserter, appointments SchedulingForNotifications,
-	reminders application.ReminderSettings, logger *slog.Logger,
-) *application.Service {
-	wa := WhatsAppSender(cfg, logger)
+// sender, and nothing leaves the server. Emails (T7.6) go through the SMTP server of the
+// environment (Mailpit in QA).
+func NewNotificationsService(cfg config.Config, pool *pgxpool.Pool, jobs postgres.JobInserter, appointments SchedulingForNotifications,
+	reminders application.ReminderSettings, recipients application.Recipients, logger *slog.Logger,
+) (*application.Service, error) {
+	n := cfg.Notifications
+	wa := WhatsAppSender(n, logger)
+	mailer, err := mail.NewSMTP(mail.Config{
+		Host: cfg.SMTP.Host, Port: cfg.SMTP.Port, From: cfg.SMTP.From,
+		Username: cfg.SMTP.Username, Password: cfg.SMTP.Password, TLSMode: cfg.SMTP.TLSMode,
+	})
+	if err != nil {
+		return nil, err
+	}
 	return application.NewService(application.Deps{
 		Store:        postgres.NewStore(pool, jobs),
 		Appointments: appointments,
 		Replies:      appointments,
 		TextSender:   wa,
 		Reminders:    reminders,
-		Senders:      map[domain.Channel]application.Sender{domain.ChannelWhatsApp: wa},
-		Policy:       application.Policy{WhatsAppEnabled: cfg.WhatsAppEnabled, WhatsAppAllowlist: cfg.WhatsAppAllowlist},
-		Clock:        clock.System{},
-	})
+		Recipients:   recipients,
+		Senders: map[domain.Channel]application.Sender{
+			domain.ChannelWhatsApp: wa,
+			domain.ChannelEmail:    email.New(mailer, email.Config{AppDownloadURL: cfg.AppDownloadURL}),
+		},
+		Policy: application.Policy{EmailEnabled: n.EmailEnabled, WhatsAppEnabled: n.WhatsAppEnabled, WhatsAppAllowlist: n.WhatsAppAllowlist},
+		Clock:  clock.System{},
+	}), nil
+}
+
+// NewEmailRecipients resolves the addresses of the appointment emails (T7.6): an account's email
+// in identity, a professional's account in professionals.
+func NewEmailRecipients(accounts identity.Accounts, profs professionals.Agenda) application.Recipients {
+	return emailRecipients{accounts: accounts, profs: profs}
+}
+
+type emailRecipients struct {
+	accounts identity.Accounts
+	profs    professionals.Agenda
+}
+
+func (r emailRecipients) AccountEmail(ctx context.Context, userID uuid.UUID) (string, error) {
+	return r.accounts.AccountEmail(ctx, userID)
+}
+
+func (r emailRecipients) ProfessionalEmail(ctx context.Context, businessID, professionalID uuid.UUID) (string, error) {
+	userID, err := r.profs.ProfessionalUserID(ctx, businessID, professionalID)
+	if errors.Is(err, professionals.ErrProfessionalNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return r.accounts.AccountEmail(ctx, userID)
 }
 
 // SchedulingForNotifications is what notifications reads and does in scheduling.

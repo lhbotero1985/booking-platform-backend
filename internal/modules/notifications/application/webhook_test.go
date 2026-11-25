@@ -74,7 +74,7 @@ func newButtonsWorld(t *testing.T) buttonsWorld {
 		t.Fatal(err)
 	}
 	for _, m := range w.st.Messages() {
-		if m.Kind == domain.KindReminder {
+		if m.Kind == domain.KindReminder && m.Channel == domain.ChannelWhatsApp {
 			w.msg = m
 		}
 	}

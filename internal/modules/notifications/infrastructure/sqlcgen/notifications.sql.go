@@ -120,14 +120,15 @@ func (q *Queries) ClaimWebhookEvent(ctx context.Context, arg ClaimWebhookEventPa
 
 const finishMessage = `-- name: FinishMessage :exec
 UPDATE notification_messages
-SET status = $1, skip_reason = $2, error_code = $3,
-    provider_message_id = $4, sent_at = $5,
-    attempts = attempts + $6::integer, updated_at = $7
-WHERE id = $8 AND status = 'PENDING'
+SET status = $1, recipient = $2, skip_reason = $3, error_code = $4,
+    provider_message_id = $5, sent_at = $6,
+    attempts = attempts + $7::integer, updated_at = $8
+WHERE id = $9 AND status = 'PENDING'
 `
 
 type FinishMessageParams struct {
 	Status            string
+	Recipient         string
 	SkipReason        *string
 	ErrorCode         *string
 	ProviderMessageID *string
@@ -137,10 +138,12 @@ type FinishMessageParams struct {
 	ID                uuid.UUID
 }
 
-// Records the outcome of one delivery attempt; a message that is no longer pending is left alone.
+// Records the outcome of one delivery attempt and the recipient it went to (an email address is
+// resolved when sent); a message that is no longer pending is left alone.
 func (q *Queries) FinishMessage(ctx context.Context, arg FinishMessageParams) error {
 	_, err := q.db.Exec(ctx, finishMessage,
 		arg.Status,
+		arg.Recipient,
 		arg.SkipReason,
 		arg.ErrorCode,
 		arg.ProviderMessageID,

@@ -54,6 +54,7 @@ type Outgoing struct {
 	MessageID uuid.UUID
 	Kind      domain.Kind
 	Channel   domain.Channel
+	Role      domain.Role
 	To        string
 	Content   domain.Content
 	// ButtonPayloads are the payloads of the quick-reply buttons, in order (T7.5: the reminder's
@@ -83,12 +84,17 @@ func (e *DeliveryError) Unwrap() error { return e.Err }
 
 // Policy is the per-environment switch of each channel (notifications.md §3, cost control).
 type Policy struct {
+	// EmailEnabled turns the appointment emails on (T7.6).
+	EmailEnabled    bool
 	WhatsAppEnabled bool
 	// WhatsAppAllowlist, when not empty, is the only numbers WhatsApp may write to (QA).
 	WhatsAppAllowlist []string
 }
 
 func (p Policy) gate(m domain.Message) domain.SkipReason {
+	if m.Channel == domain.ChannelEmail && !p.EmailEnabled {
+		return domain.SkipChannelDisabled
+	}
 	if m.Channel != domain.ChannelWhatsApp {
 		return ""
 	}
@@ -101,7 +107,15 @@ func (p Policy) gate(m domain.Message) domain.SkipReason {
 	return ""
 }
 
-// ReminderSettings reads the reminder setting of a business (T7.4).
+// Recipients resolves the email addresses of the people a message goes to (T7.6). "" when there
+// is none (no account, disabled account, no professional).
+type Recipients interface {
+	AccountEmail(ctx context.Context, userID uuid.UUID) (string, error)
+	ProfessionalEmail(ctx context.Context, businessID, professionalID uuid.UUID) (string, error)
+}
+
+// ReminderSettings reads the booking policy of a business: its reminder setting (T7.4) and the
+// cut-offs the emails show (T7.6).
 type ReminderSettings interface {
 	BookingPolicyOf(ctx context.Context, businessID uuid.UUID) (businesses.BookingPolicy, error)
 }
@@ -115,11 +129,13 @@ type Deps struct {
 	TextSender TextSender
 	// Random is the source of the buttons' tokens (crypto/rand.Reader when nil).
 	Random io.Reader
-	// Reminders: nil sends no reminders.
+	// Reminders: nil sends no reminders and shows no cut-offs.
 	Reminders ReminderSettings
-	Senders   map[domain.Channel]Sender
-	Policy    Policy
-	Clock     clock.Clock
+	// Recipients: nil leaves only the email the business registered for the customer.
+	Recipients Recipients
+	Senders    map[domain.Channel]Sender
+	Policy     Policy
+	Clock      clock.Clock
 }
 
 // Service implements the notification use cases.
@@ -205,6 +221,11 @@ func (s *Service) Send(ctx context.Context, id uuid.UUID, lastAttempt bool) erro
 	if err != nil {
 		return err
 	}
+	if m.Channel == domain.ChannelEmail && m.Recipient == "" {
+		if m.Recipient, err = s.emailOf(ctx, m, st); err != nil {
+			return err
+		}
+	}
 	now := s.d.Clock.Now()
 	if reason := domain.Stale(m, domain.Appointment{Status: st.Status, ProfessionalID: st.ProfessionalID, Start: st.Start}, now); reason != "" {
 		return s.skip(ctx, m, reason)
@@ -213,8 +234,13 @@ func (s *Service) Send(ctx context.Context, id uuid.UUID, lastAttempt bool) erro
 	if !ok {
 		return s.skip(ctx, m, domain.SkipChannelDisabled)
 	}
-	out := Outgoing{MessageID: m.ID, Kind: m.Kind, Channel: m.Channel, To: m.Recipient, Content: contentOf(st)}
-	if m.Kind == domain.KindReminder {
+	out := Outgoing{MessageID: m.ID, Kind: m.Kind, Channel: m.Channel, Role: m.RecipientRole, To: m.Recipient, Content: contentOf(st)}
+	if m.Channel == domain.ChannelEmail {
+		if err := s.addPolicy(ctx, m.BusinessID, &out.Content); err != nil {
+			return err
+		}
+	}
+	if m.Kind == domain.KindReminder && m.Channel == domain.ChannelWhatsApp {
 		if out.ButtonPayloads, err = s.issueTokens(ctx, m); err != nil {
 			return err
 		}
@@ -250,7 +276,38 @@ func contentOf(st scheduling.AppointmentState) domain.Content {
 	return domain.Content{
 		CustomerName: st.CustomerName, BusinessName: st.BusinessName, ServiceName: st.ServiceName,
 		ProfessionalName: st.ProfessionalName, Start: st.Start, Location: loc, CancelReason: st.CancelReason,
+		Status: st.Status, BusinessAddress: st.BusinessAddress, BusinessPhone: st.BusinessPhone,
+		Latitude: st.BusinessLatitude, Longitude: st.BusinessLongitude,
 	}
+}
+
+// emailOf is the address of the recipient of an email (T7.6): for the customer, the one the
+// business registered or else the one of its account; for the professional, its account's.
+func (s *Service) emailOf(ctx context.Context, m domain.Message, st scheduling.AppointmentState) (string, error) {
+	switch {
+	case m.RecipientRole == domain.RecipientCustomer && st.CustomerEmail != "":
+		return st.CustomerEmail, nil
+	case s.d.Recipients == nil:
+		return "", nil
+	case m.RecipientRole == domain.RecipientCustomer && st.CustomerUserID != uuid.Nil:
+		return s.d.Recipients.AccountEmail(ctx, st.CustomerUserID)
+	case m.RecipientRole == domain.RecipientProfessional:
+		return s.d.Recipients.ProfessionalEmail(ctx, m.BusinessID, m.ProfessionalID)
+	}
+	return "", nil
+}
+
+// addPolicy adds the business's cut-offs to what an email shows.
+func (s *Service) addPolicy(ctx context.Context, businessID uuid.UUID, c *domain.Content) error {
+	if s.d.Reminders == nil {
+		return nil
+	}
+	pol, err := s.d.Reminders.BookingPolicyOf(ctx, businessID)
+	if err != nil {
+		return err
+	}
+	c.CancelCutoffHours, c.RescheduleCutoffHours = pol.CancellationCutoffHours, pol.RescheduleCutoffHours
+	return nil
 }
 
 func (s *Service) skip(ctx context.Context, m domain.Message, reason domain.SkipReason) error {

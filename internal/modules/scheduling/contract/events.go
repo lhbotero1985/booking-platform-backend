@@ -72,6 +72,13 @@ type AppointmentState struct {
 	ProfessionalName               string // display name; "" if unknown
 	BusinessName                   string
 	TimeZone                       string // IANA zone of the business
+	// T7.6: who the appointment emails go to and the contact they show.
+	CustomerEmail     string    // registered by the business; "" if none
+	CustomerUserID    uuid.UUID // the customer's account; uuid.Nil if booked by hand without one
+	BusinessAddress   string
+	BusinessPhone     string   // E.164
+	BusinessLatitude  *float64 // nil without coordinates
+	BusinessLongitude *float64
 }
 
 // Appointments is what other modules read about appointments.
