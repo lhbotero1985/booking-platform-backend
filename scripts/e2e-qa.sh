@@ -412,14 +412,14 @@ check "  its email has the three links" 3 "$(for l in "$lk_confirm" "$lk_resched
 check "first tap: the page" 200 "$(status GET "${lk_confirm#"$B"}")"
 check "  security headers" 1 "$(hdrs | grep -ci "^content-security-policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'")"
 check "  changes nothing" PENDING_CONFIRMATION "$(status GET "/api/v1/me/appointments/$lk_appt" "" "$T1" >/dev/null; json .status)"
-check "second tap confirms" "200 1" "$(form /citas/confirmar "$(tok "$lk_confirm")") $(grep -c 'quedó confirmada' "$tmp/b")"
+check "second tap confirms" "200 1" "$(form /citas/confirmar "$(tok "$lk_confirm")") $(grep -c -m1 'quedó confirmada' "$tmp/b")"
 check "  status CONFIRMED" CONFIRMED "$(status GET "/api/v1/me/appointments/$lk_appt" "" "$T1" >/dev/null; json .status)"
-check "the same link again: no longer valid" "200 1" "$(form /citas/confirmar "$(tok "$lk_confirm")") $(grep -c 'ya no es válido' "$tmp/b")"
+check "the same link again: no longer valid" "200 1" "$(form /citas/confirmar "$(tok "$lk_confirm")") $(grep -c -m1 'ya no es válido' "$tmp/b")"
 check "reschedule (frontend API): lookup" "null $svc" "$(status POST /api/v1/appointment-links/lookup "{\"token\":\"$(tok "$lk_resched")\",\"action\":\"RESCHEDULE\"}" >/dev/null; json '"\(.outcome) \(.appointment.serviceId)"')"
 lk_new=$(status GET "$av&date=$tue" >/dev/null; json '.slots[0].startAt')
 check "  moves it to a free time" "200 RESCHEDULED" "$(status POST /api/v1/appointment-links/apply "{\"token\":\"$(tok "$lk_resched")\",\"action\":\"RESCHEDULE\",\"startAt\":\"$lk_new\"}") $(json .outcome)"
 check "  as the customer (history)" "RESCHEDULED" "$(status GET "/api/v1/business/$mine/appointments/$lk_appt/history" "" "$T1" >/dev/null; json '.items[-1].type')"
-check "  the email's cancel link is spent" "200 1" "$(status GET "${lk_cancel#"$B"}") $(grep -c 'ya no es válido' "$tmp/b")"
+check "  the email's cancel link is spent" "200 1" "$(status GET "${lk_cancel#"$B"}") $(grep -c -m1 'ya no es válido' "$tmp/b")"
 check "frees the slot (customer cancels)" 200 "$(status POST "/api/v1/me/appointments/$lk_appt/cancel" "" "$T1")"
 check "a cancelled one cannot be confirmed" 409 "$(status POST "$st_appt/confirm" "" "$TS")"
 

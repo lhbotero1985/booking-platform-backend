@@ -468,7 +468,7 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 
 ## 2026-11-25 · Fase 7 · T7.7 — Acciones desde el correo
 
-- **Estado:** ✅ en `feature/t7.7-email-actions` (commit y push; PR pendiente de autorización).
+- **Estado:** ✅ en `qa` (PR #66) y validada en QA: E2E 214/214.
 - **Hecho:** botones Confirmar / Reagendar / Cancelar en los correos al cliente; códigos de un
   solo uso (acción `RESCHEDULE`, migración 00024); páginas de dos toques `/citas/*`; API
   `appointment-links/lookup|apply` para la pantalla de reagendar del frontend;
