@@ -1098,3 +1098,10 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `task check` (lint 0, sin vulnerabilidades) / `sqlc:check` / `shellcheck` | ✅ | |
 | Integración completa (`task test:integration`) | ✅ | 45 paquetes |
 | Despliegue y E2E en QA (PR #68) | ✅ 218/218 | CI 6/6; `release-qa` ✅ (migración 00025 aplicada). Solo cuenta el cambio del cliente (1, no el del barbero); el dueño fija 1 → segundo cambio del cliente 409 `RESCHEDULE_LIMIT_REACHED`; vuelve a 2. Con `CURL_EXTRA=--resolve …` (DNS local), 1.ª corrida sin fallos |
+
+## 2026-11-25 · Despliegue QA · carrera en el smoke test de Caddy
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| Despliegue de #63 (`86a4dad`) | ❌ → rollback ✅ | Caddy recreado/reiniciado por el Caddyfile nuevo; `curl` a 443 "Couldn't connect … after 0 ms" en el mismo instante; el rollback dejó QA sano (`4437175`) |
+| Corrección: reintentos de la verificación por Caddy (60 s) en `deploy.sh` | ✅ `bash -n` | shellcheck en CI (el contenedor local se colgó) |
