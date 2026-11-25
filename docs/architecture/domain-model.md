@@ -68,6 +68,9 @@ Gestionado solo por `PLATFORM_ADMIN`; se siembra con un seed de los países del 
     - `maxAdvanceDays` (horizonte, def. 60)
     - `cancellationCutoffHours` (cliente puede cancelar hasta N h antes, def. 2)
     - `rescheduleCutoffHours` (def. 2)
+    - `maxCustomerReschedules` (T7.8: veces que el cliente puede reprogramar una cita, 0–10,
+      0 = sin límite, def. 2; los cambios del negocio no cuentan). La cita guarda
+      `customerReschedules`.
     - `requireCustomerConfirmation` (def. `true`)
   - `NotificationSettings` (VO): canales habilitados, envío de recordatorio (def. 24 h antes).
     Implementado en T4.2 como `Reminders{Enabled, HoursBefore 1–72}`; los canales llegan en la

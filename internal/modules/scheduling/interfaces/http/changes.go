@@ -22,6 +22,7 @@ const (
 	CodeTooEarly           = "TOO_EARLY"
 	CodeAlreadyStarted     = "APPOINTMENT_STARTED"
 	CodeCutoffPassed       = "CUTOFF_PASSED"
+	CodeRescheduleLimit    = "RESCHEDULE_LIMIT_REACHED"
 	CodeAppointmentChanged = "APPOINTMENT_CHANGED"
 )
 

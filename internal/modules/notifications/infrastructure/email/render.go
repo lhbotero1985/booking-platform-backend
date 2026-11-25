@@ -199,7 +199,11 @@ func policy(c domain.Content) []string {
 		}
 		return "Puedes " + verb + " tu cita hasta " + strconv.Itoa(h) + " horas antes."
 	}
-	return []string{line("cancelar", c.CancelCutoffHours), line("reprogramar", c.RescheduleCutoffHours)}
+	out := []string{line("cancelar", c.CancelCutoffHours), line("reprogramar", c.RescheduleCutoffHours)}
+	if s := c.RescheduleLimitES(); s != "" {
+		out = append(out, s)
+	}
+	return out
 }
 
 func firstName(full string) string {

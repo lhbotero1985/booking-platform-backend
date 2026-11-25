@@ -76,6 +76,7 @@ type policyPatchDTO struct {
 	MaxAdvanceDays              *int  `json:"maxAdvanceDays"`
 	CancellationCutoffHours     *int  `json:"cancellationCutoffHours"`
 	RescheduleCutoffHours       *int  `json:"rescheduleCutoffHours"`
+	MaxCustomerReschedules      *int  `json:"maxCustomerReschedules"`
 	RequireCustomerConfirmation *bool `json:"requireCustomerConfirmation"`
 }
 
@@ -120,7 +121,8 @@ func (h *Handler) updateManaged(w http.ResponseWriter, r *http.Request) {
 		in.Policy = &application.PolicyPatch{
 			SlotIntervalMinutes: p.SlotIntervalMinutes, BufferMinutes: p.BufferMinutes, MinLeadMinutes: p.MinLeadMinutes,
 			MaxAdvanceDays: p.MaxAdvanceDays, CancellationCutoffHours: p.CancellationCutoffHours,
-			RescheduleCutoffHours: p.RescheduleCutoffHours, RequireCustomerConfirmation: p.RequireCustomerConfirmation,
+			RescheduleCutoffHours: p.RescheduleCutoffHours, MaxCustomerReschedules: p.MaxCustomerReschedules,
+			RequireCustomerConfirmation: p.RequireCustomerConfirmation,
 		}
 	}
 	if rm := req.Reminders; rm != nil {

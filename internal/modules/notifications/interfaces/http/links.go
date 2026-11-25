@@ -139,6 +139,9 @@ func (h *Links) viewOf(v application.LinkView, token string) pageView {
 			if c.RescheduleCutoffHours > 0 {
 				p.Notes = append(p.Notes, "Puedes reprogramar hasta "+hours(c.RescheduleCutoffHours)+" antes de la cita.")
 			}
+			if s := c.RescheduleLimitES(); s != "" {
+				p.Notes = append(p.Notes, s)
+			}
 			p.AppURL = h.cfg.AppDownloadURL
 		}
 		p.Token = token
@@ -152,6 +155,9 @@ func (h *Links) viewOf(v application.LinkView, token string) pageView {
 		p.Title, p.Message = "Ya no es posible hacerlo por aquí", "Falta muy poco para la hora de tu cita. Por favor comunícate con "+c.BusinessName+"."
 	case domain.OutcomeSlotUnavailable:
 		p.Title, p.Message = "Ese horario ya no está disponible", "Elige otro horario."
+	case domain.OutcomeRescheduleLimit:
+		p.Title = "Ya no puedes cambiar la hora por aquí"
+		p.Message = "Ya cambiaste la hora de esta cita las veces que permite " + c.BusinessName + ". Si necesitas otro cambio, comunícate con el negocio. Aún puedes cancelarla si lo necesitas."
 	case domain.OutcomeNotActive:
 		p.Title, p.Message = "Esta cita ya no está activa", "Si quieres, puedes agendar una nueva desde la app."
 	default:
@@ -257,6 +263,9 @@ type linkAppointmentDTO struct {
 	TimeZone              string    `json:"timeZone"`
 	CancelCutoffHours     int       `json:"cancelCutoffHours"`
 	RescheduleCutoffHours int       `json:"rescheduleCutoffHours"`
+	// T7.8: the business's limit of moves by the customer (0 = no limit) and those done.
+	MaxCustomerReschedules int `json:"maxCustomerReschedules"`
+	CustomerReschedules    int `json:"customerReschedules"`
 }
 
 type linkDTO struct {
@@ -348,6 +357,7 @@ func (h *Links) writeLink(w http.ResponseWriter, r *http.Request, v application.
 			BusinessID: v.BusinessID, BusinessSlug: v.BusinessSlug, BusinessName: c.BusinessName, ServiceID: v.ServiceID,
 			ServiceName: c.ServiceName, ProfessionalID: v.ProfessionalID, ProfessionalName: c.ProfessionalName,
 			StartAt: c.Start.UTC(), TimeZone: tz, CancelCutoffHours: c.CancelCutoffHours, RescheduleCutoffHours: c.RescheduleCutoffHours,
+			MaxCustomerReschedules: c.MaxReschedules, CustomerReschedules: c.Reschedules,
 		}
 	}
 	httpx.WriteJSON(w, http.StatusOK, out)

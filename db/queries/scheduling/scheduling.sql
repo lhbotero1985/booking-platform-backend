@@ -103,7 +103,7 @@ SELECT * FROM appointments WHERE id = @id FOR UPDATE;
 UPDATE appointments
 SET professional_id = @professional_id, start_at = @start_at, end_at = @end_at, occupied_until = @occupied_until,
     status = @status, cancelled_at = @cancelled_at, cancel_reason = @cancel_reason, cancelled_by = @cancelled_by,
-    version = version + 1, updated_at = @updated_at
+    customer_reschedules = @customer_reschedules, version = version + 1, updated_at = @updated_at
 WHERE id = @id AND version = @version;
 
 -- name: AppointmentEvents :many

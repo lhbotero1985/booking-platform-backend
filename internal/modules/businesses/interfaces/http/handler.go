@@ -90,6 +90,7 @@ type policyDTO struct {
 	MaxAdvanceDays              int  `json:"maxAdvanceDays"`
 	CancellationCutoffHours     int  `json:"cancellationCutoffHours"`
 	RescheduleCutoffHours       int  `json:"rescheduleCutoffHours"`
+	MaxCustomerReschedules      int  `json:"maxCustomerReschedules"`
 	RequireCustomerConfirmation bool `json:"requireCustomerConfirmation"`
 }
 
@@ -131,7 +132,7 @@ func toDTO(b *domain.Business) businessDTO {
 			SlotIntervalMinutes: p.SlotIntervalMinutes, BufferMinutes: p.BufferMinutes,
 			MinLeadMinutes: p.MinLeadMinutes, MaxAdvanceDays: p.MaxAdvanceDays,
 			CancellationCutoffHours: p.CancellationCutoffHours, RescheduleCutoffHours: p.RescheduleCutoffHours,
-			RequireCustomerConfirmation: p.RequireCustomerConfirmation,
+			MaxCustomerReschedules: p.MaxCustomerReschedules, RequireCustomerConfirmation: p.RequireCustomerConfirmation,
 		},
 		Reminders: remindersDTO{Enabled: r.Enabled, HoursBefore: r.HoursBefore},
 	}

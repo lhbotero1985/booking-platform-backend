@@ -31,15 +31,20 @@ type LinkView struct {
 	BusinessSlug                          string
 }
 
-// emailActions are the links of an email to the customer about an active appointment.
-func emailActions(kind domain.Kind, role domain.Role, status string) []domain.Action {
+// emailActions are the links of an email to the customer about an active appointment: confirm
+// while pending, reschedule while the business's limit allows it (T7.8), cancel.
+func emailActions(kind domain.Kind, role domain.Role, c domain.Content) []domain.Action {
 	if role != domain.RecipientCustomer || kind == domain.KindCancelled || kind == domain.KindCancelledByCustomer {
 		return nil
 	}
-	if status == scheduling.StatusPendingConfirmation {
-		return []domain.Action{domain.ActionConfirm, domain.ActionReschedule, domain.ActionCancel}
+	var out []domain.Action
+	if c.Status == scheduling.StatusPendingConfirmation {
+		out = append(out, domain.ActionConfirm)
 	}
-	return []domain.Action{domain.ActionReschedule, domain.ActionCancel}
+	if c.CanReschedule() {
+		out = append(out, domain.ActionReschedule)
+	}
+	return append(out, domain.ActionCancel)
 }
 
 // Link reads what an email link would do, changing nothing.
@@ -86,6 +91,9 @@ func (s *Service) UseLink(ctx context.Context, raw string, action domain.Action,
 		switch {
 		case errors.Is(err, scheduling.ErrCutoffPassed):
 			view.Outcome = domain.OutcomeCutoff
+			return nil
+		case errors.Is(err, scheduling.ErrRescheduleLimit):
+			view.Outcome = domain.OutcomeRescheduleLimit // not spent: it may still confirm or cancel
 			return nil
 		case errors.Is(err, scheduling.ErrSlotUnavailable):
 			view.Outcome = domain.OutcomeSlotUnavailable // pick another time: the link stays valid
@@ -148,6 +156,10 @@ func (s *Service) checkLink(ctx context.Context, tx Tx, raw string, action domai
 	}
 	if st.Status != scheduling.StatusPendingConfirmation && st.Status != statusConfirmed {
 		view.Outcome = domain.OutcomeNotActive
+		return view, false, nil
+	}
+	if action == domain.ActionReschedule && !view.Content.CanReschedule() {
+		view.Outcome = domain.OutcomeRescheduleLimit // e.g. the business lowered its limit after the email
 		return view, false, nil
 	}
 	return view, true, nil

@@ -109,7 +109,11 @@ func TestLinkPages(t *testing.T) {
 	if !strings.Contains(page, "Sí, confirmar mi cita") {
 		t.Error("confirm page")
 	}
+	f.view.Content.MaxReschedules, f.view.Content.Reschedules = 2, 1
 	_, page = get(t, srv.URL+"/citas/reagendar?token=x")
+	if !strings.Contains(page, "Te queda 1 cambio de hora para esta cita (máximo 2 veces).") {
+		t.Errorf("reschedule page without the limit: %s", page)
+	}
 	if !strings.Contains(page, "Cambia la hora de tu cita") || !strings.Contains(page, "https://booka.example/app") || strings.Contains(page, "<form") ||
 		!strings.Contains(page, "hasta 1 hora antes") {
 		t.Errorf("reschedule page: %s", page)
@@ -146,6 +150,7 @@ func TestLinkPageOutcomes(t *testing.T) {
 		domain.OutcomeNotActive:       "Esta cita ya no está activa",
 		domain.OutcomeCutoff:          "comunícate con Barbería El Paisa",
 		domain.OutcomeSlotUnavailable: "Ese horario ya no está disponible",
+		domain.OutcomeRescheduleLimit: "Ya cambiaste la hora de esta cita las veces que permite Barbería El Paisa",
 		domain.OutcomeCancelled:       "Tu cita fue cancelada",
 		domain.OutcomeRescheduled:     "Tu cita cambió de hora",
 	} {
@@ -175,7 +180,8 @@ func TestLinksAPI(t *testing.T) {
 	srv := linksServer(t, f)
 	code, body := postJSON(t, srv.URL+"/api/v1/appointment-links/lookup", `{"token":"abc","action":"RESCHEDULE"}`)
 	if code != 200 || !strings.Contains(body, `"outcome":null`) || !strings.Contains(body, `"businessSlug":"el-paisa"`) ||
-		!strings.Contains(body, `"timeZone":"America/Bogota"`) || !strings.Contains(body, `"startAt":"2026-12-02T15:00:00Z"`) {
+		!strings.Contains(body, `"timeZone":"America/Bogota"`) || !strings.Contains(body, `"startAt":"2026-12-02T15:00:00Z"`) ||
+		!strings.Contains(body, `"maxCustomerReschedules":0,"customerReschedules":0`) {
 		t.Errorf("lookup: %d %s", code, body)
 	}
 	code, body = postJSON(t, srv.URL+"/api/v1/appointment-links/apply", `{"token":"abc","action":"RESCHEDULE","startAt":"2026-12-02T11:00:00-05:00"}`)

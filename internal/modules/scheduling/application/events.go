@@ -45,7 +45,7 @@ func (s *Service) AppointmentState(ctx context.Context, businessID, id uuid.UUID
 		out = contract.AppointmentState{
 			ID: a.ID, BusinessID: a.BusinessID, ProfessionalID: a.ProfessionalID, Status: string(a.Status), Start: a.Start, Version: a.Version,
 			CustomerName: a.Customer.Name, ServiceName: a.Service.Name, CancelReason: a.CancelReason, CustomerUserID: a.Customer.UserID,
-			ServiceID: a.Service.ServiceID,
+			ServiceID: a.Service.ServiceID, CustomerReschedules: a.CustomerReschedules,
 		}
 		if a.Customer.CustomerID == uuid.Nil {
 			return nil
@@ -129,6 +129,8 @@ func replyError(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrCutoffPassed):
 		return errors.Join(contract.ErrCutoffPassed, err)
+	case errors.Is(err, domain.ErrRescheduleLimit):
+		return errors.Join(contract.ErrRescheduleLimit, err)
 	case errors.Is(err, domain.ErrInvalidTransition), errors.Is(err, domain.ErrAlreadyStarted):
 		return errors.Join(contract.ErrNotActive, err)
 	}

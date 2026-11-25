@@ -260,3 +260,22 @@ func TestDateAndTimeES(t *testing.T) {
 		t.Errorf("no zone: %q", got)
 	}
 }
+
+func TestRescheduleLimitES(t *testing.T) {
+	for _, tc := range []struct {
+		max, done int
+		can       bool
+		want      string
+	}{
+		{0, 7, true, ""},
+		{2, 0, true, "Te quedan 2 cambios de hora para esta cita (máximo 2 veces)."},
+		{2, 1, true, "Te queda 1 cambio de hora para esta cita (máximo 2 veces)."},
+		{1, 1, false, "Ya usaste los cambios de hora que permite el negocio para esta cita (1 vez)."},
+		{2, 3, false, "Ya usaste los cambios de hora que permite el negocio para esta cita (2 veces)."},
+	} {
+		c := domain.Content{MaxReschedules: tc.max, Reschedules: tc.done}
+		if c.CanReschedule() != tc.can || c.RescheduleLimitES() != tc.want {
+			t.Errorf("%d/%d: %v %q", tc.done, tc.max, c.CanReschedule(), c.RescheduleLimitES())
+		}
+	}
+}

@@ -1,6 +1,6 @@
 # Notificaciones: WhatsApp, correo y push
 
-Estado: **Fase 7 en curso** (T7.1–T7.7 implementadas: §7–§13). ADR-0008, ADR-0009, ADR-0010 (push
+Estado: **Fase 7 en curso** (T7.1–T7.8 implementadas: §7–§13). ADR-0008, ADR-0009, ADR-0010 (push
 aplazada por ADR-0019).
 
 ## 1. Principios
@@ -290,6 +290,12 @@ sale de inmediato**.
     datos de la cita (`businessSlug`, `serviceId`, `professionalId`, `startAt`, `timeZone`,
     límites) para consultar `GET /api/v1/businesses/{slug}/availability`;
   - `POST /api/v1/appointment-links/apply {token, action, startAt?}` → `CONFIRMED`, `CANCELLED`,
-    `RESCHEDULED`, `CUTOFF_PASSED`, `SLOT_UNAVAILABLE`, `NOT_ACTIVE` o `INVALID`.
+    `RESCHEDULED`, `CUTOFF_PASSED`, `SLOT_UNAVAILABLE`, `RESCHEDULE_LIMIT_REACHED` (T7.8),
+    `NOT_ACTIVE` o `INVALID`.
+- **Límite de reprogramaciones (T7.8):** el correo no lleva **Reagendar** si el cliente ya usó
+  los cambios que permite el negocio, y las políticas del correo dicen cuántos le quedan; un
+  enlace anterior responde `RESCHEDULE_LIMIT_REACHED` ("Ya no puedes cambiar la hora por aquí")
+  sin gastarse: el mismo correo aún sirve para confirmar o cancelar. `lookup` devuelve
+  `maxCustomerReschedules` y `customerReschedules`.
 - **Configuración:** `PUBLIC_API_URL` (origen público de la API; https en QA/PROD; en QA sale de
   `SITE_DOMAIN`) y `APPOINTMENT_RESCHEDULE_URL` (opcional, https).

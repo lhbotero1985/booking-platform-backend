@@ -17,7 +17,7 @@ SELECT id, name, slug::text AS slug, status, contact_phone, description, country
        city_id, address_line, latitude, longitude, time_zone, currency, slot_interval_minutes,
        buffer_minutes, min_lead_minutes, max_advance_days, cancellation_cutoff_hours,
        reschedule_cutoff_hours, require_customer_confirmation, reminders_enabled,
-       reminder_hours_before, created_at, updated_at
+       reminder_hours_before, max_customer_reschedules, created_at, updated_at
 FROM businesses
 WHERE id = $1
 `
@@ -46,6 +46,7 @@ type BusinessByIDRow struct {
 	RequireCustomerConfirmation bool
 	RemindersEnabled            bool
 	ReminderHoursBefore         int16
+	MaxCustomerReschedules      int16
 	CreatedAt                   time.Time
 	UpdatedAt                   time.Time
 }
@@ -77,6 +78,7 @@ func (q *Queries) BusinessByID(ctx context.Context, id uuid.UUID) (BusinessByIDR
 		&i.RequireCustomerConfirmation,
 		&i.RemindersEnabled,
 		&i.ReminderHoursBefore,
+		&i.MaxCustomerReschedules,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -88,7 +90,7 @@ SELECT id, name, slug::text AS slug, status, contact_phone, description, country
        city_id, address_line, latitude, longitude, time_zone, currency, slot_interval_minutes,
        buffer_minutes, min_lead_minutes, max_advance_days, cancellation_cutoff_hours,
        reschedule_cutoff_hours, require_customer_confirmation, reminders_enabled,
-       reminder_hours_before, created_at, updated_at
+       reminder_hours_before, max_customer_reschedules, created_at, updated_at
 FROM businesses
 WHERE slug = $1
 `
@@ -117,6 +119,7 @@ type BusinessBySlugRow struct {
 	RequireCustomerConfirmation bool
 	RemindersEnabled            bool
 	ReminderHoursBefore         int16
+	MaxCustomerReschedules      int16
 	CreatedAt                   time.Time
 	UpdatedAt                   time.Time
 }
@@ -148,6 +151,7 @@ func (q *Queries) BusinessBySlug(ctx context.Context, slug string) (BusinessBySl
 		&i.RequireCustomerConfirmation,
 		&i.RemindersEnabled,
 		&i.ReminderHoursBefore,
+		&i.MaxCustomerReschedules,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -193,9 +197,10 @@ INSERT INTO businesses (
     id, name, slug, status, contact_phone, description, country_code, division_id, city_id,
     address_line, latitude, longitude, time_zone, currency, slot_interval_minutes, buffer_minutes,
     min_lead_minutes, max_advance_days, cancellation_cutoff_hours, reschedule_cutoff_hours,
-    require_customer_confirmation, reminders_enabled, reminder_hours_before, created_at, updated_at)
+    require_customer_confirmation, reminders_enabled, reminder_hours_before, max_customer_reschedules,
+    created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-        $21, $22, $23, $24, $24)
+        $21, $22, $23, $24, $25, $25)
 `
 
 type InsertBusinessParams struct {
@@ -222,6 +227,7 @@ type InsertBusinessParams struct {
 	RequireCustomerConfirmation bool
 	RemindersEnabled            bool
 	ReminderHoursBefore         int16
+	MaxCustomerReschedules      int16
 	CreatedAt                   time.Time
 }
 
@@ -252,6 +258,7 @@ func (q *Queries) InsertBusiness(ctx context.Context, arg InsertBusinessParams) 
 		arg.RequireCustomerConfirmation,
 		arg.RemindersEnabled,
 		arg.ReminderHoursBefore,
+		arg.MaxCustomerReschedules,
 		arg.CreatedAt,
 	)
 	return err
@@ -262,7 +269,7 @@ SELECT id, name, slug::text AS slug, status, contact_phone, description, country
        city_id, address_line, latitude, longitude, time_zone, currency, slot_interval_minutes,
        buffer_minutes, min_lead_minutes, max_advance_days, cancellation_cutoff_hours,
        reschedule_cutoff_hours, require_customer_confirmation, reminders_enabled,
-       reminder_hours_before, created_at, updated_at
+       reminder_hours_before, max_customer_reschedules, created_at, updated_at
 FROM businesses
 WHERE ($1::text IS NULL OR status = $1::text)
   AND ($2::uuid IS NULL OR city_id = $2::uuid)
@@ -302,6 +309,7 @@ type ListBusinessesRow struct {
 	RequireCustomerConfirmation bool
 	RemindersEnabled            bool
 	ReminderHoursBefore         int16
+	MaxCustomerReschedules      int16
 	CreatedAt                   time.Time
 	UpdatedAt                   time.Time
 }
@@ -346,6 +354,7 @@ func (q *Queries) ListBusinesses(ctx context.Context, arg ListBusinessesParams) 
 			&i.RequireCustomerConfirmation,
 			&i.RemindersEnabled,
 			&i.ReminderHoursBefore,
+			&i.MaxCustomerReschedules,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -364,7 +373,7 @@ SELECT lower(name) AS sort_name, id, name, slug::text AS slug, status, contact_p
        city_id, address_line, latitude, longitude, time_zone, currency, slot_interval_minutes,
        buffer_minutes, min_lead_minutes, max_advance_days, cancellation_cutoff_hours,
        reschedule_cutoff_hours, require_customer_confirmation, reminders_enabled,
-       reminder_hours_before, created_at, updated_at
+       reminder_hours_before, max_customer_reschedules, created_at, updated_at
 FROM businesses
 WHERE status = 'ACTIVE'
   AND city_id = $1
@@ -407,6 +416,7 @@ type SearchActiveBusinessesRow struct {
 	RequireCustomerConfirmation bool
 	RemindersEnabled            bool
 	ReminderHoursBefore         int16
+	MaxCustomerReschedules      int16
 	CreatedAt                   time.Time
 	UpdatedAt                   time.Time
 }
@@ -454,6 +464,7 @@ func (q *Queries) SearchActiveBusinesses(ctx context.Context, arg SearchActiveBu
 			&i.RequireCustomerConfirmation,
 			&i.RemindersEnabled,
 			&i.ReminderHoursBefore,
+			&i.MaxCustomerReschedules,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -485,7 +496,7 @@ UPDATE businesses SET
     buffer_minutes = $13, min_lead_minutes = $14, max_advance_days = $15,
     cancellation_cutoff_hours = $16, reschedule_cutoff_hours = $17,
     require_customer_confirmation = $18, reminders_enabled = $19, reminder_hours_before = $20,
-    updated_at = $21
+    max_customer_reschedules = $21, updated_at = $22
 WHERE id = $1
 `
 
@@ -510,6 +521,7 @@ type UpdateBusinessParams struct {
 	RequireCustomerConfirmation bool
 	RemindersEnabled            bool
 	ReminderHoursBefore         int16
+	MaxCustomerReschedules      int16
 	UpdatedAt                   time.Time
 }
 
@@ -537,6 +549,7 @@ func (q *Queries) UpdateBusiness(ctx context.Context, arg UpdateBusinessParams) 
 		arg.RequireCustomerConfirmation,
 		arg.RemindersEnabled,
 		arg.ReminderHoursBefore,
+		arg.MaxCustomerReschedules,
 		arg.UpdatedAt,
 	)
 	return err

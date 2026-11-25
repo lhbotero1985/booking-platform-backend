@@ -466,6 +466,18 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-25 · Fase 7 · T7.8 — Límite de reprogramaciones por cita
+
+- **Estado:** ✅ en `feature/t7.8-reschedule-limit` (commit y push; PR pendiente de autorización).
+- **Hecho:** `bookingPolicy.maxCustomerReschedules` (0–10, 0 = sin límite, por defecto 2) en la
+  gestión y la vista pública del negocio; contador `customerReschedules` en la cita (migración
+  00025, reconstruido desde el historial); 409 `RESCHEDULE_LIMIT_REACHED` para el cliente (app,
+  API y enlace del correo); el negocio mueve sin límite y sus cambios no cuentan; el correo omite
+  "Reagendar" al llegar al límite y dice cuántos cambios quedan; resultado
+  `RESCHEDULE_LIMIT_REACHED` en `appointment-links` y página "Ya no puedes cambiar la hora por
+  aquí". E2E QA: el dueño fija 1 → segundo cambio del cliente 409.
+- **Integración previa:** `qa` traía los PR #62–#64 (frontend) y #67 (ajuste del E2E de T7.7).
+
 ## 2026-11-25 · Fase 7 · T7.7 — Acciones desde el correo
 
 - **Estado:** ✅ en `qa` (PR #66) y validada en QA: E2E 214/214.

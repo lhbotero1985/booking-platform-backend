@@ -132,8 +132,12 @@ func TestPolicyLines(t *testing.T) {
 	c.CancelCutoffHours, c.RescheduleCutoffHours = 0, 1
 	got := policy(c)
 	anytime := "Puedes cancelar tu cita en cualquier momento antes de la hora." //nolint:misspell // Spanish
-	if got[0] != anytime || got[1] != "Puedes reprogramar tu cita hasta 1 hora antes." {
+	if len(got) != 2 || got[0] != anytime || got[1] != "Puedes reprogramar tu cita hasta 1 hora antes." {
 		t.Errorf("%q", got)
+	}
+	c.MaxReschedules, c.Reschedules = 3, 1 // T7.8
+	if got := policy(c); len(got) != 3 || got[2] != "Te quedan 2 cambios de hora para esta cita (máximo 3 veces)." {
+		t.Errorf("with a limit: %q", got)
 	}
 	if firstName("") != "hola" || capitalize("") != "" {
 		t.Error("empty names")
