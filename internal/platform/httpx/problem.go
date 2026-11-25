@@ -38,6 +38,9 @@ type Problem struct {
 	Code      string       `json:"code"`
 	RequestID string       `json:"requestId,omitempty"`
 	Errors    []FieldError `json:"errors,omitempty"`
+	// Conflicts lists the records that block the request (e.g. appointments an absence would
+	// break, T6.7).
+	Conflicts any `json:"conflicts,omitempty"`
 }
 
 // NewProblem builds a problem with the standard title for status.

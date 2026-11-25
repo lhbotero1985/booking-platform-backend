@@ -188,7 +188,16 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 		return
 	}
 	var verr *application.ValidationError
+	var conflict *application.ConflictError
 	switch {
+	case errors.As(err, &conflict):
+		p := httpx.NewProblem(http.StatusConflict, CodeAgendaConflicts, "the change would break active appointments; reschedule or cancel them first")
+		list := make([]conflictDTO, 0, len(conflict.Appointments))
+		for _, a := range conflict.Appointments {
+			list = append(list, conflictDTO{ID: a.ID, StartAt: a.Start, EndAt: a.End, CustomerName: a.CustomerName, Status: a.Status})
+		}
+		p.Conflicts = list
+		httpx.WriteProblem(w, r, p)
 	case errors.As(err, &verr):
 		p := httpx.NewProblem(http.StatusBadRequest, httpx.CodeInvalidRequest, "one or more fields are invalid")
 		for _, f := range verr.Fields {
@@ -207,4 +216,16 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 			slog.String("error", err.Error()))
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusInternalServerError, httpx.CodeInternal, ""))
 	}
+}
+
+// CodeAgendaConflicts means an absence or schedule would break active appointments (T6.7, P11).
+const CodeAgendaConflicts = "AGENDA_CONFLICTS"
+
+// conflictDTO is an appointment that blocks a change of the agenda.
+type conflictDTO struct {
+	ID           uuid.UUID `json:"id"`
+	StartAt      time.Time `json:"startAt"`
+	EndAt        time.Time `json:"endAt"`
+	CustomerName string    `json:"customerName"`
+	Status       string    `json:"status"`
 }

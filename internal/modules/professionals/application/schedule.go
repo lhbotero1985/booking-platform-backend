@@ -13,6 +13,7 @@ import (
 
 	identity "github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/domain"
+	scheduling "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/authz"
 )
 
@@ -78,6 +79,11 @@ func (s *Service) ReplaceSchedule(ctx context.Context, p identity.Principal, bus
 		if current.Equal(w) {
 			return nil
 		}
+		if s.guard != nil {
+			if err := conflictsOrNil(s.guard.AppointmentsOutside(ctx, businessID, id, toGuardWeek(w))); err != nil {
+				return err
+			}
+		}
 		if err := tx.ReplaceWeeklySchedule(ctx, businessID, id, w); err != nil {
 			return err
 		}
@@ -98,4 +104,17 @@ func workingDays(w domain.WeeklySchedule) string {
 		}
 	}
 	return strings.Join(out, ",")
+}
+
+func toGuardWeek(w domain.WeeklySchedule) [7]scheduling.Day {
+	var out [7]scheduling.Day
+	for i, d := range w.Days {
+		for _, r := range d.WorkingHours {
+			out[i].WorkingHours = append(out[i].WorkingHours, scheduling.Range{Start: int(r.Start), End: int(r.End)})
+		}
+		for _, r := range d.Breaks {
+			out[i].Breaks = append(out[i].Breaks, scheduling.Range{Start: int(r.Start), End: int(r.End)})
+		}
+	}
+	return out
 }

@@ -12,6 +12,73 @@ import (
 	"github.com/google/uuid"
 )
 
+const activeAppointmentsDuring = `-- name: ActiveAppointmentsDuring :many
+SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id, cancelled_at, cancel_reason, cancelled_by FROM appointments
+WHERE business_id = $1 AND professional_id = $2
+  AND status IN ('PENDING_CONFIRMATION', 'CONFIRMED', 'IN_PROGRESS')
+  AND start_at < $3 AND end_at > $4
+ORDER BY start_at, id
+`
+
+type ActiveAppointmentsDuringParams struct {
+	BusinessID     uuid.UUID
+	ProfessionalID uuid.UUID
+	ToAt           time.Time
+	FromAt         time.Time
+}
+
+// Active appointments of a professional whose service [start_at, end_at) overlaps
+// [from_at, to_at), by start (T6.7: conflicts of an absence or a schedule).
+func (q *Queries) ActiveAppointmentsDuring(ctx context.Context, arg ActiveAppointmentsDuringParams) ([]Appointment, error) {
+	rows, err := q.db.Query(ctx, activeAppointmentsDuring,
+		arg.BusinessID,
+		arg.ProfessionalID,
+		arg.ToAt,
+		arg.FromAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Appointment{}
+	for rows.Next() {
+		var i Appointment
+		if err := rows.Scan(
+			&i.ID,
+			&i.BusinessID,
+			&i.ProfessionalID,
+			&i.ServiceID,
+			&i.CustomerUserID,
+			&i.CustomerName,
+			&i.CustomerPhone,
+			&i.StartAt,
+			&i.EndAt,
+			&i.BufferMinutes,
+			&i.OccupiedUntil,
+			&i.Status,
+			&i.ServiceName,
+			&i.DurationMinutes,
+			&i.PriceMinor,
+			&i.Currency,
+			&i.Version,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CustomerID,
+			&i.CancelledAt,
+			&i.CancelReason,
+			&i.CancelledBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const activeAppointmentsOverlapping = `-- name: ActiveAppointmentsOverlapping :many
 SELECT id, start_at, end_at, occupied_until FROM appointments
 WHERE business_id = $1 AND professional_id = $2

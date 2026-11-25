@@ -336,3 +336,9 @@ func toCustomer(r sqlcgen.Customer, err error) (domain.BusinessCustomer, error) 
 		CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt.UTC(), UpdatedAt: r.UpdatedAt.UTC(),
 	}, nil
 }
+
+func (t *txStore) AppointmentsDuring(ctx context.Context, businessID, professionalID uuid.UUID, from, to time.Time) ([]domain.Appointment, error) {
+	return toAppointments(t.q.ActiveAppointmentsDuring(ctx, sqlcgen.ActiveAppointmentsDuringParams{
+		BusinessID: businessID, ProfessionalID: professionalID, FromAt: from, ToAt: to,
+	}))
+}

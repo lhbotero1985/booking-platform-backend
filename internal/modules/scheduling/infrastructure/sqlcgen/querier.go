@@ -11,6 +11,9 @@ import (
 )
 
 type Querier interface {
+	// Active appointments of a professional whose service [start_at, end_at) overlaps
+	// [from_at, to_at), by start (T6.7: conflicts of an absence or a schedule).
+	ActiveAppointmentsDuring(ctx context.Context, arg ActiveAppointmentsDuringParams) ([]Appointment, error)
 	// Active appointments of a professional whose occupied range [start_at, occupied_until)
 	// overlaps [from_at, to_at).
 	ActiveAppointmentsOverlapping(ctx context.Context, arg ActiveAppointmentsOverlappingParams) ([]ActiveAppointmentsOverlappingRow, error)

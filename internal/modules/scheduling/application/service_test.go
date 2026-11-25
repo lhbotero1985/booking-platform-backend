@@ -74,6 +74,7 @@ func (f *fakeCatalog) BookableService(_ context.Context, biz, svc, pro uuid.UUID
 type fakeAgenda struct {
 	owners   map[uuid.UUID]uuid.UUID // professional → account
 	names    map[uuid.UUID]string
+	gone     map[uuid.UUID]bool // profiles no longer bookable
 	locks    int
 	lockErr  error
 	agenda   professionals.DayAgenda
@@ -88,6 +89,19 @@ func (f *fakeAgenda) ProfessionalUserID(_ context.Context, _, professionalID uui
 		return uuid.Nil, professionals.ErrProfessionalNotFound
 	}
 	return u, nil
+}
+
+// BookableProfessionals: every profile in owners except the ones in gone.
+func (f *fakeAgenda) BookableProfessionals(_ context.Context, ids []uuid.UUID) (map[uuid.UUID][]professionals.PublicProfessional, error) {
+	out := map[uuid.UUID][]professionals.PublicProfessional{}
+	for _, biz := range ids {
+		for pro := range f.owners {
+			if !f.gone[pro] {
+				out[biz] = append(out[biz], professionals.PublicProfessional{ID: pro, BusinessID: biz, DisplayName: f.names[pro]})
+			}
+		}
+	}
+	return out, nil
 }
 
 func (f *fakeAgenda) Roster(context.Context, uuid.UUID) ([]professionals.RosterEntry, error) {

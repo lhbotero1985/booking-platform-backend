@@ -68,6 +68,9 @@ type AgendaTx interface {
 	// CustomerAppointments returns up to limit appointments of an account, upcoming (start >=
 	// now, ascending) or past (descending), after the cursor.
 	CustomerAppointments(ctx context.Context, userID uuid.UUID, now time.Time, upcoming bool, after *Cursor, limit int) ([]domain.Appointment, error)
+	// AppointmentsDuring returns the active appointments of a professional whose service overlaps
+	// [from, to), by start (T6.7).
+	AppointmentsDuring(ctx context.Context, businessID, professionalID uuid.UUID, from, to time.Time) ([]domain.Appointment, error)
 }
 
 // AgendaQuery selects an agenda page.
@@ -83,6 +86,9 @@ type AgendaQuery struct {
 type AgendaItem struct {
 	domain.Appointment
 	ProfessionalName string
+	// NeedsReassignment: active and not finished, but its professional is no longer bookable
+	// (T6.7): the OWNER should move it to another professional.
+	NeedsReassignment bool
 }
 
 // AgendaPage is a page of an agenda.
@@ -180,8 +186,14 @@ func (s *Service) Agenda(ctx context.Context, p identity.Principal, businessID u
 		last := rows[limit-1]
 		page.NextCursor = Cursor{Start: last.Start, ID: last.ID}.Encode()
 	}
+	stranded, _, err := s.stranded(ctx, businessID)
+	if err != nil {
+		return AgendaPage{}, err
+	}
+	now := s.d.Clock.Now()
 	for _, a := range rows {
-		page.Items = append(page.Items, AgendaItem{Appointment: a, ProfessionalName: names[a.ProfessionalID]})
+		page.Items = append(page.Items, AgendaItem{Appointment: a, ProfessionalName: names[a.ProfessionalID],
+			NeedsReassignment: a.Status.Occupies() && a.End.After(now) && contains(stranded, a.ProfessionalID)})
 	}
 	return page, nil
 }

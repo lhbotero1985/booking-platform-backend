@@ -95,6 +95,13 @@ sin centavos) + `currency` del negocio. `categoryId: null` en PATCH quita la cat
 `{"serviceIds": [...]}` (OWNER) que reemplaza la lista completa; `SERVICE_NOT_FOUND` en
 `serviceIds[i]` si el servicio no es del negocio; profesional inexistente o ajeno → 404.
 
+### Coherencia de la agenda (T6.7)
+Ausencias (`POST|PATCH …/professionals/{id}/absences…`) y horario (`PUT …/schedule`) que
+romperían citas activas → 409 `AGENDA_CONFLICTS` con `conflicts: [{id, startAt, endAt,
+customerName, status}]`. `GET /api/v1/business/{businessId}/appointments/to-reassign` (OWNER):
+citas activas de profesionales que ya no son reservables; cada ítem de la agenda trae
+`needsReassignment`.
+
 ### Cambios de una cita (T6.6)
 Cliente: `POST /api/v1/me/appointments/{id}/confirm | cancel | reschedule` (cancel: `reason`
 opcional; reschedule: `startAt`). Personal: `POST /api/v1/business/{businessId}/appointments/{id}/

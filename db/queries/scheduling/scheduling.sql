@@ -108,3 +108,12 @@ WHERE id = @id AND version = @version;
 
 -- name: AppointmentEvents :many
 SELECT * FROM appointment_events WHERE appointment_id = @appointment_id ORDER BY occurred_at, id;
+
+-- Active appointments of a professional whose service [start_at, end_at) overlaps
+-- [from_at, to_at), by start (T6.7: conflicts of an absence or a schedule).
+-- name: ActiveAppointmentsDuring :many
+SELECT * FROM appointments
+WHERE business_id = @business_id AND professional_id = @professional_id
+  AND status IN ('PENDING_CONFIRMATION', 'CONFIRMED', 'IN_PROGRESS')
+  AND start_at < @to_at AND end_at > @from_at
+ORDER BY start_at, id;

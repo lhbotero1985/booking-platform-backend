@@ -21,6 +21,7 @@ type AgendaService interface {
 	Agenda(ctx context.Context, p contract.Principal, businessID uuid.UUID, q application.AgendaQuery) (application.AgendaPage, error)
 	MyAppointments(ctx context.Context, p contract.Principal, q application.MyAppointmentsQuery) ([]application.MyAppointment, string, error)
 	MyAppointmentDetail(ctx context.Context, p contract.Principal, id uuid.UUID) (application.MyAppointment, error)
+	ToReassign(ctx context.Context, p contract.Principal, businessID uuid.UUID) (application.AgendaPage, error)
 }
 
 type agendaCustomerDTO struct {
@@ -31,20 +32,21 @@ type agendaCustomerDTO struct {
 }
 
 type agendaItemDTO struct {
-	ID               uuid.UUID         `json:"id"`
-	ProfessionalID   uuid.UUID         `json:"professionalId"`
-	ProfessionalName string            `json:"professionalName"`
-	ServiceID        uuid.UUID         `json:"serviceId"`
-	ServiceName      string            `json:"serviceName"`
-	DurationMinutes  int               `json:"durationMinutes"`
-	PriceMinor       int64             `json:"priceMinor"`
-	Currency         string            `json:"currency"`
-	StartAt          time.Time         `json:"startAt"`
-	EndAt            time.Time         `json:"endAt"`
-	StartLocal       string            `json:"startLocal"`
-	Status           string            `json:"status"`
-	Customer         agendaCustomerDTO `json:"customer"`
-	CreatedAt        time.Time         `json:"createdAt"`
+	ID                uuid.UUID         `json:"id"`
+	ProfessionalID    uuid.UUID         `json:"professionalId"`
+	ProfessionalName  string            `json:"professionalName"`
+	ServiceID         uuid.UUID         `json:"serviceId"`
+	ServiceName       string            `json:"serviceName"`
+	DurationMinutes   int               `json:"durationMinutes"`
+	PriceMinor        int64             `json:"priceMinor"`
+	Currency          string            `json:"currency"`
+	StartAt           time.Time         `json:"startAt"`
+	EndAt             time.Time         `json:"endAt"`
+	StartLocal        string            `json:"startLocal"`
+	Status            string            `json:"status"`
+	Customer          agendaCustomerDTO `json:"customer"`
+	NeedsReassignment bool              `json:"needsReassignment"`
+	CreatedAt         time.Time         `json:"createdAt"`
 }
 
 type agendaDTO struct {
@@ -90,6 +92,7 @@ type myAppointmentsDTO struct {
 func (h *Handler) agendaRoutes(rt *httpx.Router) {
 	auth := func(f http.HandlerFunc) http.Handler { return h.requireAuth(f) }
 	rt.Handle("GET /api/v1/business/{businessId}/agenda", auth(h.agenda))
+	rt.Handle("GET /api/v1/business/{businessId}/appointments/to-reassign", auth(h.toReassign))
 	rt.Handle("GET /api/v1/me/appointments", auth(h.myAppointments))
 	rt.Handle("GET /api/v1/me/appointments/{appointmentId}", auth(h.myAppointment))
 }
@@ -158,6 +161,10 @@ func (h *Handler) agenda(w http.ResponseWriter, r *http.Request) {
 	if view == "" {
 		view = domain.ViewDay
 	}
+	httpx.WriteJSON(w, http.StatusOK, toAgendaDTO(view, page))
+}
+
+func toAgendaDTO(view domain.View, page application.AgendaPage) agendaDTO {
 	out := agendaDTO{
 		View: string(view), From: page.From.String(), To: page.To.AddDays(-1).String(), TimeZone: page.Location.String(),
 		Items: make([]agendaItemDTO, 0, len(page.Items)), NextCursor: optionalCursor(page.NextCursor),
@@ -172,10 +179,25 @@ func (h *Handler) agenda(w http.ResponseWriter, r *http.Request) {
 			ID: a.ID, ProfessionalID: a.ProfessionalID, ProfessionalName: a.ProfessionalName, ServiceID: a.Service.ServiceID,
 			ServiceName: a.Service.Name, DurationMinutes: a.Service.DurationMinutes, PriceMinor: a.Service.PriceMinor,
 			Currency: a.Service.Currency, StartAt: a.Start, EndAt: a.End, StartLocal: a.Start.In(page.Location).Format(time.RFC3339),
-			Status: string(a.Status), Customer: c, CreatedAt: a.CreatedAt,
+			Status: string(a.Status), Customer: c, NeedsReassignment: a.NeedsReassignment, CreatedAt: a.CreatedAt,
 		})
 	}
-	httpx.WriteJSON(w, http.StatusOK, out)
+	return out
+}
+
+// toReassign serves GET /api/v1/business/{businessId}/appointments/to-reassign (OWNER, T6.7).
+func (h *Handler) toReassign(w http.ResponseWriter, r *http.Request) {
+	ids, ok := h.pathIDs(w, r, "businessId")
+	if !ok {
+		return
+	}
+	p, _ := contract.PrincipalFrom(r.Context())
+	page, err := h.agendas.ToReassign(r.Context(), p, ids[0])
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, toAgendaDTO(domain.ViewYear, page))
 }
 
 func toMyAppointmentDTO(a application.MyAppointment) myAppointmentDTO {

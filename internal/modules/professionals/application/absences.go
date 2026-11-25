@@ -117,6 +117,9 @@ func (s *Service) CreateAbsence(ctx context.Context, p identity.Principal, busin
 		if err != nil {
 			return err
 		}
+		if err := s.checkPeriod(ctx, businessID, profID, start, end); err != nil {
+			return err
+		}
 		now := s.clock.Now()
 		a = domain.Absence{
 			ID: uuid.Must(uuid.NewV7()), BusinessID: businessID, ProfessionalID: profID, Start: start, End: end,
@@ -181,6 +184,9 @@ func (s *Service) UpdateAbsence(ctx context.Context, p identity.Principal, busin
 		if len(changed) == 0 {
 			return nil
 		}
+		if err := s.checkPeriod(ctx, businessID, profID, a.Start, a.End); err != nil {
+			return err
+		}
 		a.UpdatedAt = s.clock.Now()
 		if err := tx.UpdateAbsence(ctx, a); err != nil {
 			return err
@@ -219,7 +225,8 @@ func (s *Service) DeleteAbsence(ctx context.Context, p identity.Principal, busin
 // ownAgenda loads the professional and checks that the caller may manage its agenda: the OWNER
 // (or PLATFORM_ADMIN) any, a PROFESSIONAL only its own (authz.ErrForbidden).
 func (s *Service) ownAgenda(ctx context.Context, tx Tx, p identity.Principal, role identity.Role, businessID, profID uuid.UUID) (domain.Professional, bool, error) {
-	prof, err := tx.ProfessionalByID(ctx, businessID, profID)
+	// The row lock serializes this write with bookings of the same professional (T6.7, ADR-0004).
+	prof, err := tx.LockProfessional(ctx, businessID, profID)
 	if err != nil {
 		return prof, false, err
 	}
@@ -252,4 +259,12 @@ func (s *Service) period(verr *ValidationError, start, end time.Time) (time.Time
 
 func (s *Service) absenceAudit(ctx context.Context, p identity.Principal, action string, prof domain.Professional, a domain.Absence, self bool) *audit.Entry {
 	return s.audit(ctx, p, action, prof).Meta("absence", a.ID.String()).Meta("self", strconv.FormatBool(self))
+}
+
+// checkPeriod refuses an absence over active appointments (P11); called under the lock.
+func (s *Service) checkPeriod(ctx context.Context, businessID, profID uuid.UUID, start, end time.Time) error {
+	if s.guard == nil {
+		return nil
+	}
+	return conflictsOrNil(s.guard.AppointmentsDuring(ctx, businessID, profID, start, end))
 }

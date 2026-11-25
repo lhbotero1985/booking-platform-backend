@@ -51,6 +51,7 @@ type Deps struct {
 	Businesses    businesses.PublicBooking
 	Catalog       catalog.Booking
 	Professionals professionals.Agenda
+	Bookable      professionals.Bookable
 	Customers     identity.Customers
 	Clock         clock.Clock
 }
