@@ -200,7 +200,7 @@ func TestWhatsAppClientOnPostgres(t *testing.T) {
 	w.notif = notifapp.NewService(notifapp.Deps{
 		Store: notifpg.NewStore(w.pool, inserter), Appointments: w.sched,
 		Senders: map[notifdomain.Channel]notifapp.Sender{notifdomain.ChannelWhatsApp: whatsapp.New(whatsapp.Config{
-			BaseURL: meta.URL, GraphVersion: "v23.0", PhoneNumberID: "106540352242922", AccessToken: "EAAtest1234567890abcdef",
+			BaseURL: meta.URL, GraphVersion: "v23.0", PhoneNumberID: "106540352242922", AccessToken: fakeMetaToken,
 		})},
 		Policy: notifapp.Policy{WhatsAppEnabled: true}, Clock: w.clk,
 	})
@@ -232,3 +232,6 @@ func TestWhatsAppClientOnPostgres(t *testing.T) {
 		t.Errorf("refused: %+v", got)
 	}
 }
+
+// fakeMetaToken is not a credential: the fake Cloud API above accepts anything.
+const fakeMetaToken = "EAAfakeTOKENforTests0000"
