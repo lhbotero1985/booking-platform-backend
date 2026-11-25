@@ -468,8 +468,8 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 
 ## 2026-11-25 · Fase 7 · T7.6 — Correos de citas (Booka)
 
-- **Estado:** ✅ en `feature/t7.6-appointment-emails` (commit y push; PR pendiente de autorización).
-  Criterio de aceptación: el usuario aprueba el diseño viendo un correo real en Mailpit QA.
+- **Estado:** ✅ validada en QA: PR #61 (squash `3cf9b43`), CI 6/6, E2E 209/209. Pendiente: el
+  usuario aprueba el diseño viendo un correo real en Mailpit QA.
 - **Hecho:** canal `EMAIL` (migración 00023); plan de mensajes con correo al cliente y al barbero
   (solo lo que hizo el cliente) y comprobante de la cancelación del cliente; dirección resuelta al
   enviar (`identity.Accounts`, ficha del cliente, cuenta del barbero); plantilla HTML + texto con la
@@ -477,8 +477,11 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
   `Booka QA`; E2E con verificación en Mailpit.
 - **Hallazgos:** `html/template` bloquea los enlaces `tel:` (se arma solo con dígitos y se marca
   como seguro); el enlace de WhatsApp sale del teléfono del negocio.
-- **Rama anterior:** `feature/t7.6-push` quedó con los commits de documentación (ya incluidos en
-  esta rama); borrarla requiere autorización.
+- **Ramas:** `feature/t7.6-push` borrada (autorizada). `feature/t7.6-appointment-emails` sigue en
+  GitHub (integrada; borrarla requiere autorización).
+- **Incidente:** el primer despliegue falló (SSH sin respuesta) porque el droplet estaba apagado
+  para cambiarle recursos; al encenderlo se relanzó con éxito. El tamaño quedó igual (1 vCPU,
+  2 GB, 70 GB).
 
 ## 2026-11-25 · Fase 7 · T7.5 — Webhook de WhatsApp
 

@@ -1049,4 +1049,4 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Mutaciones: al barbero todo cambio / códigos también en el recordatorio por correo | ✅ detectadas | `TestPlan` y `TestEmailReminderHasNoButtons` fallaron; código restaurado |
 | Vista previa en Chrome sin interfaz (correo del cliente y del barbero) | ✅ | Revisión visual del diseño |
 | `task check` (lint 0, sin vulnerabilidades) / `sqlc:check` / `shellcheck` / integración completa (migración 00023) / gitleaks | ✅ | |
-| Despliegue y E2E en QA | ⏳ | Tras el merge: correos en Mailpit (comprobante del cliente, aviso al barbero) |
+| Despliegue y E2E en QA (PR #61, `3cf9b43`) | ✅ 209/209 | CI 6/6; el primer despliegue falló por el droplet apagado (el usuario lo apagó para cambiar recursos), relanzado con éxito tras encenderlo; migración 00023 aplicada. Mailpit: al cliente "está agendada", dos "cambió de hora" y "fue cancelada"; al especialista "Nueva cita", "Cita reprogramada" y "Cita cancelada"; direcciones enmascaradas. Diseño: pendiente de aprobación del usuario en Mailpit |
