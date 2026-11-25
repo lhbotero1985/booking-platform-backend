@@ -1097,4 +1097,4 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Mutaciones: `>=` → `>` en el límite / contador no guardado | ✅ detectadas | Fallaron `TestCustomerRescheduleLimit` y `TestRescheduleLimitOnPostgres` ("third move: <nil>"; "move 2"); código restaurado |
 | `task check` (lint 0, sin vulnerabilidades) / `sqlc:check` / `shellcheck` | ✅ | |
 | Integración completa (`task test:integration`) | ✅ | 45 paquetes |
-| Despliegue y E2E en QA | ⏳ | Tras el merge: el dueño fija 1 → segundo cambio del cliente 409 `RESCHEDULE_LIMIT_REACHED`; vuelve a 2 |
+| Despliegue y E2E en QA (PR #68) | ✅ 218/218 | CI 6/6; `release-qa` ✅ (migración 00025 aplicada). Solo cuenta el cambio del cliente (1, no el del barbero); el dueño fija 1 → segundo cambio del cliente 409 `RESCHEDULE_LIMIT_REACHED`; vuelve a 2. Con `CURL_EXTRA=--resolve …` (DNS local), 1.ª corrida sin fallos |
