@@ -468,7 +468,7 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 
 ## 2026-11-25 · Fase 7 · T7.8 — Límite de reprogramaciones por cita
 
-- **Estado:** ✅ en `feature/t7.8-reschedule-limit` (commit y push; PR pendiente de autorización).
+- **Estado:** ✅ en `qa` (PR #68) y validada en QA: E2E 218/218.
 - **Hecho:** `bookingPolicy.maxCustomerReschedules` (0–10, 0 = sin límite, por defecto 2) en la
   gestión y la vista pública del negocio; contador `customerReschedules` en la cita (migración
   00025, reconstruido desde el historial); 409 `RESCHEDULE_LIMIT_REACHED` para el cliente (app,
