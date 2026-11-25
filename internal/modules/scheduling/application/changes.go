@@ -143,7 +143,7 @@ func (s *Service) change(ctx context.Context, who actor, id uuid.UUID, action Ac
 			return err
 		}
 		out.Version = before.Version + 1
-		return tx.InsertAppointmentEvent(ctx, a.BusinessID, a.ID, domain.Event{
+		return s.record(ctx, tx, a, domain.Event{
 			ID: uuid.Must(uuid.NewV7()), Type: typ, Status: a.Status, FromStatus: before.Status, ProfessionalID: a.ProfessionalID,
 			Start: a.Start, Reason: reason, Actor: who.p.UserID, ActorRole: who.role, At: now,
 		})
@@ -251,7 +251,7 @@ func (s *Service) move(ctx context.Context, who actor, id uuid.UUID, start time.
 			e.Type, e.PreviousProfessionalID = domain.EventReassigned, before.ProfessionalID
 		}
 		out = a
-		return tx.InsertAppointmentEvent(ctx, a.BusinessID, a.ID, e)
+		return s.record(ctx, tx, a, e)
 	})
 	return out, err
 }

@@ -1,6 +1,6 @@
 # Notificaciones: WhatsApp y push
 
-Estado: **Propuesta — Fase 0.** ADR-0008, ADR-0009, ADR-0010.
+Estado: **Fase 7 en curso** (T7.1 implementada: §7). ADR-0008, ADR-0009, ADR-0010.
 
 ## 1. Principios
 
@@ -20,6 +20,8 @@ Estado: **Propuesta — Fase 0.** ADR-0008, ADR-0009, ADR-0010.
 | `AppointmentConfirmed` | Push | — (confirmación ya visible en la app) |
 | `AppointmentCancelled` | Push | WhatsApp + push (si no canceló el propio cliente) |
 | `AppointmentRescheduled` | Push | WhatsApp + push |
+| `AppointmentReassigned` (otro barbero) | Push | WhatsApp + push (el cliente eligió el barbero) |
+| Iniciada, completada, no asistió | — | — |
 
 ## 3. WhatsApp (Meta Cloud API)
 
@@ -28,8 +30,11 @@ Estado: **Propuesta — Fase 0.** ADR-0008, ADR-0009, ADR-0010.
 - Mensajes iniciados por la empresa → **solo plantillas aprobadas** (categoría *utility*).
   Plantillas versionadas en código (nombre + idioma + parámetros) y registro de cuáles están
   aprobadas por ambiente.
-- **Consentimiento**: opt-in explícito del cliente (casilla en la app / registro verbal en reserva
-  manual, con fuente registrada). Sin consentimiento vigente → mensaje `SKIPPED`.
+- **Consentimiento** (decisión del usuario, 2026-11-24): **agendar una cita es la aceptación del
+  cliente a recibir WhatsApp sobre esa cita**, tanto si reserva en la app como si el barbero lo
+  agenda a mano. La evidencia es el evento `CREATED` de la cita (quién la creó, con qué rol y
+  cuándo). Solo mensajes de la cita (utility), nunca publicidad. El cliente podrá apagar los
+  recordatorios (T7.7). Ver P41 (revisión legal antes de PROD).
 - **Botones interactivos**: plantilla con botones *quick reply* cuyo `payload` es un token opaco
   de un solo uso (`appointment_action_tokens`), no el ID de la cita. Al recibir la respuesta:
   validar firma del webhook → token existe, no usado, no expirado, versión de cita vigente, y el
@@ -73,3 +78,29 @@ limpieza. Los resultados quedan en `notification_messages` y en las tablas de Ri
 
 El cliente puede desactivar recordatorios por canal. Las notificaciones transaccionales críticas
 (cancelación por parte del negocio) se envían por al menos un canal disponible.
+
+## 7. Implementación (T7.1)
+
+- **Módulo `notifications`** (dominio, aplicación, `infrastructure/{postgres,worker,simulated}`,
+  `interfaces/http`). Lee a `scheduling` solo por su contrato.
+- **Encolado en la transacción del cambio:** `scheduling` avisa cada evento grabado a un
+  `scheduling.EventListener` (contrato) dentro de su transacción; `notifications` lo implementa:
+  calcula los mensajes (`domain.Plan`), los inserta en `notification_messages` y encola un job
+  `notifications.send_message` por mensaje con `InsertTx`. Si el cambio se deshace, el mensaje y el
+  job también (probado con PostgreSQL real y con una mutación).
+- **Una sola vez:** `UNIQUE (event_id, channel, recipient_role)`; el job es único por mensaje; el
+  envío solo actúa sobre mensajes `PENDING` y el `UPDATE` final exige `status = 'PENDING'`.
+- **Revalidación al enviar** (`domain.Stale`): la cita ya empezó → `APPOINTMENT_PASSED`; salvo el
+  aviso de cancelación, si la cita se canceló → `APPOINTMENT_CANCELLED` y si cambió de hora o de
+  barbero → `APPOINTMENT_CHANGED` (el cambio posterior tiene su propio mensaje). Una confirmación
+  no invalida el mensaje.
+- **Interruptor por ambiente:** `WHATSAPP_ENABLED` (falso por defecto: DEV) y `WHATSAPP_ALLOWLIST`
+  (E.164; si se define, solo esos números). QA: encendido con el envío simulado hasta tener las
+  credenciales de Meta (T7.2).
+- **Envío simulado:** registra el envío en el log con el número enmascarado (`+57••••••4567`) y un
+  id sintético; nada sale del servidor.
+- **Reintentos:** River, 8 intentos con backoff; error permanente (`DeliveryError.Permanent`) o
+  último intento → `FAILED`; cada intento guarda su código de error.
+- **Vista del personal:** `GET /api/v1/business/{businessId}/appointments/{appointmentId}/notifications`
+  con el mismo acceso que el historial (responsable todas; barbero solo su agenda, 403; otro
+  negocio 404). El número se muestra enmascarado.

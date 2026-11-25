@@ -321,6 +321,16 @@ check "start days before -> 409" 409 "$(status POST "$st_appt/start" "" "$TS")"
 check "  code TOO_EARLY" TOO_EARLY "$(json .code)"
 check "customer cancels with a reason" "CANCELLED CUSTOMER" "$(status POST "$me_appt/cancel" '{"reason":"Viaje"}' "$T1" >/dev/null; json '"\(.status) \(.cancelledBy)"')"
 check "cancel again (no change)" 200 "$(status POST "$me_appt/cancel" "" "$T1")"
+
+# --- notifications (T7.1): every change that notifies queued one WhatsApp message --------------
+notif="$st_appt/notifications"
+check "messages: created and both moves (customer cancel sends none)"   "APPOINTMENT_CREATED,APPOINTMENT_RESCHEDULED,APPOINTMENT_RESCHEDULED"   "$(status GET "$notif" "" "$TS" >/dev/null; json '[.items[].kind] | join(",")')"
+check "  WhatsApp to the customer, number masked" "WHATSAPP CUSTOMER \+57.*2233" "$(json '.items[0] | "\(.channel) \(.recipientRole) \(.to)"')"
+for _ in $(seq 1 30); do # the worker delivers within seconds (simulated sender in QA)
+  [[ $(status GET "$notif" "" "$TS" >/dev/null; json '[.items[] | select(.status == "PENDING")] | length') == 0 ]] && break
+  sleep 1
+done
+check "the worker processed them; the last move was sent" "0 SENT"   "$(json '"\([.items[] | select(.status == "PENDING")] | length) \(.items[-1].status)"')"
 check "a cancelled one cannot be confirmed" 409 "$(status POST "$st_appt/confirm" "" "$TS")"
 
 # --- coherence of the agenda (T6.7) ------------------------------------------------------------

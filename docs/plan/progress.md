@@ -466,6 +466,22 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 7 · T7.1 — Base de notificaciones
+
+- **Previo:** PR #55 (T6.8) → `qa`: CI 6/6 ✅, squash `f7ce6f9`, rama borrada; `release-qa` ✅;
+  E2E en QA **194/194**. Desglose de la Fase 7 aprobado (decisiones en `decisions.md`).
+- **Estado:** ✅ en `feature/t7.1-notifications-foundation` (commit y push; PR pendiente de
+  autorización).
+- **Hecho:** módulo `notifications`; tabla `notification_messages` (migración 00019); contrato
+  `scheduling.EventListener` llamado en la transacción de cada cambio; job River
+  `notifications.send_message` con revalidación de la cita; envío simulado; `WHATSAPP_ENABLED` /
+  `WHATSAPP_ALLOWLIST`; ruta `GET …/appointments/{appointmentId}/notifications` (82 rutas).
+- **Pruebas:** dominio 100 %, aplicación 92,2 %; integración con PostgreSQL y River reales (el
+  mensaje se deshace con el cambio; el worker real entrega); mutación detectada; E2E con 3
+  comprobaciones nuevas.
+- **Próximo:** PR a `qa` (requiere autorización), E2E en QA; luego T7.2 (requiere el número de
+  prueba y el token de Meta).
+
 ## 2026-11-24 · Fase 6 · T6.8 — Cierre de la Fase 6
 
 - **Previo:** PR #54 (T6.7) → `qa`: CI 6/6 ✅, squash `b112f37`, rama borrada; `release-qa` ✅;

@@ -28,6 +28,8 @@ tags:
     description: Bookings of customers (T6.3).
   - name: Catalog
     description: Service categories and services of a business (T5.5).
+  - name: Notifications
+    description: Messages to customers about their appointments (WhatsApp, push; Phase 7).
   - name: Operations
     description: Liveness and readiness probes. Public, no authentication.
   - name: Auth
@@ -2105,6 +2107,48 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AppointmentHistory"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/business/{businessId}/appointments/{appointmentId}/notifications:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: appointmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Notifications]
+      operationId: listAppointmentNotifications
+      summary: Messages an appointment produced (staff)
+      description: |
+        Oldest first: one message per change that notifies (creation, move, reassignment,
+        cancellation by the business) and how its delivery ended. The number is masked. Same access
+        as the history: a PROFESSIONAL only for its own agenda (403).
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The messages.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppointmentNotifications"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -4704,6 +4748,52 @@ components:
         createdAt:
           type: string
           format: date-time
+    AppointmentNotifications:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, kind, channel, recipientRole, to, status, skipReason, errorCode, attempts, createdAt, sentAt]
+            properties:
+              id:
+                type: string
+                format: uuid
+              kind:
+                type: string
+                enum: [APPOINTMENT_CREATED, APPOINTMENT_CANCELLED, APPOINTMENT_RESCHEDULED, APPOINTMENT_REASSIGNED]
+              channel:
+                type: string
+                enum: [WHATSAPP, PUSH]
+              recipientRole:
+                type: string
+                enum: [CUSTOMER, PROFESSIONAL]
+              to:
+                type: string
+                description: The number masked (country prefix and last four digits).
+                example: "+57••••••4567"
+              status:
+                type: string
+                enum: [PENDING, SENT, DELIVERED, READ, FAILED, SKIPPED]
+              skipReason:
+                type: [string, "null"]
+                enum: [CHANNEL_DISABLED, NOT_ALLOWLISTED, APPOINTMENT_CANCELLED, APPOINTMENT_CHANGED, APPOINTMENT_PASSED, APPOINTMENT_NOT_FOUND, NO_RECIPIENT, null]
+              errorCode:
+                type: [string, "null"]
+                description: Code of the last failed attempt.
+              attempts:
+                type: integer
+                minimum: 0
+              createdAt:
+                type: string
+                format: date-time
+              sentAt:
+                type: [string, "null"]
+                format: date-time
     AppointmentHistory:
       type: object
       additionalProperties: false

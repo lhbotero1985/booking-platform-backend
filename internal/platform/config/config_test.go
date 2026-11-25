@@ -265,3 +265,30 @@ func TestTrustedProxiesConfig(t *testing.T) {
 		}
 	}
 }
+
+func TestNotificationsConfig(t *testing.T) {
+	cfg, err := Load(envFrom(map[string]string{"APP_ENV": "development"}))
+	if err != nil || cfg.Notifications.WhatsAppEnabled || len(cfg.Notifications.WhatsAppAllowlist) != 0 {
+		t.Fatalf("defaults: %+v %v", cfg.Notifications, err)
+	}
+	cfg, err = Load(envFrom(map[string]string{"APP_ENV": "qa", "PUBLIC_APP_URL": "https://app.example.com", "SMTP_TLS": "starttls",
+		"WHATSAPP_ENABLED": "true", "WHATSAPP_ALLOWLIST": " +573001234567, +12125550100 "}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := cfg.Notifications; !n.WhatsAppEnabled || len(n.WhatsAppAllowlist) != 2 || n.WhatsAppAllowlist[0] != "+573001234567" {
+		t.Errorf("qa: %+v", n)
+	}
+	for _, v := range []string{"0", "false", "no", "FALSE"} {
+		if cfg, err := Load(envFrom(map[string]string{"APP_ENV": "development", "WHATSAPP_ENABLED": v})); err != nil || cfg.Notifications.WhatsAppEnabled {
+			t.Errorf("%q: %v %v", v, cfg.Notifications.WhatsAppEnabled, err)
+		}
+	}
+	_, err = Load(envFrom(map[string]string{"APP_ENV": "development", "WHATSAPP_ENABLED": "maybe", "WHATSAPP_ALLOWLIST": "3001234567,+573001234567"}))
+	if err == nil || !strings.Contains(err.Error(), "WHATSAPP_ENABLED") || !strings.Contains(err.Error(), "WHATSAPP_ALLOWLIST: entry 1") {
+		t.Fatalf("invalid values: %v", err)
+	}
+	if strings.Contains(err.Error(), "3001234567") {
+		t.Errorf("the numbers must not be echoed: %v", err)
+	}
+}

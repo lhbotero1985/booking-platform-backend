@@ -150,7 +150,7 @@ func (s *Service) Book(ctx context.Context, p identity.Principal, in BookingInpu
 		if err := tx.InsertAppointment(ctx, a); err != nil {
 			return err
 		}
-		if err := tx.InsertAppointmentEvent(ctx, a.BusinessID, a.ID, createdEvent(a, p.UserID, domain.ActorCustomer, now)); err != nil {
+		if err := s.record(ctx, tx, a, createdEvent(a, p.UserID, domain.ActorCustomer, now)); err != nil {
 			return err
 		}
 		if err := tx.SetIdempotencyAppointment(ctx, p.UserID, in.IdempotencyKey, a.ID); err != nil {

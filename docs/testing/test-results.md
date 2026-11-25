@@ -949,4 +949,22 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `TestBookingPoliciesAndSummaries` (nueva, negocios) | ✅ | Política pública por id (vencido / inexistente → no encontrado), política del personal aunque no sea público, resúmenes sin duplicados. Aplicación de negocios 81,9 % → 90,2 % |
 | Aislamiento / IDOR / credenciales | ✅ | 39 operaciones con otro negocio, 24 con ids ajenos, 66 autenticadas (guiadas por el contrato) |
 | `task check` (lint 0, vuln) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
+| PR #55 — ci + security | ✅ 6/6 | Squash `f7ce6f9` |
+| `release-qa` | ✅ | Smoke test ✅ |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **194/194** | |
+
+## 2026-11-24 · Fase 7 · T7.1 — Base de notificaciones
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestPlan` / `TestStale` / `TestMaskPhone` (dominio) | ✅ 100 % | Mensaje solo para creada, reprogramada, reasignada y cancelada por el negocio; descarte por cita empezada, cancelada o movida (una confirmación no invalida); número enmascarado |
+| Pruebas de aplicación (`notifications`) | ✅ 92,2 % | Un mensaje y un job por evento, evento repetido sin duplicar; envío y job repetido sin reenviar; descartes (canal apagado, fuera de lista blanca, cita inexistente, cancelada, movida); error temporal → reintento, permanente o último intento → `FAILED` |
+| `TestEveryChangeTellsTheListener` / `TestAppointmentsContract` (scheduling) | ✅ | Reserva, cita manual (sin cuenta), reasignación y cancelación del negocio llegan al listener; un listener que falla deshace la reserva; estado de la cita y acceso como el historial |
+| `TestNotificationsOnPostgres` | ✅ | Mensaje y job en la transacción de la reserva; enviado una sola vez; creada y luego movida → la primera `SKIPPED APPOINTMENT_CHANGED`, la nueva `SENT`; un cambio que falla después no deja mensajes ni jobs |
+| `TestNotificationsWorkerOnPostgres` | ✅ | El worker River real entrega el mensaje (`SENT`) |
+| Mutación: el store no se une a la transacción del cambio | ✅ detectada | Falla la inserción (no ve el evento); código restaurado |
+| `TestContractAppointmentNotifications` (contra OpenAPI) | ✅ | Mensaje `PENDING` con número enmascarado; no miembro 404. **82 rutas documentadas** |
+| Aislamiento / credenciales (guiadas por el contrato) | ✅ | 40 operaciones con otro negocio, 25 con ids ajenos; 67 autenticadas |
+| `TestNotificationsConfig` | ✅ | Valores por defecto, lista E.164, booleano inválido y número inválido sin repetir el valor |
+| `task check` (lint 0; `govulncheck` sin vulnerabilidades, tras reintentar por DNS) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
 | Despliegue y E2E en QA | ⏳ | Tras el merge |

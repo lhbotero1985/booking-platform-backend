@@ -1,10 +1,8 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T6.8 — Cierre de la Fase 6 (2026-11-24), en `feature/t6.8-phase6-closure` (commit y push; PR y
-merge pendientes de autorización).
-
-**Fase 6 aprobada por el usuario (2026-11-24):** ver `docs/plan/phase-6-closure.md`.
+T7.1 — Base de notificaciones (2026-11-24), en `feature/t7.1-notifications-foundation` (commit y
+push; PR y merge pendientes de autorización).
 
 ## Flujo de ramas (ADR-0017)
 
@@ -13,7 +11,7 @@ solo al pasar a producción.
 
 ## Próxima tarea
 
-Fase 7 — WhatsApp y push: proponer el desglose en tareas para aprobación del usuario, empezando
-por P16/P17: el usuario no tiene cuenta de Meta Business (trámite a iniciar; mientras tanto se puede
-desarrollar con el número de prueba de Meta). P40 ya decidido: WhatsApp con el enlace de la app al
-agendar manualmente. P13 (email de PROD) sigue pendiente.
+1. PR de T7.1 a `qa` y E2E en QA (requiere autorización).
+2. T7.2 — Cliente de WhatsApp Cloud API. Requiere del usuario: app de Meta creada con el producto
+   WhatsApp, número de prueba, token y su celular registrado como destinatario de prueba. Las
+   credenciales van como secretos del servidor de QA, nunca en el chat ni en Git.
