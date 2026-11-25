@@ -935,4 +935,18 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `TestEveryBusinessRouteIsTenantIsolated` / credenciales | ✅ | 39 operaciones con otro negocio y 24 con ids ajenos; 66 operaciones autenticadas |
 | Postman + Newman (entorno local temporal) | ✅ 2 corridas | 53 peticiones, 93 comprobaciones, 0 fallos |
 | `task check` (lint 0, vuln) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
-| Despliegue y E2E en QA | ⏳ | Tras el merge (ausencia 409 con la lista, horario 409, desactivar → por reasignar, reactivar) |
+| PR #54 — ci + security | ✅ 6/6 | Squash `b112f37` |
+| `release-qa` | ✅ | Smoke test ✅ |
+| `scripts/e2e-qa.sh` (admin) en QA | ✅ **194/194** | Ausencia sobre una cita → 409 `AGENDA_CONFLICTS` con la cita; el barbero quita el martes → 409; desactivar → sus citas por reasignar; reactivar → vacío |
+
+## 2026-11-24 · Fase 6 · T6.8 — Cierre de la Fase 6
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| Revisión de las 7 pruebas de concurrencia (`availability-engine.md` §7) | ✅ 7/7 | Ver la tabla en `docs/plan/phase-6-closure.md` §2; en CI la integración corre con `-race` |
+| `TestConcurrentConfirmationsOnPostgres` (nueva) | ✅ | 12 confirmaciones simultáneas (cliente y personal): todas OK, versión 2, un solo evento CONFIRMED |
+| `TestBookingAcrossDST` (nueva) | ✅ | Negocio en Nueva York: primavera 01:00–05:00 = 3 horas reales (sin 02:00), reserva 03:00 EDT; otoño 00:00–03:00 = 4 horas, las dos 01:00 (EDT y EST) son instantes distintos y ambas se reservan; sin horas duplicadas |
+| `TestBookingPoliciesAndSummaries` (nueva, negocios) | ✅ | Política pública por id (vencido / inexistente → no encontrado), política del personal aunque no sea público, resúmenes sin duplicados. Aplicación de negocios 81,9 % → 90,2 % |
+| Aislamiento / IDOR / credenciales | ✅ | 39 operaciones con otro negocio, 24 con ids ajenos, 66 autenticadas (guiadas por el contrato) |
+| `task check` (lint 0, vuln) / `sqlc:check` / `shellcheck` / `secrets` / integración completa | ✅ | |
+| Despliegue y E2E en QA | ⏳ | Tras el merge |

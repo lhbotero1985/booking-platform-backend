@@ -466,6 +466,20 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-24 · Fase 6 · T6.8 — Cierre de la Fase 6
+
+- **Previo:** PR #54 (T6.7) → `qa`: CI 6/6 ✅, squash `b112f37`, rama borrada; `release-qa` ✅;
+  E2E en QA **194/194**.
+- **Estado:** ✅ en `feature/t6.8-phase6-closure`. **Fase 6 aprobada por el usuario
+  (2026-11-24)**. P40 decidido (WhatsApp con el enlace de la app al agendar manualmente).
+- **Revisión de las 7 pruebas de concurrencia del diseño:** 5 existían; faltaban las
+  confirmaciones concurrentes (`TestConcurrentConfirmationsOnPostgres`) y la reserva en el cambio
+  de horario de verano (`TestBookingAcrossDST`): agregadas y en verde.
+- **Cobertura:** la aplicación de negocios había bajado a 81,9 % (funciones nuevas solo con
+  integración) → pruebas unitarias agregadas, 90,2 %.
+- **Aislamiento y credenciales:** guiadas por el contrato, cubren solas todas las rutas nuevas
+  (39 + 24 operaciones; 66 autenticadas).
+
 ## 2026-11-24 · Fase 6 · T6.7 — Coherencia de la agenda
 
 - **Previo:** PR #53 (T6.6) → `qa`: CI 6/6 ✅, squash `3106e54`, rama borrada; `release-qa` ✅

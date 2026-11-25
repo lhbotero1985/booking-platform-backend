@@ -30,7 +30,7 @@ la Fase 0, se adopta la propuesta.
 | P14 | ¿Los portales Next.js llaman a la API directamente (cookie + CORS) o mediante BFF? | Directamente con cookie `__Host-` en subdominio común; reevaluar en Fase 8. |
 | P15 | Dominio para QA/PROD | A definir antes de Fase 3. |
 | P16 | ¿Quién asume el costo de WhatsApp? ¿Tope por negocio? | Plataforma, con tope mensual por negocio configurable. |
-| P17 | ¿Meta Business Manager verificado disponible? | Iniciar trámite antes de Fase 7. |
+| P17 | ¿Meta Business Manager verificado disponible? | 2026-11-24: el usuario **no tiene** cuenta de Meta Business; se le explicaron los pasos. Iniciar el trámite antes de la Fase 7 (la verificación puede tardar). |
 | P18 | PROD: PostgreSQL en Droplet o DO Managed PostgreSQL | Decidir en Fase 13; recomendación: Managed. |
 | P19 | ¿Commits firmados obligatorios? | Recomendado (SSH signing), no bloqueante. |
 | P20 | ~~¿`booking-platform.code-workspace` en la raíz?~~ | ✅ Creado en la raíz del workspace, sin versionar. |
@@ -49,7 +49,7 @@ la Fase 0, se adopta la propuesta.
 | P32 | MFA para PLATFORM_ADMIN | ✅ Decidido 2026-11-19: **Fase 12** (TOTP obligatorio para administradores antes de PROD). |
 | P33 | Listado y cierre selectivo de sesiones (ASVS V3.3.4) | ✅ Decidido 2026-11-19: **Fase 12** (`GET /me/sessions`, `DELETE /me/sessions/{id}`). |
 | P38 | Copia externa de los backups QA | Hoy solo en el mismo Droplet (sin costo). Si se pierde el Droplet se pierden datos de QA (sintéticos). Opciones: (a) aceptar en QA (recomendado); (b) descarga manual periódica (`scp`); (c) DO Spaces (US$ 5/mes) u otro almacenamiento, obligatorio para PROD. |
-| P40 | Invitar a la app al cliente agendado a mano | Propuesta: en la Fase 7, al crear una cita manual, enviar por WhatsApp al celular del cliente la cita y un enlace para descargar la app; si se registra con ese celular queda enlazado a su ficha (ya funciona). Alternativa: invitación por correo si el barbero lo escribió (no verificado). **Pendiente de revisar con el usuario** (2026-11-24: "luego lo revisamos"). |
+| P40 | Invitar a la app al cliente agendado a mano | ✅ **Decidido 2026-11-24 (usuario):** apenas el barbero lo inscribe manualmente, se le envía por WhatsApp el enlace para descargar la app (Fase 7). Propuesta original: en la Fase 7, al crear una cita manual, enviar por WhatsApp al celular del cliente la cita y un enlace para descargar la app; si se registra con ese celular queda enlazado a su ficha (ya funciona). Alternativa: invitación por correo si el barbero lo escribió (no verificado). **Pendiente de revisar con el usuario** (2026-11-24: "luego lo revisamos"). |
 | P39 | Proveedor de pagos, planes y precios | Fase 11B: Wompi, Mercado Pago o PayU (Colombia); precio mensual por negocio vs por profesional; facturación electrónica DIAN (validar con el contador). Requiere autorización de costos. |
 | P37 | Protección de las ramas `qa`/`main` | ✅ Decidido 2026-11-23: **seguir así** (regla de proceso: solo merges de PR). El repo es privado en el plan Free: GitHub no aplica protección de ramas ni rulesets (verificado 2026-11-23: `qa` sin protección). Hoy la regla es de proceso (solo merges de PR). Como cada push a `qa` despliega, opciones: (a) seguir así; (b) GitHub Pro (US$ 4/mes) para protección y aprobadores; (c) repo público (no recomendado). |
 | P34 | Tamaño del Droplet QA | ✅ Decidido 2026-11-22: **seguir con 1 GB + 2 GB de swap y validar**; subir a 2 GB (`s-1vcpu-2gb-intel`, US$ 14/mes) solo si las mediciones lo exigen. Medición T3.2: 650 MB usados, 28 MB de swap. |

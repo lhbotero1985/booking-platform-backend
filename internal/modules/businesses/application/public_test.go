@@ -218,3 +218,29 @@ func TestPublicBookingPolicy(t *testing.T) {
 		}
 	}
 }
+
+// TestBookingPoliciesAndSummaries (Phase 6): the policy by id (public rules or not) and the
+// summaries of several businesses.
+func TestBookingPoliciesAndSummaries(t *testing.T) {
+	ctx := context.Background()
+	e := newPublicEnv(t, []string{"Barbería Pública", "Barbería Vencida"}, "Barbería Pública")
+	public, expired, missing := e.ids["Barbería Pública"], e.ids["Barbería Vencida"], uuid.Must(uuid.NewV7())
+	if p, err := e.svc.PublicBookingPolicyOf(ctx, public); err != nil || p.BusinessID != public || p.TimeZone != "America/Bogota" || p.CancellationCutoffHours != 2 {
+		t.Errorf("public by id: %+v %v", p, err)
+	}
+	for name, id := range map[string]uuid.UUID{"expired demo": expired, "missing": missing} {
+		if _, err := e.svc.PublicBookingPolicyOf(ctx, id); !errors.Is(err, bizcontract.ErrBusinessNotFound) {
+			t.Errorf("public by id, %s: %v", name, err)
+		}
+	}
+	if p, err := e.svc.BookingPolicyOf(ctx, expired); err != nil || p.BusinessID != expired {
+		t.Errorf("staff policy of a business that is not public: %+v %v", p, err)
+	}
+	if _, err := e.svc.BookingPolicyOf(ctx, missing); !errors.Is(err, bizcontract.ErrBusinessNotFound) {
+		t.Errorf("staff policy, missing: %v", err)
+	}
+	got, err := e.svc.BusinessSummaries(ctx, []uuid.UUID{public, expired, public, missing})
+	if err != nil || len(got) != 2 || got[public].Name != "Barbería Pública" || got[public].Slug != "barberia-publica" || got[expired].TimeZone != "America/Bogota" {
+		t.Errorf("summaries: %+v %v", got, err)
+	}
+}
