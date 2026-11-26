@@ -466,10 +466,21 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-25 · Fase 7 · T7.10 — Cierre de la Fase 7
+
+- **Estado:** ✅ en `feature/t7.10-phase7-closure`; **cierre pendiente de aprobación del usuario**
+  (`docs/plan/phase-7-closure.md`).
+- **Hecho:** pruebas de seguridad de punta a punta de los enlaces del correo (sin pistas entre
+  códigos inutilizables, abrir no cambia nada, sin reflejo de la URL, límite de intentos, códigos
+  fuera de los logs) y del webhook (firmas falsas o alteradas, verify token); cobertura;
+  documento de cierre.
+- **Hallazgo propio:** al integrar el PR #65 quedé en su rama y el commit de T7.9 se creó allí; lo
+  detecté al crear el PR, lo llevé a su rama (árbol idéntico) antes de abrir el PR #70.
+- **Pendiente externo:** las 6 plantillas de WhatsApp de Booka siguen `PENDING` en Meta.
+
 ## 2026-11-25 · Fase 7 · T7.9 — Preferencias de notificación y control de costos
 
-- **Estado:** ✅ en `feature/t7.9-notification-preferences` (commit y push; PR pendiente de
-  autorización).
+- **Estado:** ✅ en `qa` (PR #70) y validada en QA: E2E 231/231.
 - **Hecho:** preferencias del cliente por cuenta (WhatsApp y/o correo, al menos uno; recordatorios);
   correos del especialista sí/no (especialista o dueño); tope mensual de WhatsApp por negocio
   (admin de la plataforma, 500 por defecto) y tope diario global opcional; aplicados al enviar con
