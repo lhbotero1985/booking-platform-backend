@@ -1144,4 +1144,4 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Mutación: enviar sin HTML | ✅ detectada | 10 comprobaciones fallan; código restaurado |
 | Pruebas existentes de identity, contrato, seguridad e integración (`-tags integration`, PostgreSQL real) | ✅ | Sin cambios de comportamiento |
 | `task check` | ✅ | build, vet, golangci-lint, pruebas; govulncheck sin vulnerabilidades (reintento por DNS) |
-| Mailpit de QA | ⏳ | Tras el merge (requiere autorización) |
+| Despliegue y Mailpit de QA (PR #73) | ✅ | CI 6/6; `release-qa` ✅. Cuenta de prueba `p6-…@example.com`: registro 202 → «Confirma tu correo electrónico» en HTML + texto con la marca; verificar 200; olvido 202 → «Restablece tu contraseña» en HTML + texto; restablecer 200 → «Tu contraseña fue cambiada» sin enlaces, «26 de noviembre de 2026 a las 1:52 a. m. (hora de Colombia)». Token nunca en el asunto. Enlaces aún al dominio de la API: `/reset-password` del portal QA responde 404, `PUBLIC_APP_URL` sin cambiar |
