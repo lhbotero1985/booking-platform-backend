@@ -466,6 +466,20 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-26 · Fuera de fase · P-6 — Correos de identidad con la marca Booka
+
+- **Estado:** ✅ en `feature/p6-identity-emails` (commit y push; PR pendiente de autorización).
+  Propuesta P-6 del frontend, aprobada por el usuario con la opción A.
+- **Hecho:** paquete compartido `internal/platform/mail/brand` (diseño de Booka: logo, tarjeta,
+  botón principal, enlace también como texto, notas y pie; HTML + texto, todo escapado; solo
+  enlaces http(s)). Los tres correos de identity (verificación, recuperación, contraseña cambiada)
+  salen en HTML y texto (multipart); el puerto `Mailer` de identity pasa a `SendMessage`. La hora
+  del aviso de contraseña cambiada se muestra en hora de Colombia (la cuenta no tiene zona).
+- **Sin cambios** de API, tokens ni de los correos de citas (siguen con su plantilla).
+- **Pendiente:** en QA, `PUBLIC_APP_URL=https://booka-app-qa.duckdns.org` cuando el frontend
+  publique `/verify-email` y `/reset-password` (cambio en el servidor, requiere autorización);
+  revisar los tres correos en Mailpit tras el merge.
+
 ## 2026-11-25 · Fase 7 · T7.10 — Cierre de la Fase 7
 
 - **Estado:** ✅ **Fase 7 aprobada por el usuario (2026-11-25)**; PR de T7.10 a `qa` autorizado.

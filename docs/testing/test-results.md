@@ -1134,3 +1134,14 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Suite de seguridad completa | ✅ | Aislamiento en 42 operaciones (27 con ids ajenos); credenciales inválidas en 73 operaciones autenticadas |
 | Cobertura | ✅ | notifications dominio 100 %, aplicación 90,9 %, correo 96,0 %, WhatsApp 94,9 %, worker 94,4 %, HTTP 59,3 %; scheduling dominio 100 %, aplicación 85,6 %; negocios aplicación 90,3 %, dominio 95,1 % |
 | Plantillas de WhatsApp en Meta (consulta desde el servidor, sin mostrar el token) | ⏳ | Las 6 de Booka `PENDING`; la prueba con mensajes reales espera la aprobación |
+
+## 2026-11-26 · Fuera de fase · P-6 — Correos de identidad con la marca Booka
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `go test ./internal/platform/mail/brand` | ✅ | HTML y texto con título, saludo, botón, enlace como texto, notas y pie; marcado escapado (`<script>`, `<img onerror>`); sin botón no hay enlaces; `javascript:` y correo sin título rechazados. Cobertura 80,0 % |
+| `TestAccountEmailsAreBranded` (identity) | ✅ | Verificación y recuperación: asunto sin token, HTML con botón y `href` al portal (`PUBLIC_APP_URL`), enlace completo en el texto, vigencia (24 horas / 30 minutos); contraseña cambiada: «19 de noviembre de 2026 a las 7:00 a. m. (hora de Colombia)» sin enlaces ni token. Cobertura de identity/application 84,0 % |
+| Mutación: enviar sin HTML | ✅ detectada | 10 comprobaciones fallan; código restaurado |
+| Pruebas existentes de identity, contrato, seguridad e integración (`-tags integration`, PostgreSQL real) | ✅ | Sin cambios de comportamiento |
+| `task check` | ✅ | build, vet, golangci-lint, pruebas; govulncheck sin vulnerabilidades (reintento por DNS) |
+| Mailpit de QA | ⏳ | Tras el merge (requiere autorización) |
