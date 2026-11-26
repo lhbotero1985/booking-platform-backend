@@ -11,7 +11,7 @@ Orden obligatorio. **No se avanza de fase sin aprobación explícita del usuario
 | 4 | Geografía y negocios | Países/divisiones/ciudades, negocios, aislamiento | ✅ Aprobada 2026-11-24 (`phase-4-closure.md`) |
 | 5 | Profesionales y servicios | Profesionales, horarios, descansos, ausencias, catálogo | ✅ Aprobada 2026-11-24 (`phase-5-closure.md`) |
 | 6 | Disponibilidad y reservas | Motor de slots, citas, estados, concurrencia | ✅ Aprobada 2026-11-24 (`phase-6-closure.md`) |
-| 7 | WhatsApp y push | Meta Cloud API, Expo, River jobs, webhooks | ✅ Implementada (T7.1–T7.10); cierre pendiente de aprobación (`phase-7-closure.md`); push aplazada (ADR-0019) |
+| 7 | WhatsApp y push | Meta Cloud API, Expo, River jobs, webhooks | ✅ Aprobada 2026-11-25 (`phase-7-closure.md`); push aplazada (ADR-0019) |
 | 8 | Portal del negocio | Next.js | ⏳ |
 | 9 | App del cliente | Expo | ⏳ |
 | 10 | App del profesional | Expo | ⏳ |

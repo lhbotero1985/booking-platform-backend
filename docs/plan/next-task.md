@@ -1,9 +1,7 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T7.10 — Cierre de la Fase 7 (2026-11-25), en `feature/t7.10-phase7-closure` (commit y push; PR
-pendiente de autorización). **El cierre de la fase espera la aprobación del usuario**
-(`docs/plan/phase-7-closure.md`).
+T7.10 — Cierre de la Fase 7. **Fase 7 aprobada por el usuario (2026-11-25).**
 
 ## Flujo de ramas (ADR-0017)
 
@@ -12,9 +10,9 @@ solo al pasar a producción.
 
 ## Próxima tarea
 
-1. El usuario revisa y aprueba el cierre de la Fase 7; PR de T7.10 a `qa` (requiere
-   autorización).
-2. No avanzar a la Fase 8 sin aprobación explícita (ver `roadmap.md`).
+El usuario se dedica al frontend (otro agente). En el backend no hay tarea autorizada:
+1. **No iniciar otra fase sin aprobación explícita.** Candidata de backend: Fase 11B
+   (suscripciones y pagos, aprobada en alcance el 2026-11-24, sin iniciar).
+2. Atender lo que el frontend necesite del contrato de la API (`docs/plan/frontend-contract-proposals.md`).
 3. Cuando Meta apruebe las plantillas: prueba real de mensajes y botones de WhatsApp; plantilla
    nueva con "especialista" (P42).
-4. Pendiente de autorización: borrar la rama `feature/t7.9-notification-preferences` (PR #70).

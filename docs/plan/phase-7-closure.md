@@ -1,6 +1,6 @@
 # Cierre de la Fase 7 — Notificaciones
 
-Fecha: 2026-11-25 · Estado: **⏳ Pendiente de aprobación del usuario**
+Fecha: 2026-11-25 · Estado: **✅ Aprobada por el usuario (2026-11-25)**
 
 ## 1. Entregables
 
@@ -114,4 +114,4 @@ el formulario; un tercero sin el código no puede provocar el cambio.
 
 ## 6. Aprobación
 
-- [ ] Usuario aprueba el cierre de la Fase 7.
+- [x] Usuario aprueba el cierre de la Fase 7 (2026-11-25).

@@ -468,8 +468,8 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 
 ## 2026-11-25 · Fase 7 · T7.10 — Cierre de la Fase 7
 
-- **Estado:** ✅ en `feature/t7.10-phase7-closure`; **cierre pendiente de aprobación del usuario**
-  (`docs/plan/phase-7-closure.md`).
+- **Estado:** ✅ **Fase 7 aprobada por el usuario (2026-11-25)**; PR de T7.10 a `qa` autorizado.
+  El usuario se dedica ahora al frontend; la siguiente fase de backend queda sin iniciar.
 - **Hecho:** pruebas de seguridad de punta a punta de los enlaces del correo (sin pistas entre
   códigos inutilizables, abrir no cambia nada, sin reflejo de la URL, límite de intentos, códigos
   fuera de los logs) y del webhook (firmas falsas o alteradas, verify token); cobertura;
