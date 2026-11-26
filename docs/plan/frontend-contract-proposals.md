@@ -14,7 +14,7 @@ Reglas:
 
 | Propuesta | Brecha | Estado en el backend | Rama / PR | Notas |
 |---|---|---|---|---|
-| P-6 | G-23 correos de identidad sin marca; G-24 enlace al dominio de la API en QA | ✅ Implementada (2026-11-26) | `feature/p6-identity-emails` | Opción A: diseño base en `internal/platform/mail/brand`. Pendiente: `PUBLIC_APP_URL` de QA → `https://booka-app-qa.duckdns.org` cuando el frontend publique `/verify-email` y `/reset-password` (requiere autorización) |
+| P-6 | G-23 correos de identidad sin marca; G-24 enlace al dominio de la API en QA | ✅ En `qa`, validada en Mailpit (2026-11-26) | PR #73 | Opción A: diseño base en `internal/platform/mail/brand`. `PUBLIC_APP_URL` de QA → `https://booka-app-qa.duckdns.org` aplicado (2026-11-26); PROD: dominio de business-web |
 | P-1 | G-13 membresías sin datos del negocio | Sin iniciar | — | — |
 | P-2 | G-10 admin no ve geografía inactiva | Sin iniciar | — | — |
 | P-3 | G-05 sin `PATCH /me` | Sin iniciar | — | Duda abierta: ¿el nombre del cliente del negocio sigue al de la cuenta? |
