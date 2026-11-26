@@ -248,23 +248,9 @@ func (s *Service) SendVerificationEmail(ctx context.Context, userID uuid.UUID) e
 	}
 
 	link := strings.TrimRight(s.cfg.PublicAppURL, "/") + "/verify-email?token=" + url.QueryEscape(tok.Reveal())
-	body := fmt.Sprintf(verificationEmailBody, recipient.FullName(), link, int(VerificationTokenTTL.Hours()))
-	if err := s.mailer.Send(ctx, recipient.Email().String(), verificationEmailSubject, body); err != nil {
+	if err := s.sendBranded(ctx, recipient.Email().String(), verificationEmailSubject, verificationEmail(recipient.FullName(), link, VerificationTokenTTL)); err != nil {
 		return fmt.Errorf("verification email: send: %w", err)
 	}
 	s.logger.InfoContext(ctx, "verification email sent", slog.String("user_id", userID.String()))
 	return nil
 }
-
-const verificationEmailSubject = "Confirma tu correo electrónico"
-
-const verificationEmailBody = `Hola %s:
-
-Gracias por registrarte. Para activar tu cuenta, confirma tu correo electrónico abriendo este enlace:
-
-%s
-
-El enlace vence en %d horas y solo se puede usar una vez.
-
-Si no creaste esta cuenta, ignora este mensaje.
-`

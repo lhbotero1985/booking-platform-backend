@@ -115,7 +115,8 @@ type Tx interface {
 	AppendAudit(ctx context.Context, e AuditEntry) error
 }
 
-// Mailer delivers a plain-text email.
+// Mailer delivers an email with its plain-text body and, when html is not empty, its HTML version
+// (mail.SMTP.SendMessage).
 type Mailer interface {
-	Send(ctx context.Context, to, subject, body string) error
+	SendMessage(ctx context.Context, to, subject, text, html string) error
 }

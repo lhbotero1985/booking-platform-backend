@@ -86,8 +86,7 @@ func (s *Service) SendPasswordResetEmail(ctx context.Context, userID uuid.UUID) 
 		return err
 	}
 	link := strings.TrimRight(s.cfg.PublicAppURL, "/") + "/reset-password?token=" + url.QueryEscape(tok.Reveal())
-	body := fmt.Sprintf(passwordResetEmailBody, recipient.FullName(), link, int(PasswordResetTokenTTL.Minutes()))
-	if err := s.mailer.Send(ctx, recipient.Email().String(), passwordResetEmailSubject, body); err != nil {
+	if err := s.sendBranded(ctx, recipient.Email().String(), passwordResetEmailSubject, passwordResetEmail(recipient.FullName(), link, PasswordResetTokenTTL)); err != nil {
 		return fmt.Errorf("password reset email: send: %w", err)
 	}
 	s.logger.InfoContext(ctx, "password reset email sent", slog.String("user_id", userID.String()))
@@ -254,33 +253,8 @@ func (s *Service) SendPasswordChangedEmail(ctx context.Context, userID uuid.UUID
 	if err != nil || u == nil {
 		return err
 	}
-	body := fmt.Sprintf(passwordChangedEmailBody, u.FullName(), s.clock.Now().UTC().Format("2006-01-02 15:04 UTC"))
-	if err := s.mailer.Send(ctx, u.Email().String(), passwordChangedEmailSubject, body); err != nil {
+	if err := s.sendBranded(ctx, u.Email().String(), passwordChangedEmailSubject, passwordChangedEmail(u.FullName(), s.clock.Now())); err != nil {
 		return fmt.Errorf("password changed email: send: %w", err)
 	}
 	return nil
 }
-
-const passwordResetEmailSubject = "Restablece tu contraseña" //nolint:gosec // G101: email subject, not a credential
-
-//nolint:gosec // G101: email template, not a credential
-const passwordResetEmailBody = `Hola %s:
-
-Recibimos una solicitud para restablecer tu contraseña. Para elegir una nueva, abre este enlace:
-
-%s
-
-El enlace vence en %d minutos y solo se puede usar una vez. Al cambiar la contraseña se cerrarán todas tus sesiones.
-
-Si no solicitaste este cambio, ignora este mensaje: tu contraseña actual sigue siendo válida.
-`
-
-const passwordChangedEmailSubject = "Tu contraseña fue cambiada" //nolint:gosec // G101: email subject, not a credential
-
-//nolint:gosec // G101: email template, not a credential
-const passwordChangedEmailBody = `Hola %s:
-
-La contraseña de tu cuenta fue cambiada el %s.
-
-Si fuiste tú, no necesitas hacer nada. Si no reconoces este cambio, restablece tu contraseña de inmediato desde la opción "¿Olvidaste tu contraseña?" y contacta a soporte.
-`

@@ -241,8 +241,8 @@ func (h *Hasher) VerifyDummy(context.Context, domain.Password) {
 	h.mu.Unlock()
 }
 
-// Mail is a captured email.
-type Mail struct{ To, Subject, Body string }
+// Mail is a captured email: Body is the plain-text version, HTML the HTML one.
+type Mail struct{ To, Subject, Body, HTML string }
 
 // Mailer records sent emails.
 type Mailer struct {
@@ -251,14 +251,14 @@ type Mailer struct {
 	Err  error
 }
 
-// Send implements application.Mailer.
-func (m *Mailer) Send(_ context.Context, to, subject, body string) error {
+// SendMessage implements application.Mailer.
+func (m *Mailer) SendMessage(_ context.Context, to, subject, body, html string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.Err != nil {
 		return m.Err
 	}
-	m.Sent = append(m.Sent, Mail{to, subject, body})
+	m.Sent = append(m.Sent, Mail{to, subject, body, html})
 	return nil
 }
 
