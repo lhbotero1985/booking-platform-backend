@@ -468,7 +468,8 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 
 ## 2026-11-26 · Fuera de fase · P-6 — Correos de identidad con la marca Booka
 
-- **Estado:** ✅ en `qa` (PR #73) y validada en Mailpit de QA.
+- **Estado:** ✅ en `qa` (PR #73) y validada en Mailpit de QA; `PUBLIC_APP_URL` de QA →
+  `https://booka-app-qa.duckdns.org` (autorizado): los enlaces abren el portal.
   Propuesta P-6 del frontend, aprobada por el usuario con la opción A.
 - **Hecho:** paquete compartido `internal/platform/mail/brand` (diseño de Booka: logo, tarjeta,
   botón principal, enlace también como texto, notas y pie; HTML + texto, todo escapado; solo

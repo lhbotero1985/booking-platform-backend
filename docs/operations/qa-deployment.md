@@ -150,9 +150,9 @@ ssh deploy@HOST 'sudo install -m 0755 -o root -g root /dev/stdin /usr/local/bin/
 #    verificar: curl -I https://booka-app-qa.duckdns.org/  → 502 hasta el primer despliegue web.
 ```
 
-`PUBLIC_APP_URL` sigue apuntando al dominio de la API hasta que business-web sirva
-`/verify-email` y `/reset-password` (fase F5 del frontend); entonces pasa a
-`https://booka-app-qa.duckdns.org`.
+`PUBLIC_APP_URL=https://booka-app-qa.duckdns.org` desde el 2026-11-26 (P-6): los enlaces de los
+correos de cuenta abren `/verify-email` y `/reset-password` de business-web. Aplicado con copia
+`.env.bak-p6` y `docker compose up -d api worker`.
 
 ## 4. Primer despliegue (manual, realizado 2026-11-22)
 
