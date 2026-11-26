@@ -61,6 +61,9 @@ type authHarness struct {
 	geo    *geotest.Store
 	biz    *biztest.Store
 	subs   *subtest.Store
+	// T7.10: the notifications module and its in-memory store (messages and tokens).
+	notif  *notifapp.Service
+	outbox *notiftest.Store
 }
 
 func startAuth(t *testing.T) authHarness {
@@ -91,10 +94,11 @@ func startAuth(t *testing.T) authHarness {
 	app.LinkPublicCatalog(biz, cat, profs, biz)
 	sched := schedapp.NewService(schedapp.Deps{Store: schedtest.NewStore(), Authz: h.svc, Businesses: biz, Catalog: cat, Professionals: profs, Bookable: profs, Customers: h.svc, Clock: h.clock})
 	app.LinkAgendaGuard(profs, sched)
-	notif, _ := notiftest.NewService(sched, biz, h.clock, func(d *notifapp.Deps) {
+	notif, outbox := notiftest.NewService(sched, biz, h.clock, func(d *notifapp.Deps) {
 		d.Authz, d.Recipients = h.svc, app.NewEmailRecipients(h.svc, profs)
 	})
 	app.LinkNotifications(sched, notif)
+	h.notif, h.outbox = notif, outbox
 	h.srv = httptest.NewServer(app.NewHTTPHandler(cfg, logger, app.Deps{Modules: []app.RouteRegistrar{
 		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),
 		subscriptionshttp.New(subs, logger, idh.RequireAuth),

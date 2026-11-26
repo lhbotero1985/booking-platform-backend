@@ -1,9 +1,7 @@
 # Siguiente tarea
 
 ## Última tarea completada
-T7.9 — Preferencias de notificación y control de costos (2026-11-25), en
-`feature/t7.9-notification-preferences` (commit y push; PR, merge y E2E en QA pendientes de
-autorización).
+T7.10 — Cierre de la Fase 7. **Fase 7 aprobada por el usuario (2026-11-25).**
 
 ## Flujo de ramas (ADR-0017)
 
@@ -12,9 +10,9 @@ solo al pasar a producción.
 
 ## Próxima tarea
 
-1. PR de T7.9 a `qa`, merge y E2E en QA (requiere autorización).
-2. T7.10 — E2E en QA con mensajes reales, pruebas de seguridad del webhook y de los enlaces,
-   cierre de la Fase 7.
-3. Cuando Meta apruebe las plantillas: prueba real de los botones de WhatsApp.
-4. Pendiente de autorización: borrar las ramas `feature/deploy-caddy-smoke-retry` (PR #65) y
-   `feature/t7.8-reschedule-limit` (PR #68), ya en `qa`.
+El usuario se dedica al frontend (otro agente). En el backend no hay tarea autorizada:
+1. **No iniciar otra fase sin aprobación explícita.** Candidata de backend: Fase 11B
+   (suscripciones y pagos, aprobada en alcance el 2026-11-24, sin iniciar).
+2. Atender lo que el frontend necesite del contrato de la API (`docs/plan/frontend-contract-proposals.md`).
+3. Cuando Meta apruebe las plantillas: prueba real de mensajes y botones de WhatsApp; plantilla
+   nueva con "especialista" (P42).

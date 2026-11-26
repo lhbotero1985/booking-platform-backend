@@ -11,7 +11,7 @@ Orden obligatorio. **No se avanza de fase sin aprobación explícita del usuario
 | 4 | Geografía y negocios | Países/divisiones/ciudades, negocios, aislamiento | ✅ Aprobada 2026-11-24 (`phase-4-closure.md`) |
 | 5 | Profesionales y servicios | Profesionales, horarios, descansos, ausencias, catálogo | ✅ Aprobada 2026-11-24 (`phase-5-closure.md`) |
 | 6 | Disponibilidad y reservas | Motor de slots, citas, estados, concurrencia | ✅ Aprobada 2026-11-24 (`phase-6-closure.md`) |
-| 7 | WhatsApp y push | Meta Cloud API, Expo, River jobs, webhooks | ⏳ |
+| 7 | WhatsApp y push | Meta Cloud API, Expo, River jobs, webhooks | ✅ Aprobada 2026-11-25 (`phase-7-closure.md`); push aplazada (ADR-0019) |
 | 8 | Portal del negocio | Next.js | ⏳ |
 | 9 | App del cliente | Expo | ⏳ |
 | 10 | App del profesional | Expo | ⏳ |
@@ -162,7 +162,7 @@ cliente conserva al menos uno); límite de reprogramaciones por negocio.
 | T7.7 ✅ | Acciones desde el correo en dos toques: confirmar y cancelar (página con botón, código de un solo uso); reagendar: servicios para el frontend, con el código | Abrir el enlace no cambia nada; código reusado → sin efecto |
 | T7.8 ✅ | Límite de reprogramaciones por cita, configurable por negocio | Superado el límite → rechazo, para cliente y botones |
 | T7.9 ✅ | Preferencias de notificación: el cliente elige WhatsApp y/o correo (al menos uno) y apaga los recordatorios; el barbero activa o apaga sus correos. Control de costos (P16) | Sin canal → rechazo; tope alcanzado → no se envía |
-| T7.10 | E2E en QA con mensajes reales, pruebas de seguridad del webhook y de los enlaces, cierre | Aprobación del usuario |
+| T7.10 ✅ | E2E en QA con mensajes reales, pruebas de seguridad del webhook y de los enlaces, cierre | Aprobación del usuario |
 | — | Push (Expo, ADR-0010): **aplazada** a la fase de las apps móviles | — |
 
 Las fases 8–13 se desglosarán en tareas al iniciar cada una.

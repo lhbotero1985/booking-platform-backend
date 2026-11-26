@@ -1121,4 +1121,16 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `TestWhatsAppLimitsConfig` | ✅ | 500 y 0 por defecto; −1, 100001 y texto rechazados |
 | `task check` (lint 0, sin vulnerabilidades) / `sqlc:check` / `shellcheck` | ✅ | govulncheck falló una vez por DNS local; reintento OK |
 | Integración completa | ✅ | 45 paquetes. 1.ª corrida: `TestRescheduleLimitOnPostgres` suponía 00025 como última migración → ahora baja hasta deshacerla |
-| Despliegue y E2E en QA | ⏳ | Tras el merge: preferencias del cliente (400 sin canal), correos omitidos por preferencia del cliente y del especialista, tope solo para el admin |
+| Despliegue y E2E en QA (PR #70) | ✅ 231/231 | CI 6/6; `release-qa` ✅ (migración 00026). Preferencias: todo activo por defecto, sin canal → 400 `AT_LEAST_ONE_CHANNEL`; correo del cliente `CUSTOMER_OPTED_OUT`, correo del barbero `PROFESSIONAL_OPTED_OUT`, su WhatsApp no bloqueado por las preferencias (`NOT_ALLOWLISTED` por la lista blanca de QA); el tope solo para el admin (403). Las comprobaciones del admin no corrieron (sin `ADMIN_EMAIL`); cubiertas por las pruebas de contrato |
+
+## 2026-11-25 · Fase 7 · T7.10 — Cierre de la fase
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestEmailLinksGiveNothingAway` (seguridad, handler compuesto) | ✅ | Cinco aperturas de cada enlace sin cambios; código desconocido, de otra acción, gastado, de un correo gastado y vencido → misma página y mismo JSON; URL con `<script>` no reflejada; segundo toque de un código vencido igual; ningún código en los logs; CSP y `no-referrer` |
+| Mutación: código vencido responde `NOT_ACTIVE` | ✅ detectada | "an expired code answers differently"; código restaurado |
+| `TestEmailLinksAreRateLimited` | ✅ | Con el limitador de `cmd/api`: 429 con `Retry-After` antes de 60 intentos |
+| `TestWebhookRejectsForgeries` | ✅ | Sin firma, otra clave, cuerpo cambiado tras firmar, cabecera sha1, firma mal formada → 4xx y nada encolado; firmado → 1 evento; verify token incorrecto → 403 sin el reto |
+| Suite de seguridad completa | ✅ | Aislamiento en 42 operaciones (27 con ids ajenos); credenciales inválidas en 73 operaciones autenticadas |
+| Cobertura | ✅ | notifications dominio 100 %, aplicación 90,9 %, correo 96,0 %, WhatsApp 94,9 %, worker 94,4 %, HTTP 59,3 %; scheduling dominio 100 %, aplicación 85,6 %; negocios aplicación 90,3 %, dominio 95,1 % |
+| Plantillas de WhatsApp en Meta (consulta desde el servidor, sin mostrar el token) | ⏳ | Las 6 de Booka `PENDING`; la prueba con mensajes reales espera la aprobación |
