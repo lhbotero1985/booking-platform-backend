@@ -466,6 +466,20 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-27 · Operación QA · Botón «Reagendar» de los correos hacia el portal
+
+- **Estado:** `.env` de QA con `APPOINTMENT_RESCHEDULE_URL=https://booka-app-qa.duckdns.org/citas/reagendar`
+  (respaldo `.env.bak-reschedule`); cambio del compose en `feature/qa-email-link-urls` (commit y
+  push; PR pendiente de autorización).
+- **Hallazgo:** el compose de QA no pasaba `APPOINTMENT_RESCHEDULE_URL` ni `APP_DOWNLOAD_URL` a los
+  contenedores, así que ponerlas en el `.env` no tenía efecto (los contenedores no se recrearon).
+  Ahora ambas van en `x-app-env` (vacías por defecto). Como `deploy.sh` toma el compose de la
+  imagen, el cambio llega a QA con el despliegue del merge.
+- **Verificado antes:** el portal sirve `/citas/reagendar` (200, `Referrer-Policy: no-referrer`;
+  una ruta inexistente da 404).
+- **E2E:** nueva comprobación opcional `RESCHEDULE_URL`: el botón «Reagendar» del correo apunta a
+  esa página con `?token=`.
+
 ## 2026-11-26 · Fuera de fase · P-9 y P-10 — Horas libres del personal y citas de un cliente
 
 - **Estado:** ✅ en `qa` (PR #76) y validada en QA: E2E 241/241. Aprobadas por el usuario con: respetar el límite de días; historial con

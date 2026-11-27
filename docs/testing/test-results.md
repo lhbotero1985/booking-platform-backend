@@ -1159,3 +1159,13 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Suite de seguridad | ✅ | Aislamiento en **44 operaciones** (28 con ids ajenos); primero falló (400 antes de autorizar) y se corrigió |
 | `task check` | ✅ | build, vet, golangci-lint (0), pruebas; govulncheck sin vulnerabilidades (reintento por DNS); `sqlc vet/diff` al día; shellcheck del E2E |
 | Despliegue y E2E en QA (PR #76) | ✅ **241/241** | CI 6/6; `release-qa` ✅ (`499e64f`). Con `APP_URL=https://booka-app-qa.duckdns.org`: enlaces de verificación y recuperación al portal; horas del personal = públicas para el martes (23), mover la cita de las 10:00 libera su hora, barbero con las horas del dueño → 403, sin sesión → 401; citas del cliente: 2 próximas (la primera pendiente), el barbero las ve (su agenda), 0 pasadas, cliente desconocido → 404. Una primera corrida falló en cascada (178) porque el túnel a Mailpit estaba cerrado; repetida con túnel propio |
+
+## 2026-11-27 · Operación QA · `APPOINTMENT_RESCHEDULE_URL`
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `curl https://booka-app-qa.duckdns.org/citas/reagendar` | ✅ 200 | `Referrer-Policy: no-referrer`; una ruta inexistente da 404 (la página existe en el portal) |
+| `docker compose up -d api worker` tras editar el `.env` | ❌ sin efecto | Los contenedores no se recrearon: el compose no pasaba la variable (hallazgo) |
+| `docker compose config` con el compose corregido | ✅ | `APPOINTMENT_RESCHEDULE_URL` y `APP_DOWNLOAD_URL` llegan a `api` y `worker` (y vacías si faltan) |
+| `task shellcheck` | ✅ | Con la nueva comprobación `RESCHEDULE_URL` del E2E |
+| Despliegue y E2E en QA | ⏳ | Tras el merge (requiere autorización), con `RESCHEDULE_URL=https://booka-app-qa.duckdns.org/citas/reagendar` |

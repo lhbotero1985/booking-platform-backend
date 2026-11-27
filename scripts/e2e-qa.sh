@@ -9,6 +9,9 @@
 #   CURL_EXTRA   optional extra curl options (e.g. --resolve host:443:IP when local DNS fails)
 #   APP_URL      PUBLIC_APP_URL of the environment (the portal that opens the email links);
 #                default BASE_URL. QA: https://booka-app-qa.duckdns.org (P-6)
+#   RESCHEDULE_URL  APPOINTMENT_RESCHEDULE_URL of the environment (the emails' "Reagendar"
+#                button); default the API's own /citas/reagendar.
+#                QA: https://booka-app-qa.duckdns.org/citas/reagendar (F9.5)
 #   SKIP_RATE_LIMIT=1 skips the rate-limit check (it blocks auth endpoints for this IP ~1 min)
 #   WHATSAPP_TEST_PHONE (optional) E.164 test recipient of Meta (and in WHATSAPP_ALLOWLIST): one
 #                real WhatsApp is sent to it through the worker
@@ -23,6 +26,7 @@ set -uo pipefail
 B=${1:?BASE_URL}
 M=${2:?MAILPIT_URL}
 APP=${APP_URL:-$B}
+RESCHEDULE=${RESCHEDULE_URL:-$B/citas/reagendar}
 read -r -a X <<<"${CURL_EXTRA:-}"
 J='Content-Type: application/json'
 EMAIL="qa-e2e-$(date +%s)-$RANDOM@example.test"
@@ -431,6 +435,7 @@ lk_confirm=$(link_of /citas/confirmar "$lk_text")
 lk_resched=$(link_of /citas/reagendar "$lk_text")
 lk_cancel=$(link_of /citas/cancelar "$lk_text")
 check "  its email has the three links" 3 "$(for l in "$lk_confirm" "$lk_resched" "$lk_cancel"; do [[ -n $l ]] && echo x; done | wc -l | tr -d ' ')"
+check "  Reagendar points to APPOINTMENT_RESCHEDULE_URL" 1 "$([[ $lk_resched == "$RESCHEDULE"\?token=* ]] && echo 1 || echo 0)"
 check "first tap: the page" 200 "$(status GET "${lk_confirm#"$B"}")"
 check "  security headers" 1 "$(hdrs | grep -ci "^content-security-policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'")"
 check "  changes nothing" PENDING_CONFIRMATION "$(status GET "/api/v1/me/appointments/$lk_appt" "" "$T1" >/dev/null; json .status)"
