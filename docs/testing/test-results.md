@@ -1168,4 +1168,4 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `docker compose up -d api worker` tras editar el `.env` | ❌ sin efecto | Los contenedores no se recrearon: el compose no pasaba la variable (hallazgo) |
 | `docker compose config` con el compose corregido | ✅ | `APPOINTMENT_RESCHEDULE_URL` y `APP_DOWNLOAD_URL` llegan a `api` y `worker` (y vacías si faltan) |
 | `task shellcheck` | ✅ | Con la nueva comprobación `RESCHEDULE_URL` del E2E |
-| Despliegue y E2E en QA | ⏳ | Tras el merge (requiere autorización), con `RESCHEDULE_URL=https://booka-app-qa.duckdns.org/citas/reagendar` |
+| Despliegue y E2E en QA (PR #78) | ✅ **239 PASS, 0 fallos** | CI 6/6; `release-qa` ✅ (`efd1ea6`); el worker y la API tienen la variable (`docker inspect`). Nueva comprobación «Reagendar points to APPOINTMENT_RESCHEDULE_URL» ✅. Omitidos: alta de negocios por el admin (sin `ADMIN_EMAIL`) y límite de peticiones (`SKIP_RATE_LIMIT=1`) |

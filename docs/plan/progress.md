@@ -469,8 +469,8 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 ## 2026-11-27 · Operación QA · Botón «Reagendar» de los correos hacia el portal
 
 - **Estado:** `.env` de QA con `APPOINTMENT_RESCHEDULE_URL=https://booka-app-qa.duckdns.org/citas/reagendar`
-  (respaldo `.env.bak-reschedule`); cambio del compose en `feature/qa-email-link-urls` (commit y
-  push; PR pendiente de autorización).
+  (respaldo `.env.bak-reschedule`); compose corregido en `qa` (PR #78, `efd1ea6`), desplegado y
+  validado: E2E 239 PASS, 0 fallos; el botón «Reagendar» abre el portal.
 - **Hallazgo:** el compose de QA no pasaba `APPOINTMENT_RESCHEDULE_URL` ni `APP_DOWNLOAD_URL` a los
   contenedores, así que ponerlas en el `.env` no tenía efecto (los contenedores no se recrearon).
   Ahora ambas van en `x-app-env` (vacías por defecto). Como `deploy.sh` toma el compose de la
