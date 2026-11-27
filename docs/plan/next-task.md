@@ -1,9 +1,8 @@
 # Siguiente tarea
 
 ## Última tarea completada
-P-9 y P-10 — Horas libres del personal y citas de un cliente (2026-11-26), en
-`feature/p9-p10-staff-availability-history` (commit y push; PR pendiente de autorización). E2E en
-QA con `APP_URL=https://booka-app-qa.duckdns.org`.
+P-9 y P-10 — Horas libres del personal y citas de un cliente (2026-11-26), en `qa` (PR #76) y
+validadas en QA: E2E 241/241 (con `APP_URL=https://booka-app-qa.duckdns.org`).
 
 Anterior: P-6 — Correos de identidad con la marca Booka (2026-11-26), en `qa` (PR #73) y validada en
 Mailpit de QA. Fase 7 aprobada por el usuario (2026-11-25).

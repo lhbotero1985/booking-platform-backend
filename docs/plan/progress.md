@@ -468,8 +468,7 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 
 ## 2026-11-26 · Fuera de fase · P-9 y P-10 — Horas libres del personal y citas de un cliente
 
-- **Estado:** ✅ en `feature/p9-p10-staff-availability-history` (commit y push; PR pendiente de
-  autorización). Aprobadas por el usuario con: respetar el límite de días; historial con
+- **Estado:** ✅ en `qa` (PR #76) y validada en QA: E2E 241/241. Aprobadas por el usuario con: respetar el límite de días; historial con
   próximas y pasadas por separado.
 - **Hecho:** `GET /api/v1/business/{businessId}/availability` (mismo motor que la reserva del
   personal: sin anticipación mínima, publicado o no, con horizonte; `excludeAppointmentId`;
