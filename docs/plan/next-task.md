@@ -2,8 +2,8 @@
 
 ## Última tarea completada
 Operación QA (2026-11-27): botón «Reagendar» de los correos hacia
-`https://booka-app-qa.duckdns.org/citas/reagendar`. `.env` listo; el compose que pasa la variable
-está en `feature/qa-email-link-urls` (PR, merge y E2E pendientes de autorización).
+`https://booka-app-qa.duckdns.org/citas/reagendar`, en `qa` (PR #78) y validado en QA (E2E 239
+PASS, 0 fallos, con `RESCHEDULE_URL`).
 
 Anterior: P-9 y P-10 — Horas libres del personal y citas de un cliente (2026-11-26), en `qa` (PR #76) y
 validadas en QA: E2E 241/241 (con `APP_URL=https://booka-app-qa.duckdns.org`).
