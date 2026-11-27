@@ -94,6 +94,26 @@ WHERE customer_user_id = @user_id AND start_at < @now_at
 ORDER BY start_at DESC, id DESC
 LIMIT @max_rows;
 
+-- Appointments of a customer of the business from now on (P-10), optionally only of some
+-- professionals, by start.
+-- name: BusinessCustomerUpcomingAppointments :many
+SELECT * FROM appointments
+WHERE business_id = @business_id AND customer_id = @customer_id AND start_at >= @now_at
+  AND (@all_professionals::bool OR professional_id = ANY(@professional_ids::uuid[]))
+  AND (NOT @has_cursor::bool OR (start_at, id) > (@after_start::timestamptz, @after_id::uuid))
+ORDER BY start_at, id
+LIMIT @max_rows;
+
+-- Past appointments of a customer of the business (P-10), optionally only of some
+-- professionals, newest first.
+-- name: BusinessCustomerPastAppointments :many
+SELECT * FROM appointments
+WHERE business_id = @business_id AND customer_id = @customer_id AND start_at < @now_at
+  AND (@all_professionals::bool OR professional_id = ANY(@professional_ids::uuid[]))
+  AND (NOT @has_cursor::bool OR (start_at, id) < (@after_start::timestamptz, @after_id::uuid))
+ORDER BY start_at DESC, id DESC
+LIMIT @max_rows;
+
 -- Serializes the changes of one appointment (T6.6).
 -- name: LockAppointment :one
 SELECT * FROM appointments WHERE id = @id FOR UPDATE;

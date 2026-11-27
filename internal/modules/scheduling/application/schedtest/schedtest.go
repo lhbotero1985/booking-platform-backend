@@ -212,6 +212,24 @@ func (t *tx) CustomerAppointments(_ context.Context, userID uuid.UUID, now time.
 	return out, nil
 }
 
+func (t *tx) BusinessCustomerAppointments(_ context.Context, businessID, customerID uuid.UUID, professionalIDs []uuid.UUID, now time.Time, upcoming bool, c *application.Cursor, limit int) ([]domain.Appointment, error) {
+	var out []domain.Appointment
+	for _, a := range t.appts {
+		if a.BusinessID != businessID || a.Customer.CustomerID != customerID || a.Start.Before(now) != !upcoming || !after(a, c, upcoming) {
+			continue
+		}
+		if professionalIDs != nil && !slices.Contains(professionalIDs, a.ProfessionalID) {
+			continue
+		}
+		out = append(out, a)
+	}
+	sortAppointments(out, upcoming)
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
 func (t *tx) ActiveAppointments(_ context.Context, businessID, professionalID uuid.UUID, from, to time.Time) ([]domain.Booked, error) {
 	var out []domain.Booked
 	for _, a := range t.appts {

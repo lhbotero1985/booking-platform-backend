@@ -68,6 +68,10 @@ type AgendaTx interface {
 	// CustomerAppointments returns up to limit appointments of an account, upcoming (start >=
 	// now, ascending) or past (descending), after the cursor.
 	CustomerAppointments(ctx context.Context, userID uuid.UUID, now time.Time, upcoming bool, after *Cursor, limit int) ([]domain.Appointment, error)
+	// BusinessCustomerAppointments returns up to limit appointments of a customer of the business
+	// (P-10), of every professional (professionalIDs nil) or of some, upcoming (start >= now,
+	// ascending) or past (descending), after the cursor.
+	BusinessCustomerAppointments(ctx context.Context, businessID, customerID uuid.UUID, professionalIDs []uuid.UUID, now time.Time, upcoming bool, after *Cursor, limit int) ([]domain.Appointment, error)
 	// AppointmentsDuring returns the active appointments of a professional whose service overlaps
 	// [from, to), by start (T6.7).
 	AppointmentsDuring(ctx context.Context, businessID, professionalID uuid.UUID, from, to time.Time) ([]domain.Appointment, error)

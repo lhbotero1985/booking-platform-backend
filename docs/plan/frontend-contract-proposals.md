@@ -20,3 +20,9 @@ Reglas:
 | P-3 | G-05 sin `PATCH /me` | Sin iniciar | — | Duda abierta: ¿el nombre del cliente del negocio sigue al de la cuenta? |
 | P-4 | G-15 sin detalle de cita para el personal | Sin iniciar | — | — |
 | P-5 | G-11 usuarios y auditoría para el admin | Sin iniciar | — | Recomendado junto con MFA de administradores (P32) |
+| P-9 | G-27 horas libres para el personal | ✅ Implementada (2026-11-26) | `feature/p9-p10-staff-availability-history` | `GET /business/{id}/availability`: sin anticipación mínima ni requisito de publicación; **respeta el límite de días** (decisión del usuario: igual que la reserva del personal); `excludeAppointmentId` opcional |
+| P-10 | G-28 citas de un cliente | ✅ Implementada (2026-11-26) | `feature/p9-p10-staff-availability-history` | `GET /business/{id}/customers/{customerId}/appointments?scope=upcoming\|past` (decisión del usuario: próximas ascendentes, pasadas de la más reciente); cubre también la segunda fila de P-4 |
+| — | P-7, P-8 (frontend) | Sin revisar | — | Están en el documento del frontend; no autorizadas en el backend |
+
+P-9 y P-10 se recibieron por el chat (2026-11-26) antes de estar en el documento del frontend;
+el frontend debe agregarlas a `docs/BACKEND_CONTRACT_PROPOSALS.md`.

@@ -103,6 +103,10 @@ func (h *Handler) publicAvailability(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
+	httpx.WriteJSON(w, http.StatusOK, toAvailabilityDTO(a, serviceID, professionalID))
+}
+
+func toAvailabilityDTO(a application.Availability, serviceID, professionalID uuid.UUID) availabilityDTO {
 	out := availabilityDTO{
 		Date: a.Date.String(), TimeZone: a.Location.String(), ServiceID: serviceID, ProfessionalID: professionalID,
 		DurationMinutes: a.DurationMinutes, Slots: make([]slotDTO, 0, len(a.Slots)),
@@ -110,7 +114,7 @@ func (h *Handler) publicAvailability(w http.ResponseWriter, r *http.Request) {
 	for _, s := range a.Slots {
 		out.Slots = append(out.Slots, slotDTO{StartAt: s.Start, EndAt: s.End, StartLocal: s.Start.In(a.Location).Format(time.RFC3339)})
 	}
-	httpx.WriteJSON(w, http.StatusOK, out)
+	return out
 }
 
 type bookRequest struct {

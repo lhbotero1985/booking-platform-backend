@@ -74,6 +74,16 @@ Horario 09:00–12:00, I = 10, B = 0, cita existente 09:40–10:20, servicio D =
 
 **Descartado (usuario, 2026-11-24):** el cliente elige barbero y es obligatorio.
 
+### 5.1 Horas libres para el personal (P-9, 2026-11-26)
+
+`GET /api/v1/business/{businessId}/availability` usa el mismo motor con las reglas de la reserva
+manual y del movimiento hechos por el personal: anticipación mínima en 0 y sin exigir que el
+negocio esté publicado; **sí** respeta el horizonte (`maxAdvanceDays`, decisión del usuario), el
+horario, descansos, ausencias y citas. Así cada hora listada es aceptada por la reserva manual.
+`excludeAppointmentId` no cuenta como ocupada la cita que se está moviendo (igual que al moverla).
+Un PROFESSIONAL solo consulta su agenda (otro → 403); la autorización va antes de validar los
+parámetros (un negocio ajeno es 404 con cualquier parámetro).
+
 ## 6. Concurrencia y prevención de doble reserva (ADR-0004)
 
 La consulta de disponibilidad es **informativa** (sin bloqueos). La garantía está en la reserva:

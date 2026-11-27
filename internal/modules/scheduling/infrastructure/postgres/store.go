@@ -247,6 +247,20 @@ func (t *txStore) CustomerAppointments(ctx context.Context, userID uuid.UUID, no
 	}))
 }
 
+func (t *txStore) BusinessCustomerAppointments(ctx context.Context, businessID, customerID uuid.UUID, professionalIDs []uuid.UUID, now time.Time, upcoming bool, after *application.Cursor, limit int) ([]domain.Appointment, error) {
+	has, start, id := cursorArgs(after)
+	if upcoming {
+		return toAppointments(t.q.BusinessCustomerUpcomingAppointments(ctx, sqlcgen.BusinessCustomerUpcomingAppointmentsParams{
+			BusinessID: businessID, CustomerID: &customerID, NowAt: now, AllProfessionals: professionalIDs == nil, ProfessionalIds: professionalIDs,
+			HasCursor: has, AfterStart: start, AfterID: id, MaxRows: int32(limit), //nolint:gosec // bounded by the application
+		}))
+	}
+	return toAppointments(t.q.BusinessCustomerPastAppointments(ctx, sqlcgen.BusinessCustomerPastAppointmentsParams{
+		BusinessID: businessID, CustomerID: &customerID, NowAt: now, AllProfessionals: professionalIDs == nil, ProfessionalIds: professionalIDs,
+		HasCursor: has, AfterStart: start, AfterID: id, MaxRows: int32(limit), //nolint:gosec // bounded by the application
+	}))
+}
+
 func (t *txStore) ActiveAppointments(ctx context.Context, businessID, professionalID uuid.UUID, from, to time.Time) ([]domain.Booked, error) {
 	rows, err := t.q.ActiveAppointmentsOverlapping(ctx, sqlcgen.ActiveAppointmentsOverlappingParams{
 		BusinessID: businessID, ProfessionalID: professionalID, FromAt: from, ToAt: to,

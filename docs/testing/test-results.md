@@ -1146,3 +1146,16 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `task check` | ✅ | build, vet, golangci-lint, pruebas; govulncheck sin vulnerabilidades (reintento por DNS) |
 | Despliegue y Mailpit de QA (PR #73) | ✅ | CI 6/6; `release-qa` ✅. Cuenta de prueba `p6-…@example.com`: registro 202 → «Confirma tu correo electrónico» en HTML + texto con la marca; verificar 200; olvido 202 → «Restablece tu contraseña» en HTML + texto; restablecer 200 → «Tu contraseña fue cambiada» sin enlaces, «26 de noviembre de 2026 a las 1:52 a. m. (hora de Colombia)». Token nunca en el asunto. Enlaces aún al dominio de la API: `/reset-password` del portal QA responde 404, `PUBLIC_APP_URL` sin cambiar |
 | `PUBLIC_APP_URL` de QA → `https://booka-app-qa.duckdns.org` (autorizado por el usuario) | ✅ | `/verify-email` y `/reset-password` del portal → 200 («Crear una nueva contraseña · Booka»); `.env` con copia `.env.bak-p6`, `api` y `worker` recreados, `/readyz` ready. Repetido en Mailpit: los botones y el enlace en texto apuntan a `https://booka-app-qa.duckdns.org/verify-email` y `/reset-password`; verificar 200, restablecer 200. El token se usó contra la API, no desde la página del portal |
+
+## 2026-11-26 · Fuera de fase · P-9 y P-10 — Horas libres del personal y citas de un cliente
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestStaffAvailability` | ✅ | Hoy con 60 min de anticipación: pública desde 13:00, personal desde 12:00 (6 horas más); el cliente no puede reservar "ahora" (409), la reserva manual de la primera hora del personal sí; la cita agendada bloquea su hora salvo con `excludeAppointmentId`; barbero con otro profesional → 403; ajeno → 404 también con parámetros inválidos; ayer y más allá del horizonte → `DATE_OUTSIDE_BOOKING_WINDOW`, último día del horizonte → 200; parámetros inválidos → 400; negocio sin publicar: pública 404, personal con las mismas horas |
+| `TestCustomerAppointments` | ✅ | Dueño: 2 próximas / 2 pasadas; Juan: solo su agenda (1 / 2); Ana 1 / 0; miembro sin perfil 0; orden ascendente y descendente, nombres, cursor; otro negocio no aparece; cliente desconocido → 404; ajeno → 404; cursor y límite inválidos → 400. Cobertura scheduling/application 86,0 % |
+| Mutaciones | ✅ detectadas | Mantener la anticipación mínima en la lista del personal; un PROFESSIONAL viendo las citas de otras agendas; código restaurado |
+| `TestStaffViewsOnPostgres` (`-tags integration`, PostgreSQL real) | ✅ | Consultas SQL nuevas: filtros, orden, cursor; hora del personal "ahora" agendable; `excludeAppointmentId`; 403 a otro profesional |
+| `TestContractAgenda` (contrato OpenAPI) | ✅ | Las 2 operaciones con respuestas reales validadas contra el esquema (200, 400, 403, 404); cobertura de `scheduling/interfaces/http` 83,9 % |
+| Suite de seguridad | ✅ | Aislamiento en **44 operaciones** (28 con ids ajenos); primero falló (400 antes de autorizar) y se corrigió |
+| `task check` | ✅ | build, vet, golangci-lint (0), pruebas; govulncheck sin vulnerabilidades (reintento por DNS); `sqlc vet/diff` al día; shellcheck del E2E |
+| E2E en QA | ⏳ | Tras el merge (requiere autorización): 9 comprobaciones nuevas de P-9/P-10 y del enlace de recuperación con `APP_URL` |
