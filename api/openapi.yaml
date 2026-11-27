@@ -1893,6 +1893,142 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/business/{businessId}/availability:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Availability]
+      operationId: getStaffAvailability
+      summary: Start times the staff can book for a professional and service on a local day (OWNER, PROFESSIONAL)
+      description: |
+        The same rules as a manual booking or a move by the staff: working ranges, breaks,
+        absences, booked appointments, buffer and booking horizon, **without the minimum notice**
+        (a customer already there can be served now) and whether or not the business is
+        published. Informative (the booking revalidates). A PROFESSIONAL only asks for its own
+        agenda (another professional is 403). `excludeAppointmentId` does not count that
+        appointment as busy (the one being moved). 404, identical for an unknown or inactive
+        service, a professional who does not perform it or is not bookable. 400
+        `DATE_OUTSIDE_BOOKING_WINDOW` for a date before today or beyond the horizon.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - name: serviceId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: professionalId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: date
+          in: query
+          required: true
+          description: Local day of the business (YYYY-MM-DD).
+          schema:
+            type: string
+            format: date
+        - name: excludeAppointmentId
+          in: query
+          required: false
+          description: An appointment that does not block its own times (when moving it).
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The start times the staff can book, earliest first (empty when nothing is free).
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Availability"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/business/{businessId}/customers/{customerId}/appointments:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: customerId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Appointments]
+      operationId: listCustomerAppointments
+      summary: Appointments of a customer of your business (OWNER every professional, PROFESSIONAL its own)
+      description: |
+        Every status. `scope=upcoming` (default): from now on, earliest first; `scope=past`:
+        newest first. Paginated. A PROFESSIONAL only sees the appointments of its own agenda;
+        the OWNER all of them. A customer of another business is 404, the same as a missing one.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [upcoming, past]
+            default: upcoming
+        - name: cursor
+          in: query
+          required: false
+          description: The `nextCursor` of the previous page.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: 1–500, default 100.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+      responses:
+        "200":
+          description: A page of the customer's appointments.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerAppointmentList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/business/{businessId}/agenda:
     parameters:
       - name: businessId
@@ -4963,6 +5099,19 @@ components:
           type: string
           format: date
           description: Last local day of the period (inclusive).
+        timeZone:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgendaItem"
+        nextCursor:
+          type: [string, "null"]
+    CustomerAppointmentList:
+      type: object
+      additionalProperties: false
+      required: [timeZone, items, nextCursor]
+      properties:
         timeZone:
           type: string
         items:

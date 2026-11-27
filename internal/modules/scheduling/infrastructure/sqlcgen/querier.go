@@ -22,6 +22,12 @@ type Querier interface {
 	AgendaAppointments(ctx context.Context, arg AgendaAppointmentsParams) ([]Appointment, error)
 	AppointmentByID(ctx context.Context, id uuid.UUID) (Appointment, error)
 	AppointmentEvents(ctx context.Context, appointmentID uuid.UUID) ([]AppointmentEvent, error)
+	// Past appointments of a customer of the business (P-10), optionally only of some
+	// professionals, newest first.
+	BusinessCustomerPastAppointments(ctx context.Context, arg BusinessCustomerPastAppointmentsParams) ([]Appointment, error)
+	// Appointments of a customer of the business from now on (P-10), optionally only of some
+	// professionals, by start.
+	BusinessCustomerUpcomingAppointments(ctx context.Context, arg BusinessCustomerUpcomingAppointmentsParams) ([]Appointment, error)
 	// Waits for a concurrent transaction holding the same key; returns no row if it already exists.
 	ClaimIdempotencyKey(ctx context.Context, arg ClaimIdempotencyKeyParams) ([]uuid.UUID, error)
 	CustomerByID(ctx context.Context, arg CustomerByIDParams) (Customer, error)

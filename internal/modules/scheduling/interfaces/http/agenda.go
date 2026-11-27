@@ -22,6 +22,8 @@ type AgendaService interface {
 	MyAppointments(ctx context.Context, p contract.Principal, q application.MyAppointmentsQuery) ([]application.MyAppointment, string, error)
 	MyAppointmentDetail(ctx context.Context, p contract.Principal, id uuid.UUID) (application.MyAppointment, error)
 	ToReassign(ctx context.Context, p contract.Principal, businessID uuid.UUID) (application.AgendaPage, error)
+	StaffAvailability(ctx context.Context, p contract.Principal, businessID uuid.UUID, q application.StaffAvailabilityQuery) (application.Availability, error)
+	CustomerAppointments(ctx context.Context, p contract.Principal, businessID, customerID uuid.UUID, q application.CustomerAppointmentsQuery) (application.CustomerHistory, error)
 }
 
 type agendaCustomerDTO struct {
@@ -95,6 +97,8 @@ func (h *Handler) agendaRoutes(rt *httpx.Router) {
 	auth := func(f http.HandlerFunc) http.Handler { return h.requireAuth(f) }
 	rt.Handle("GET /api/v1/business/{businessId}/agenda", auth(h.agenda))
 	rt.Handle("GET /api/v1/business/{businessId}/appointments/to-reassign", auth(h.toReassign))
+	rt.Handle("GET /api/v1/business/{businessId}/availability", auth(h.staffAvailability))
+	rt.Handle("GET /api/v1/business/{businessId}/customers/{customerId}/appointments", auth(h.customerAppointments))
 	rt.Handle("GET /api/v1/me/appointments", auth(h.myAppointments))
 	rt.Handle("GET /api/v1/me/appointments/{appointmentId}", auth(h.myAppointment))
 }
@@ -172,19 +176,85 @@ func toAgendaDTO(view domain.View, page application.AgendaPage) agendaDTO {
 		Items: make([]agendaItemDTO, 0, len(page.Items)), NextCursor: optionalCursor(page.NextCursor),
 	}
 	for _, a := range page.Items {
-		c := agendaCustomerDTO{Name: a.Customer.Name, Phone: a.Customer.Phone, HasAccount: a.Customer.UserID != uuid.Nil}
-		if a.Customer.CustomerID != uuid.Nil {
-			id := a.Customer.CustomerID
-			c.ID = &id
-		}
-		out.Items = append(out.Items, agendaItemDTO{
-			ID: a.ID, ProfessionalID: a.ProfessionalID, ProfessionalName: a.ProfessionalName, ServiceID: a.Service.ServiceID,
-			ServiceName: a.Service.Name, DurationMinutes: a.Service.DurationMinutes, PriceMinor: a.Service.PriceMinor,
-			Currency: a.Service.Currency, StartAt: a.Start, EndAt: a.End, StartLocal: a.Start.In(page.Location).Format(time.RFC3339),
-			Status: string(a.Status), Customer: c, NeedsReassignment: a.NeedsReassignment, CreatedAt: a.CreatedAt,
-		})
+		out.Items = append(out.Items, toAgendaItemDTO(a, page.Location))
 	}
 	return out
+}
+
+func toAgendaItemDTO(a application.AgendaItem, loc *time.Location) agendaItemDTO {
+	c := agendaCustomerDTO{Name: a.Customer.Name, Phone: a.Customer.Phone, HasAccount: a.Customer.UserID != uuid.Nil}
+	if a.Customer.CustomerID != uuid.Nil {
+		id := a.Customer.CustomerID
+		c.ID = &id
+	}
+	return agendaItemDTO{
+		ID: a.ID, ProfessionalID: a.ProfessionalID, ProfessionalName: a.ProfessionalName, ServiceID: a.Service.ServiceID,
+		ServiceName: a.Service.Name, DurationMinutes: a.Service.DurationMinutes, PriceMinor: a.Service.PriceMinor,
+		Currency: a.Service.Currency, StartAt: a.Start, EndAt: a.End, StartLocal: a.Start.In(loc).Format(time.RFC3339),
+		Status: string(a.Status), Customer: c, NeedsReassignment: a.NeedsReassignment, CreatedAt: a.CreatedAt,
+	}
+}
+
+type customerAppointmentsDTO struct {
+	TimeZone   string          `json:"timeZone"`
+	Items      []agendaItemDTO `json:"items"`
+	NextCursor *string         `json:"nextCursor"`
+}
+
+// staffAvailability serves GET /api/v1/business/{businessId}/availability?serviceId=&professionalId=&date=[&excludeAppointmentId=]
+// (P-9): the times the staff can book, without the minimum notice and published or not.
+func (h *Handler) staffAvailability(w http.ResponseWriter, r *http.Request) {
+	ids, ok := h.pathIDs(w, r, "businessId")
+	if !ok {
+		return
+	}
+	q := r.URL.Query()
+	in := application.StaffAvailabilityQuery{
+		ServiceID: q.Get("serviceId"), ProfessionalID: q.Get("professionalId"), Date: q.Get("date"),
+		ExcludeAppointmentID: q.Get("excludeAppointmentId"),
+	}
+	p, _ := contract.PrincipalFrom(r.Context())
+	a, err := h.agendas.StaffAvailability(r.Context(), p, ids[0], in)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	// Both ids are valid UUIDs once the use case answered.
+	httpx.WriteJSON(w, http.StatusOK, toAvailabilityDTO(a, uuid.MustParse(in.ServiceID), uuid.MustParse(in.ProfessionalID)))
+}
+
+// customerAppointments serves GET /api/v1/business/{businessId}/customers/{customerId}/appointments?scope=upcoming|past&cursor=&limit=
+// (P-10): upcoming ascending, past newest first; a PROFESSIONAL only sees its own agenda's.
+func (h *Handler) customerAppointments(w http.ResponseWriter, r *http.Request) {
+	ids, ok := h.pathIDs(w, r, "businessId", "customerId")
+	if !ok {
+		return
+	}
+	q := r.URL.Query()
+	in := application.CustomerAppointmentsQuery{Upcoming: true, Cursor: q.Get("cursor")}
+	switch q.Get("scope") {
+	case "", "upcoming":
+	case "past":
+		in.Upcoming = false
+	default:
+		badQuery(w, r, "scope", "INVALID_SCOPE")
+		return
+	}
+	if in.Limit, ok = queryLimit(r); !ok {
+		badQuery(w, r, "limit", "OUT_OF_RANGE")
+		return
+	}
+	p, _ := contract.PrincipalFrom(r.Context())
+	page, err := h.agendas.CustomerAppointments(r.Context(), p, ids[0], ids[1], in)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	out := customerAppointmentsDTO{TimeZone: page.Location.String(), Items: make([]agendaItemDTO, 0, len(page.Items)), NextCursor: optionalCursor(page.NextCursor)}
+	for _, a := range page.Items {
+		out.Items = append(out.Items, toAgendaItemDTO(a, page.Location))
+	}
+	httpx.WriteJSON(w, http.StatusOK, out)
 }
 
 // toReassign serves GET /api/v1/business/{businessId}/appointments/to-reassign (OWNER, T6.7).

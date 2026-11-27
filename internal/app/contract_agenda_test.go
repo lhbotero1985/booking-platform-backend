@@ -66,4 +66,36 @@ func TestContractAgenda(t *testing.T) {
 	if strip.ReplaceAllString(other, "") != strip.ReplaceAllString(missing, "") {
 		t.Errorf("another customer's appointment differs from a missing one:\n%s\n%s", other, missing)
 	}
+
+	// P-9: the staff's free times. Ana's 09:00 with Juan is busy, unless it is the one being moved.
+	avail := func(tok, query string, want int) string {
+		return c.callAuth(t, e.srv, http.MethodGet, base+"/availability"+query, "", tok, want)
+	}
+	juanTuesday := "?serviceId=" + svc + "&professionalId=" + juan + "&date=2026-11-24"
+	nine := `"startLocal":"2026-11-24T09:00:00-05:00"`
+	if got := avail(owner, juanTuesday, http.StatusOK); strings.Contains(got, nine) || !strings.Contains(got, `"durationMinutes":30`) {
+		t.Errorf("staff availability = %s", got)
+	}
+	if got := avail(barber, juanTuesday+"&excludeAppointmentId="+appt, http.StatusOK); !strings.Contains(got, nine) {
+		t.Errorf("moving Ana's appointment = %s", got)
+	}
+	avail(barber, "?serviceId="+svc+"&professionalId="+boss+"&date=2026-11-24", http.StatusForbidden)
+	avail(ana, juanTuesday, http.StatusNotFound) // a customer is not staff
+	avail(owner, "?serviceId="+svc+"&professionalId="+juan+"&date=24-11-2026", http.StatusBadRequest)
+
+	// P-10: a customer's appointments; Laura's is with the owner's own profile.
+	laura := idOf(c.callAuth(t, e.srv, http.MethodGet, base+"/customers?q=Laura", "", owner, http.StatusOK))
+	history := func(tok, customer, query string, want int) string {
+		return c.callAuth(t, e.srv, http.MethodGet, base+"/customers/"+customer+"/appointments"+query, "", tok, want)
+	}
+	if got := history(owner, laura, "", http.StatusOK); !strings.Contains(got, `"professionalName":"El Dueño"`) || !strings.Contains(got, `"timeZone":"America/Bogota"`) || !strings.Contains(got, `"nextCursor":null`) {
+		t.Errorf("owner, Laura's appointments = %s", got)
+	}
+	if got := history(barber, laura, "", http.StatusOK); strings.Contains(got, "El Dueño") {
+		t.Errorf("barber sees another agenda's appointment = %s", got)
+	}
+	history(owner, laura, "?scope=past", http.StatusOK)
+	history(owner, laura, "?scope=all", http.StatusBadRequest)
+	history(owner, "01a20aae-0000-7000-8000-000000000000", "", http.StatusNotFound)
+	history(ana, laura, "", http.StatusNotFound)
 }

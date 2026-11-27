@@ -7,6 +7,8 @@
 #   MAILPIT_URL  Mailpit API through an SSH tunnel, e.g. http://127.0.0.1:18025
 #                (ssh -N -L 18025:127.0.0.1:8025 deploy@HOST)
 #   CURL_EXTRA   optional extra curl options (e.g. --resolve host:443:IP when local DNS fails)
+#   APP_URL      PUBLIC_APP_URL of the environment (the portal that opens the email links);
+#                default BASE_URL. QA: https://booka-app-qa.duckdns.org (P-6)
 #   SKIP_RATE_LIMIT=1 skips the rate-limit check (it blocks auth endpoints for this IP ~1 min)
 #   WHATSAPP_TEST_PHONE (optional) E.164 test recipient of Meta (and in WHATSAPP_ALLOWLIST): one
 #                real WhatsApp is sent to it through the worker
@@ -20,6 +22,7 @@ set -uo pipefail
 
 B=${1:?BASE_URL}
 M=${2:?MAILPIT_URL}
+APP=${APP_URL:-$B}
 read -r -a X <<<"${CURL_EXTRA:-}"
 J='Content-Type: application/json'
 EMAIL="qa-e2e-$(date +%s)-$RANDOM@example.test"
@@ -101,7 +104,7 @@ check "register unknown field" '400|422' "$(status POST /api/v1/auth/register "{
 check "login before verification" '401|403' "$(login "$EMAIL" "$PW1")"
 link=$(mail_link verify-email)
 check "verification email received" 1 "$([[ -n $link ]] && echo 1 || echo 0)"
-check "  link points to PUBLIC_APP_URL" 1 "$([[ $link == "$B"/verify-email* ]] && echo 1 || echo 0)"
+check "  link points to PUBLIC_APP_URL" 1 "$([[ $link == "$APP"/verify-email* ]] && echo 1 || echo 0)"
 vtok=${link##*token=}
 check "verify email" 200 "$(status POST /api/v1/auth/verify-email "{\"token\":\"$vtok\"}")"
 check "verify email token reuse" '400|401|404|410|422' "$(status POST /api/v1/auth/verify-email "{\"token\":\"$vtok\"}")"
@@ -308,6 +311,19 @@ check "my appointments (customer, every business)" "1 $myname" "$(status GET /ap
 check "my appointment detail" 200 "$(status GET "/api/v1/me/appointments/$appt" "" "$T1")"
 check "someone else's appointment -> 404" 404 "$(status GET "/api/v1/me/appointments/$appt" "" "$TS")"
 
+# --- staff views (P-9, P-10): free times for the staff and a customer's appointments ----------
+sav="/api/v1/business/$mine/availability?serviceId=$svc&professionalId=$pbarber&date=$tue"
+check "staff availability (P-9)" 200 "$(status GET "$sav" "" "$T1")"
+staff_n=$(json '.slots | length')
+check "  same Tuesday times as the public list" "$staff_n" "$(status GET "$av&date=$tue" >/dev/null; json '.slots | length')"
+check "  moving the 10:00 frees its time" "${tue}T10:00:00-05:00" "$(status GET "$sav&excludeAppointmentId=$appt" "" "$TS" >/dev/null; json '.slots[0].startLocal')"
+check "barber asks for the owner's times -> 403" 403 "$(status GET "/api/v1/business/$mine/availability?serviceId=$svc&professionalId=$powner&date=$tue" "" "$TS")"
+check "staff availability without session -> 401" 401 "$(status GET "$sav")"
+check "customer's appointments (P-10), upcoming first" "2 PENDING_CONFIRMATION" "$(status GET "$cust/$walkin/appointments" "" "$T1" >/dev/null; json '"\(.items | length) \(.items[0].status)"')"
+check "  the barber sees them (his agenda)" 2 "$(status GET "$cust/$walkin/appointments" "" "$TS" >/dev/null; json '.items | length')"
+check "  none in the past" 0 "$(status GET "$cust/$walkin/appointments?scope=past" "" "$T1" >/dev/null; json '.items | length')"
+check "  unknown customer -> 404" 404 "$(status GET "$cust/01a20aae-0000-7000-8000-000000000000/appointments" "" "$T1")"
+
 # --- changes of an appointment (T6.6) ------------------------------------------------------------
 me_appt="/api/v1/me/appointments/$appt"
 st_appt="/api/v1/business/$mine/appointments/$appt"
@@ -503,6 +519,7 @@ check "forgot password" 202 "$(status POST /api/v1/auth/password/forgot "{\"emai
 check "forgot password unknown email (same answer)" 202 "$(status POST /api/v1/auth/password/forgot "{\"email\":\"nobody-$EMAIL\"}")"
 link=$(mail_link reset-password)
 check "reset email received" 1 "$([[ -n $link ]] && echo 1 || echo 0)"
+check "  link points to PUBLIC_APP_URL" 1 "$([[ $link == "$APP"/reset-password* ]] && echo 1 || echo 0)"
 rtok=${link##*token=}
 check "reset with weak password" '400|422' "$(status POST /api/v1/auth/password/reset "{\"token\":\"$rtok\",\"newPassword\":\"12345678\"}")"
 check "reset password" 200 "$(status POST /api/v1/auth/password/reset "{\"token\":\"$rtok\",\"newPassword\":\"$PW3\"}")"

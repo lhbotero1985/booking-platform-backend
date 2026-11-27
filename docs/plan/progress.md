@@ -466,6 +466,21 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-26 · Fuera de fase · P-9 y P-10 — Horas libres del personal y citas de un cliente
+
+- **Estado:** ✅ en `feature/p9-p10-staff-availability-history` (commit y push; PR pendiente de
+  autorización). Aprobadas por el usuario con: respetar el límite de días; historial con
+  próximas y pasadas por separado.
+- **Hecho:** `GET /api/v1/business/{businessId}/availability` (mismo motor que la reserva del
+  personal: sin anticipación mínima, publicado o no, con horizonte; `excludeAppointmentId`;
+  PROFESSIONAL solo la suya) y `GET /api/v1/business/{businessId}/customers/{customerId}/appointments`
+  (`scope=upcoming|past`, cursor; PROFESSIONAL solo su agenda). Consultas SQL nuevas sobre el
+  índice `appointments_customer_idx` (sin migración). OpenAPI: **100 operaciones**.
+- **Hallazgos:** el texto de P-9 decía "ignora el límite de días", pero la reserva del personal
+  lo aplica; se respetó (decisión del usuario). La suite de aislamiento detectó validación antes
+  de autorización (400 en vez de 404 en un negocio ajeno); corregido. El E2E esperaba el enlace
+  de verificación en el dominio de la API; ahora usa `APP_URL` (P-6).
+
 ## 2026-11-26 · Fuera de fase · P-6 — Correos de identidad con la marca Booka
 
 - **Estado:** ✅ en `qa` (PR #73) y validada en Mailpit de QA; `PUBLIC_APP_URL` de QA →

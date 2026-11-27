@@ -290,6 +290,164 @@ func (q *Queries) AppointmentEvents(ctx context.Context, appointmentID uuid.UUID
 	return items, nil
 }
 
+const businessCustomerPastAppointments = `-- name: BusinessCustomerPastAppointments :many
+SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id, cancelled_at, cancel_reason, cancelled_by, customer_reschedules FROM appointments
+WHERE business_id = $1 AND customer_id = $2 AND start_at < $3
+  AND ($4::bool OR professional_id = ANY($5::uuid[]))
+  AND (NOT $6::bool OR (start_at, id) < ($7::timestamptz, $8::uuid))
+ORDER BY start_at DESC, id DESC
+LIMIT $9
+`
+
+type BusinessCustomerPastAppointmentsParams struct {
+	BusinessID       uuid.UUID
+	CustomerID       *uuid.UUID
+	NowAt            time.Time
+	AllProfessionals bool
+	ProfessionalIds  []uuid.UUID
+	HasCursor        bool
+	AfterStart       time.Time
+	AfterID          uuid.UUID
+	MaxRows          int32
+}
+
+// Past appointments of a customer of the business (P-10), optionally only of some
+// professionals, newest first.
+func (q *Queries) BusinessCustomerPastAppointments(ctx context.Context, arg BusinessCustomerPastAppointmentsParams) ([]Appointment, error) {
+	rows, err := q.db.Query(ctx, businessCustomerPastAppointments,
+		arg.BusinessID,
+		arg.CustomerID,
+		arg.NowAt,
+		arg.AllProfessionals,
+		arg.ProfessionalIds,
+		arg.HasCursor,
+		arg.AfterStart,
+		arg.AfterID,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Appointment{}
+	for rows.Next() {
+		var i Appointment
+		if err := rows.Scan(
+			&i.ID,
+			&i.BusinessID,
+			&i.ProfessionalID,
+			&i.ServiceID,
+			&i.CustomerUserID,
+			&i.CustomerName,
+			&i.CustomerPhone,
+			&i.StartAt,
+			&i.EndAt,
+			&i.BufferMinutes,
+			&i.OccupiedUntil,
+			&i.Status,
+			&i.ServiceName,
+			&i.DurationMinutes,
+			&i.PriceMinor,
+			&i.Currency,
+			&i.Version,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CustomerID,
+			&i.CancelledAt,
+			&i.CancelReason,
+			&i.CancelledBy,
+			&i.CustomerReschedules,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const businessCustomerUpcomingAppointments = `-- name: BusinessCustomerUpcomingAppointments :many
+SELECT id, business_id, professional_id, service_id, customer_user_id, customer_name, customer_phone, start_at, end_at, buffer_minutes, occupied_until, status, service_name, duration_minutes, price_minor, currency, version, created_by, created_at, updated_at, customer_id, cancelled_at, cancel_reason, cancelled_by, customer_reschedules FROM appointments
+WHERE business_id = $1 AND customer_id = $2 AND start_at >= $3
+  AND ($4::bool OR professional_id = ANY($5::uuid[]))
+  AND (NOT $6::bool OR (start_at, id) > ($7::timestamptz, $8::uuid))
+ORDER BY start_at, id
+LIMIT $9
+`
+
+type BusinessCustomerUpcomingAppointmentsParams struct {
+	BusinessID       uuid.UUID
+	CustomerID       *uuid.UUID
+	NowAt            time.Time
+	AllProfessionals bool
+	ProfessionalIds  []uuid.UUID
+	HasCursor        bool
+	AfterStart       time.Time
+	AfterID          uuid.UUID
+	MaxRows          int32
+}
+
+// Appointments of a customer of the business from now on (P-10), optionally only of some
+// professionals, by start.
+func (q *Queries) BusinessCustomerUpcomingAppointments(ctx context.Context, arg BusinessCustomerUpcomingAppointmentsParams) ([]Appointment, error) {
+	rows, err := q.db.Query(ctx, businessCustomerUpcomingAppointments,
+		arg.BusinessID,
+		arg.CustomerID,
+		arg.NowAt,
+		arg.AllProfessionals,
+		arg.ProfessionalIds,
+		arg.HasCursor,
+		arg.AfterStart,
+		arg.AfterID,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Appointment{}
+	for rows.Next() {
+		var i Appointment
+		if err := rows.Scan(
+			&i.ID,
+			&i.BusinessID,
+			&i.ProfessionalID,
+			&i.ServiceID,
+			&i.CustomerUserID,
+			&i.CustomerName,
+			&i.CustomerPhone,
+			&i.StartAt,
+			&i.EndAt,
+			&i.BufferMinutes,
+			&i.OccupiedUntil,
+			&i.Status,
+			&i.ServiceName,
+			&i.DurationMinutes,
+			&i.PriceMinor,
+			&i.Currency,
+			&i.Version,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CustomerID,
+			&i.CancelledAt,
+			&i.CancelReason,
+			&i.CancelledBy,
+			&i.CustomerReschedules,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const claimIdempotencyKey = `-- name: ClaimIdempotencyKey :many
 INSERT INTO idempotency_keys (user_id, key, fingerprint, created_at)
 VALUES ($1, $2, $3, $4)
