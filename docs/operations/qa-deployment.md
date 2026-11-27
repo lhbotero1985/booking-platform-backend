@@ -255,7 +255,11 @@ WHATSAPP_ALLOWLIST=+57XXXXXXXXXX[,+57…]   # obligatorio fuera de PROD; máx. 5
   guardar" y suscribirse al campo `messages`. Solo después de desplegar T7.5.
 - Enlace de la app (`GET /app`, botón de `cita_agendada_negocio`): sin `APP_DOWNLOAD_URL` muestra
   "muy pronto"; cuando la app esté en las tiendas, agregar `APP_DOWNLOAD_URL=https://…` al `.env`
-  (y al compose de la API) y redesplegar.
+  y aplicar con `docker compose up -d api worker` (el compose ya la pasa, vacía por defecto).
+- Botón «Reagendar» de los correos: `APPOINTMENT_RESCHEDULE_URL=https://booka-app-qa.duckdns.org/citas/reagendar`
+  en el `.env` desde el 2026-11-27 (página del portal, F9.5; recibe `?token=`). Sin ella el botón
+  abre la página de la API. Antes de ese día el compose no pasaba la variable ni `APP_DOWNLOAD_URL`
+  a los contenedores: ponerla en el `.env` no tenía efecto.
 - E2E con un envío real: `WHATSAPP_TEST_PHONE=<número de la lista blanca> scripts/e2e-qa.sh …`
   (recibe exactamente un mensaje; el número no se imprime).
 

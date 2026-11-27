@@ -1,7 +1,11 @@
 # Siguiente tarea
 
 ## Última tarea completada
-P-9 y P-10 — Horas libres del personal y citas de un cliente (2026-11-26), en `qa` (PR #76) y
+Operación QA (2026-11-27): botón «Reagendar» de los correos hacia
+`https://booka-app-qa.duckdns.org/citas/reagendar`. `.env` listo; el compose que pasa la variable
+está en `feature/qa-email-link-urls` (PR, merge y E2E pendientes de autorización).
+
+Anterior: P-9 y P-10 — Horas libres del personal y citas de un cliente (2026-11-26), en `qa` (PR #76) y
 validadas en QA: E2E 241/241 (con `APP_URL=https://booka-app-qa.duckdns.org`).
 
 Anterior: P-6 — Correos de identidad con la marca Booka (2026-11-26), en `qa` (PR #73) y validada en
