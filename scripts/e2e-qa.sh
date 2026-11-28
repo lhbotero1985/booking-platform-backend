@@ -463,7 +463,13 @@ before=$(mail_total "$EMAIL")
 lk_start=$(status GET "$av&date=$tue" >/dev/null; json '.slots[0].startAt')
 check "customer books (email links)" 201 "$(book "$lk_start" "e2e-$(date +%s)-links" "$T1")"
 lk_appt=$(json .id)
-lk_text=$(mail_newest_text "$EMAIL" "$before")
+# The newest email may still be the previous step's (its cancellation can arrive late): wait for
+# the one with the links.
+for _ in $(seq 1 30); do
+  lk_text=$(mail_newest_text "$EMAIL" "$before")
+  [[ $lk_text == *"/citas/confirmar?token="* ]] && break
+  sleep 1
+done
 lk_confirm=$(link_of /citas/confirmar "$lk_text")
 lk_resched=$(link_of /citas/reagendar "$lk_text")
 lk_cancel=$(link_of /citas/cancelar "$lk_text")

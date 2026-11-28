@@ -2,12 +2,12 @@
 
 ## Última tarea completada
 Imágenes del negocio (logo, portada) y portafolio de los profesionales (2026-11-27), en
-`feature/business-images` con commit y push. **Sin PR** por pedido del usuario; al autorizarlo:
+`feature/business-images` con commit y push; PR autorizado por el usuario (2026-11-28). Falta autorizar:
 PR, merge, despliegue y E2E en QA (el despliegue crea el volumen `media`).
 
-Anterior: P-11 y P-12 — Más negocios por dueño y estadísticas (2026-11-27), en
-`feature/p11-multiple-businesses` (un solo PR, decisión del usuario; merge y E2E en QA pendientes
-de autorización).
+Anterior: P-11 y P-12 — Más negocios por dueño y estadísticas (2026-11-27), en `qa` (PR #80) y validadas
+en QA: E2E 248/248. El frontend debe enviar `Idempotency-Key` en «Crear otro negocio», explicar
+`OWNED_BUSINESS_LIMIT` y registrar P-11 y P-12 como implementadas en su documento.
 
 Anterior: Operación QA (2026-11-27): botón «Reagendar» de los correos hacia
 `https://booka-app-qa.duckdns.org/citas/reagendar`, en `qa` (PR #78) y validado en QA (E2E 239
