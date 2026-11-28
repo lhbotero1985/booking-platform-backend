@@ -482,7 +482,7 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 
 ## 2026-11-27 · Fuera de fase · Imágenes del negocio y portafolio de los profesionales
 
-- **Estado:** ✅ en `feature/business-images` (commit y push). PR autorizado el 2026-11-28; merge y despliegue pendientes de autorización.
+- **Estado:** ✅ en `qa` (PR #82, 2026-11-28, autorizado por el usuario) y validado en QA: E2E 257/257.
 - **Decisiones del usuario:** imágenes en el disco del servidor por ahora; el profesional maneja su
   portafolio y el dueño el de cualquiera; logo y portada solo el dueño; 10 imágenes por profesional.
 - **Hecho:** `internal/platform/media` (procesar, guardar, servir); `PUT|DELETE /business/{id}/logo`
@@ -490,7 +490,9 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
   `Business` y `PublicBusiness`; `portfolio` en el catálogo público; `GET /media/{key}`. Migración
   00029. Volumen `media` en los compose de QA y DEV; la imagen Docker crea `/data/media` a nombre de
   `nonroot`. ADR-0020. OpenAPI: **111 operaciones**.
-- **Pendiente:** P44 (respaldo del volumen o Spaces antes de PROD); E2E en QA tras el PR.
+- **QA (2026-11-28):** CI 6/6; `release-qa` ✅ (`75a37dd`); migración 00029 aplicada; volumen
+  `booking-qa_media` a nombre de `65532:65532`; `/readyz` 200; E2E 257 PASS, 0 FAIL.
+- **Pendiente:** P44 (respaldo del volumen o Spaces antes de PROD).
 
 ## 2026-11-27 · Fuera de fase · P-12 — Estadísticas del negocio y consolidadas
 
