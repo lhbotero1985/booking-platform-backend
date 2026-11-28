@@ -1,7 +1,10 @@
 # Siguiente tarea
 
 ## Última tarea completada
-Operación QA (2026-11-27): botón «Reagendar» de los correos hacia
+P-11 — Un dueño puede crear más negocios (2026-11-27), en `feature/p11-multiple-businesses`
+(commit y push; PR, merge y E2E en QA pendientes de autorización). Siguiente: P-12 (plan aprobado).
+
+Anterior: Operación QA (2026-11-27): botón «Reagendar» de los correos hacia
 `https://booka-app-qa.duckdns.org/citas/reagendar`, en `qa` (PR #78) y validado en QA (E2E 239
 PASS, 0 fallos, con `RESCHEDULE_URL`).
 

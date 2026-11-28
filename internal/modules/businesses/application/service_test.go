@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -287,13 +288,18 @@ func TestSelfServiceOnboarding(t *testing.T) {
 		t.Errorf("audit = %+v", a)
 	}
 
-	// One demo per account: nothing persisted on the second attempt.
-	before := e.store.Count()
-	if _, err := e.svc.CreateOwnBusiness(ctx, owner, validBusiness()); !errors.Is(err, identity.ErrAlreadyOwner) {
-		t.Errorf("second self-service business: %v, want ErrAlreadyOwner", err)
+	// P-11: a second business, with its own demo; the third goes beyond the limit (2) and
+	// nothing is persisted.
+	second, err := e.svc.CreateOwnBusiness(ctx, owner, validBusiness())
+	if err != nil || second.ID() == b.ID() || second.Slug() == b.Slug() || len(e.trials.Started) != 2 || e.trials.Started[1] != second.ID() {
+		t.Fatalf("second business: %v, demos %v", err, e.trials.Started)
 	}
-	if e.store.Count() != before {
-		t.Error("business persisted although the account already owns one")
+	before := e.store.Count()
+	if _, err := e.svc.CreateOwnBusiness(ctx, owner, validBusiness()); !errors.Is(err, identity.ErrOwnedBusinessLimit) {
+		t.Errorf("third self-service business: %v, want ErrOwnedBusinessLimit", err)
+	}
+	if e.store.Count() != before || len(e.trials.Started) != 2 {
+		t.Error("business persisted beyond the limit")
 	}
 	// Validation and authentication.
 	in := validBusiness()
@@ -303,6 +309,51 @@ func TestSelfServiceOnboarding(t *testing.T) {
 	}
 	if _, err := e.svc.CreateOwnBusiness(ctx, identity.Principal{}, validBusiness()); !errors.Is(err, application.ErrUnauthenticated) {
 		t.Errorf("anonymous: %v", err)
+	}
+}
+
+// TestSelfServiceIdempotency (P-11): the optional Idempotency-Key returns the same business for
+// a repeated request and refuses it with other data.
+func TestSelfServiceIdempotency(t *testing.T) {
+	ctx := context.Background()
+	e := newEnv()
+	owner := identity.Principal{UserID: uuid.Must(uuid.NewV7())}
+	in := validBusiness()
+	in.IdempotencyKey = "portal-create-0001"
+	b, err := e.svc.CreateOwnBusiness(ctx, owner, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := e.svc.CreateOwnBusiness(ctx, owner, in)
+	if err != nil || again.ID() != b.ID() || e.store.Count() != 1 || len(e.trials.Started) != 1 {
+		t.Errorf("replay: %v %v, %d businesses, demos %v", again, err, e.store.Count(), e.trials.Started)
+	}
+	other := in
+	other.Name = "Otra Barbería"
+	if _, err := e.svc.CreateOwnBusiness(ctx, owner, other); !errors.Is(err, application.ErrIdempotencyKeyReused) {
+		t.Errorf("same key, other data: %v", err)
+	}
+	// The key belongs to the account: another one creates its own business with it.
+	if c, err := e.svc.CreateOwnBusiness(ctx, identity.Principal{UserID: uuid.Must(uuid.NewV7())}, in); err != nil || c.ID() == b.ID() {
+		t.Errorf("another account, same key: %v %v", c, err)
+	}
+	// A request that fails does not keep the key: after fixing it, the same key creates.
+	bad := validBusiness()
+	bad.CityID, bad.IdempotencyKey = closed, "portal-create-0002"
+	if _, err := e.svc.CreateOwnBusiness(ctx, owner, bad); err == nil {
+		t.Fatal("inactive city accepted")
+	}
+	fixed := validBusiness()
+	fixed.IdempotencyKey = "portal-create-0002"
+	if _, err := e.svc.CreateOwnBusiness(ctx, owner, fixed); err != nil {
+		t.Errorf("same key after a failed request: %v", err)
+	}
+	for _, k := range []string{"short", "con espacios 123", strings.Repeat("a", 101)} {
+		in := validBusiness()
+		in.IdempotencyKey = k
+		if _, err := e.svc.CreateOwnBusiness(ctx, owner, in); !errors.Is(err, application.ErrInvalidIdempotencyKey) {
+			t.Errorf("key %q: %v", k, err)
+		}
 	}
 }
 

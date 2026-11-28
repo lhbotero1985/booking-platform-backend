@@ -19,14 +19,14 @@ var (
 	ErrLastOwner = errors.New("identity: a business must keep at least one owner")
 	// ErrMemberNotFound: the user is not an active member of the business.
 	ErrMemberNotFound = errors.New("identity: not a member of the business")
-	// ErrAlreadyOwner: the account already owns a business; another one (another demo) must be
-	// requested from support (ADR-0018: one demo per account).
-	ErrAlreadyOwner = errors.New("identity: the account already owns a business")
+	// ErrOwnedBusinessLimit: the account already owns as many businesses as it may create itself
+	// (P-11, ADR-0018: OWNED_BUSINESS_LIMIT, 2 during the demo).
+	ErrOwnedBusinessLimit = errors.New("identity: the account owns the most businesses allowed")
 )
 
 // OwnershipClaimer makes the authenticated account the OWNER of a business it has just created
-// (self-service onboarding, ADR-0018). Refused with ErrAlreadyOwner if the account already owns
-// a business. Called with the caller's transaction in ctx; audited (membership.granted).
+// (self-service onboarding, ADR-0018). Refused with ErrOwnedBusinessLimit if the account already
+// owns as many businesses as allowed. Called with the caller's transaction in ctx; audited (membership.granted).
 type OwnershipClaimer interface {
 	ClaimOwnership(ctx context.Context, actor Principal, businessID uuid.UUID) error
 }

@@ -22,6 +22,8 @@ Reglas:
 | P-5 | G-11 usuarios y auditoría para el admin | Sin iniciar | — | Recomendado junto con MFA de administradores (P32) |
 | P-9 | G-27 horas libres para el personal | ✅ En `qa`, E2E 241/241 (2026-11-26) | PR #76 | `GET /business/{id}/availability`: sin anticipación mínima ni requisito de publicación; **respeta el límite de días** (decisión del usuario: igual que la reserva del personal); `excludeAppointmentId` opcional |
 | P-10 | G-28 citas de un cliente | ✅ En `qa`, E2E 241/241 (2026-11-26) | PR #76 | `GET /business/{id}/customers/{customerId}/appointments?scope=upcoming\|past` (decisión del usuario: próximas ascendentes, pasadas de la más reciente); cubre también la segunda fila de P-4 |
+| P-11 | G-29 un dueño crea más negocios | ✅ Implementada (2026-11-27) | `feature/p11-multiple-businesses` | Decisión del usuario: **hasta 2 negocios propios durante la demo** (`OWNED_BUSINESS_LIMIT`), cada uno con su demo; el tercero → 409 `OWNED_BUSINESS_LIMIT`; `Idempotency-Key` opcional (otra petición con la misma clave → 422 `IDEMPOTENCY_KEY_REUSED`) |
+| P-12 | G-12 estadísticas del negocio y consolidadas | En plan (aprobado 2026-11-27) | — | Decisiones del usuario: ocupación con el horario actual; ausencias fuera de los minutos ocupados; profesionales inactivos con su horario; sin acceso del admin |
 | — | P-7, P-8 (frontend) | Sin revisar | — | Están en el documento del frontend; no autorizadas en el backend |
 
 P-9 y P-10 se recibieron por el chat (2026-11-26) antes de estar en el documento del frontend;

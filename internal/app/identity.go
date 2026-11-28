@@ -36,7 +36,7 @@ func NewIdentityService(cfg config.Config, pool *pgxpool.Pool, inserter postgres
 		Hasher:   hasher,
 		Mailer:   mailer,
 		Clock:    clock.System{},
-		Config:   application.Config{PublicAppURL: cfg.PublicAppURL},
+		Config:   application.Config{PublicAppURL: cfg.PublicAppURL, OwnedBusinessLimit: cfg.OwnedBusinessLimit},
 		Logger:   logger,
 		Throttle: throttle,
 	}), nil

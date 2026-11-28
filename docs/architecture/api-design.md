@@ -46,8 +46,9 @@ Estado: **Propuesta — Fase 0.** ADR-0011.
 `POST /admin/businesses/{id}/activate`, `POST /admin/businesses/{id}/suspend`.
 
 ### Alta autoservicio y suscripciones (ADR-0018, T4.3b)
-`POST /businesses` (cuenta verificada → OWNER de un negocio `ACTIVE` con demo de 7 días; una
-por cuenta, 409 `ALREADY_OWNER`; límite estricto por cliente).
+`POST /businesses` (cuenta verificada → OWNER de un negocio `ACTIVE` con demo de 7 días; hasta
+`OWNED_BUSINESS_LIMIT` negocios propios por cuenta, 2 durante la demo, luego 409
+`OWNED_BUSINESS_LIMIT` (P-11); `Idempotency-Key` opcional; límite estricto por cliente).
 `GET /admin/businesses/{id}/subscription`, `POST /admin/businesses/{id}/subscription/extend-trial`
 (`days` 1–90), `POST /admin/businesses/{id}/subscription/activate` (cortesía hasta la Fase 11B).
 

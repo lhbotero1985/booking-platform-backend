@@ -1169,3 +1169,16 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `docker compose config` con el compose corregido | ✅ | `APPOINTMENT_RESCHEDULE_URL` y `APP_DOWNLOAD_URL` llegan a `api` y `worker` (y vacías si faltan) |
 | `task shellcheck` | ✅ | Con la nueva comprobación `RESCHEDULE_URL` del E2E |
 | Despliegue y E2E en QA (PR #78) | ✅ **239 PASS, 0 fallos** | CI 6/6; `release-qa` ✅ (`efd1ea6`); el worker y la API tienen la variable (`docker inspect`). Nueva comprobación «Reagendar points to APPOINTMENT_RESCHEDULE_URL» ✅. Omitidos: alta de negocios por el admin (sin `ADMIN_EMAIL`) y límite de peticiones (`SKIP_RATE_LIMIT=1`) |
+
+## 2026-11-27 · Fuera de fase · P-11 — Un dueño puede crear más negocios
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestSelfServiceOnboarding`, `TestSelfServiceIdempotency` | ✅ | Segundo negocio con su demo; el tercero → `ErrOwnedBusinessLimit` sin persistir nada; misma clave → el mismo negocio; otros datos → `ErrIdempotencyKeyReused`; la clave es por cuenta; una petición fallida no guarda la clave; claves inválidas |
+| `TestOwnedBusinessLimitConfig` | ✅ | Por defecto 2; 5 aceptado; 0, -1 y texto rechazados |
+| `TestContractBusinessEndpoints` (contrato OpenAPI) | ✅ | 201 con `Idempotency-Key`, repetición 201 con el mismo id, 422 `IDEMPOTENCY_KEY_REUSED`, 400 clave inválida, 409 `OWNED_BUSINESS_LIMIT` |
+| Suite de seguridad (`TestSelfServiceOnboardingRules`) | ✅ | Segundo negocio 201; tercero 409 sin persistir |
+| `TestSelfServiceOnboardingOnPostgres` (`-tags integration`) | ✅ | 3 peticiones simultáneas → 2 negocios con demo y 1 rechazo; 3 simultáneas con la misma clave → 1 negocio; otros datos con la clave → rechazo |
+| Mutaciones | ✅ detectadas | Tope `>` en vez de `>=` (falla la suite de seguridad); repetición sin comparar los datos (falla `TestSelfServiceIdempotency`); código restaurado |
+| `task check` | ✅ | build, vet, golangci-lint (0), pruebas; govulncheck sin vulnerabilidades (reintento por DNS); `sqlc vet/diff` al día; shellcheck del E2E |
+| E2E en QA | ⏳ | Tras el merge (requiere autorización) |

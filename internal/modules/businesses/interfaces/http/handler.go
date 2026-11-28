@@ -24,7 +24,8 @@ const (
 	// country is inactive.
 	CodeLocationInactive = "LOCATION_INACTIVE"
 	// CodeAlreadyOwner: the account already owns a business (one demo per account, ADR-0018).
-	CodeAlreadyOwner = "ALREADY_OWNER"
+	CodeOwnedBusinessLimit   = "OWNED_BUSINESS_LIMIT"
+	CodeIdempotencyKeyReused = "IDEMPOTENCY_KEY_REUSED"
 )
 
 // Service is the subset of the application used by these handlers.
@@ -182,14 +183,17 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusCreated, toDTO(b))
 }
 
-// createOwn is the self-service onboarding: the caller becomes OWNER and gets a 7-day demo.
+// createOwn is the self-service onboarding: the caller becomes OWNER and gets a 7-day demo. The
+// optional Idempotency-Key header makes a repeated request return the same business (P-11).
 func (h *Handler) createOwn(w http.ResponseWriter, r *http.Request) {
 	var req businessFields
 	if !httpx.DecodeJSON(w, r, &req) {
 		return
 	}
 	p, _ := contract.PrincipalFrom(r.Context())
-	b, err := h.svc.CreateOwnBusiness(r.Context(), p, req.input())
+	in := req.input()
+	in.IdempotencyKey = r.Header.Get("Idempotency-Key")
+	b, err := h.svc.CreateOwnBusiness(r.Context(), p, in)
 	if err != nil {
 		h.fail(w, r, err)
 		return
@@ -280,8 +284,12 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusNotFound, httpx.CodeNotFound, ""))
 	case errors.Is(err, application.ErrLocationInactive):
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeLocationInactive, "activate the business's city, division and country first"))
-	case errors.Is(err, contract.ErrAlreadyOwner):
-		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeAlreadyOwner, "this account already has a business; contact support to add another"))
+	case errors.Is(err, contract.ErrOwnedBusinessLimit):
+		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeOwnedBusinessLimit, "this account already owns the most businesses it can create"))
+	case errors.Is(err, application.ErrInvalidIdempotencyKey):
+		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusBadRequest, httpx.CodeInvalidRequest, "the Idempotency-Key header must have 8-100 characters: letters, digits, - and _"))
+	case errors.Is(err, application.ErrIdempotencyKeyReused):
+		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusUnprocessableEntity, CodeIdempotencyKeyReused, "this Idempotency-Key was used for another request"))
 	default:
 		h.logger.ErrorContext(r.Context(), "businesses request failed",
 			slog.String("request_id", httpx.RequestIDFrom(r.Context())),

@@ -17,8 +17,8 @@
 #                real WhatsApp is sent to it through the worker
 #   ADMIN_EMAIL / ADMIN_PASSWORD (optional) run the business onboarding checks as PLATFORM_ADMIN;
 #                each run leaves one SUSPENDED business "QA E2E <timestamp>" behind
-# Each run also leaves one self-service business "QA E2E propia <timestamp>" whose 7-day demo
-# then expires on its own.
+# Each run also leaves two self-service businesses "QA E2E propia <timestamp>" (P-11) whose 7-day
+# demos then expire on their own.
 #
 # Exit status: number of failed checks (0 = all green).
 set -uo pipefail
@@ -488,8 +488,14 @@ check "his appointments are left to reassign" true "$(status GET "/api/v1/busine
 check "owner reactivates the barber" 200 "$(status PATCH "/api/v1/business/$mine/professionals/$pbarber" '{"status":"ACTIVE"}' "$T1")"
 check "nothing to reassign again" 0 "$(status GET "/api/v1/business/$mine/appointments/to-reassign" "" "$T1" >/dev/null; json '.items | length')"
 status POST /api/v1/auth/logout "" "$TS" >/dev/null
-check "  one per account" 409 "$(status POST /api/v1/businesses "$own" "$T1")"
-check "  code ALREADY_OWNER" ALREADY_OWNER "$(json .code)"
+# P-11: a second business with its own demo (Idempotency-Key: the replay returns it); the third
+# goes beyond OWNED_BUSINESS_LIMIT (2).
+second_key="e2e-$(date +%s)-second"
+check "  a second business" 201 "$(status POST /api/v1/businesses "$own" "$T1" "Idempotency-Key: $second_key")"
+second=$(json .id)
+check "  same Idempotency-Key: the same business" "201 $second" "$(status POST /api/v1/businesses "$own" "$T1" "Idempotency-Key: $second_key") $(json .id)"
+check "  both are mine" 2 "$(status GET /api/v1/me/memberships "" "$T1" >/dev/null; json "[.items[] | select(.role==\"OWNER\" and (.businessId==\"$mine\" or .businessId==\"$second\"))] | length")"
+check "  the third: 409 OWNED_BUSINESS_LIMIT" "409 OWNED_BUSINESS_LIMIT" "$(status POST /api/v1/businesses "$own" "$T1") $(json .code)"
 if [[ -n ${ADMIN_EMAIL:-} && -n ${ADMIN_PASSWORD:-} ]]; then
   check "admin login" 200 "$(login "$ADMIN_EMAIL" "$ADMIN_PASSWORD")"
   TA=$(token)

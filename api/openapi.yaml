@@ -1381,11 +1381,22 @@ paths:
       description: |
         The authenticated (verified) account becomes OWNER of a new `ACTIVE` business with a
         7-day demo subscription; business, membership, subscription and audit entries are created
-        atomically. One per account: an account that already owns a business gets 409
-        `ALREADY_OWNER` (another one is requested from support). Strict per-client rate limit.
+        atomically. An account may own up to `OWNED_BUSINESS_LIMIT` businesses created this way
+        (2 during the demo, P-11), each with its own demo; beyond it 409 `OWNED_BUSINESS_LIMIT`.
+        With the optional `Idempotency-Key`, repeating the request returns the same business
+        (201); the same key with a different body is 422 `IDEMPOTENCY_KEY_REUSED`. Strict
+        per-client rate limit. `ALREADY_OWNER` is no longer returned.
       security:
         - bearerAuth: []
         - sessionCookie: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: Unique per creation attempt (8-100 characters, letters, digits, - and _).
+          schema:
+            type: string
+            pattern: "^[A-Za-z0-9_-]{8,100}$"
       requestBody:
         required: true
         content:
@@ -1410,6 +1421,8 @@ paths:
           $ref: "#/components/responses/Conflict"
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
         "429":
           $ref: "#/components/responses/TooManyRequests"
 
@@ -5710,7 +5723,7 @@ components:
         A record with the same code or name already exists (`ALREADY_EXISTS`), a country,
         division or city with active businesses cannot be deactivated (`IN_USE`), a business
         cannot be activated while its location is inactive (`LOCATION_INACTIVE`), the account
-        already owns a business (`ALREADY_OWNER`), the subscription is not a demo
+        already owns the most businesses it can create (`OWNED_BUSINESS_LIMIT`), the subscription is not a demo
         (`NOT_EXTENDABLE`), the account is already a member (`ALREADY_MEMBER`) or the change
         would leave the business without an OWNER (`LAST_OWNER`), or the account already has a
         professional profile in the business (`ALREADY_PROFESSIONAL`), the start time is not

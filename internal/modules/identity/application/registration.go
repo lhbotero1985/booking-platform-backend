@@ -24,7 +24,13 @@ const VerificationTokenTTL = 24 * time.Hour
 type Config struct {
 	// PublicAppURL is the base URL of the client app that hosts /verify-email.
 	PublicAppURL string
+	// OwnedBusinessLimit is how many businesses an account may own through self-service
+	// (P-11); 0 means DefaultOwnedBusinessLimit.
+	OwnedBusinessLimit int
 }
+
+// DefaultOwnedBusinessLimit is two businesses per account during the demo (user, 2026-11-27).
+const DefaultOwnedBusinessLimit = 2
 
 // Service implements the Identity & Access use cases.
 type Service struct {
@@ -66,6 +72,9 @@ func NewService(d Deps) *Service {
 	}
 	if d.Throttle == nil {
 		d.Throttle = noThrottle{}
+	}
+	if d.Config.OwnedBusinessLimit <= 0 {
+		d.Config.OwnedBusinessLimit = DefaultOwnedBusinessLimit
 	}
 	return &Service{store: d.Store, hasher: d.Hasher, mailer: d.Mailer, clock: d.Clock, random: d.Random, cfg: d.Config, logger: d.Logger, throttle: d.Throttle}
 }

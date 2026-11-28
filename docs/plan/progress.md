@@ -466,6 +466,19 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-27 · Fuera de fase · P-11 — Un dueño puede crear más negocios
+
+- **Estado:** ✅ en `feature/p11-multiple-businesses` (commit y push; PR pendiente de autorización).
+- **Decisiones del usuario:** durante la demo una cuenta puede tener **hasta 2 negocios propios**;
+  cada uno con su demo de 7 días; tope configurable (`OWNED_BUSINESS_LIMIT`, por defecto 2).
+- **Hecho:** `ClaimOwnership` cuenta los negocios propios (bloqueo de la cuenta, igual que antes);
+  409 `OWNED_BUSINESS_LIMIT` reemplaza a `ALREADY_OWNER`; `Idempotency-Key` opcional en
+  `POST /api/v1/businesses` (migración 00027 `business_creation_keys`; clave por cuenta; la clave de
+  una petición fallida no queda guardada); variable en `.env.example` y en el compose de QA.
+  Enmienda en ADR-0018.
+- **E2E:** el usuario de prueba crea su segundo negocio (repetición con la misma clave → el mismo),
+  ambos en sus membresías, el tercero 409. Cada corrida deja dos negocios de prueba cuya demo vence.
+
 ## 2026-11-27 · Operación QA · Botón «Reagendar» de los correos hacia el portal
 
 - **Estado:** `.env` de QA con `APPOINTMENT_RESCHEDULE_URL=https://booka-app-qa.duckdns.org/citas/reagendar`

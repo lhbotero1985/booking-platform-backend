@@ -83,8 +83,19 @@ func TestContractSelfServiceAndSubscriptions(t *testing.T) {
 		t.Errorf("self-service business must be ACTIVE: %s", body)
 	}
 	id := regexp.MustCompile(`"id":"([^"]+)"`).FindStringSubmatch(body)[1]
-	if b := c.callAuth(t, e.srv, http.MethodPost, "/api/v1/businesses", own, ownerTok, http.StatusConflict); !strings.Contains(b, `"ALREADY_OWNER"`) {
-		t.Errorf("second business of the same account: %s", b)
+	// P-11: a second one with an Idempotency-Key (the replay returns it), the third is refused.
+	idIn := func(s string) string { return regexp.MustCompile(`"id":"([^"]+)"`).FindStringSubmatch(s)[1] }
+	key := map[string]string{"Idempotency-Key": "portal-create-0001"}
+	second := c.callWith(t, e.srv, http.MethodPost, "/api/v1/businesses", own, ownerTok, key, http.StatusCreated)
+	if again := c.callWith(t, e.srv, http.MethodPost, "/api/v1/businesses", own, ownerTok, key, http.StatusCreated); idIn(again) != idIn(second) || idIn(second) == id {
+		t.Errorf("replay of the second business: %s / %s", second, again)
+	}
+	if b := c.callWith(t, e.srv, http.MethodPost, "/api/v1/businesses", `{"name":"Otra","contactPhone":"3001234567","cityId":"`+cali+`","addressLine":"Calle 2"}`, ownerTok, key, http.StatusUnprocessableEntity); !strings.Contains(b, `"IDEMPOTENCY_KEY_REUSED"`) {
+		t.Errorf("same key, other data: %s", b)
+	}
+	c.callWith(t, e.srv, http.MethodPost, "/api/v1/businesses", own, ownerTok, map[string]string{"Idempotency-Key": "corta"}, http.StatusBadRequest)
+	if b := c.callAuth(t, e.srv, http.MethodPost, "/api/v1/businesses", own, ownerTok, http.StatusConflict); !strings.Contains(b, `"OWNED_BUSINESS_LIMIT"`) {
+		t.Errorf("third business of the same account: %s", b)
 	}
 	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/businesses", `{"name":"x","contactPhone":"1","cityId":"`+cali+`","addressLine":""}`, userTok, http.StatusBadRequest)
 	c.callAuth(t, e.srv, http.MethodPost, "/api/v1/businesses", own, "", http.StatusUnauthorized)
