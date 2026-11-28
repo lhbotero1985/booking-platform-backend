@@ -1181,7 +1181,7 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `TestSelfServiceOnboardingOnPostgres` (`-tags integration`) | ✅ | 3 peticiones simultáneas → 2 negocios con demo y 1 rechazo; 3 simultáneas con la misma clave → 1 negocio; otros datos con la clave → rechazo |
 | Mutaciones | ✅ detectadas | Tope `>` en vez de `>=` (falla la suite de seguridad); repetición sin comparar los datos (falla `TestSelfServiceIdempotency`); código restaurado |
 | `task check` | ✅ | build, vet, golangci-lint (0), pruebas; govulncheck sin vulnerabilidades (reintento por DNS); `sqlc vet/diff` al día; shellcheck del E2E |
-| E2E en QA | ⏳ | Tras el merge (requiere autorización) |
+| E2E en QA | ✅ | Ver P-12: mismo PR #80 |
 
 ## 2026-11-27 · Fuera de fase · P-12 — Estadísticas del negocio y consolidadas
 
@@ -1195,4 +1195,6 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `task test:integration` | ✅ | Toda la suite de integración (con P-11) |
 | Mutaciones | ✅ detectadas | Contar las ausencias del cliente como minutos ocupados; ignorar las ausencias del profesional; el barbero viendo todo el negocio; código restaurado |
 | `task check` | ✅ | build, vet, golangci-lint (0), pruebas; govulncheck sin vulnerabilidades (reintento por DNS); `sqlc vet/diff` al día; shellcheck del E2E |
-| E2E en QA | ⏳ | Tras el merge (requiere autorización): 7 comprobaciones nuevas de P-12 y 4 de P-11 |
+| Despliegue en QA (PR #80) | ✅ | CI 6/6; `release-qa` ✅ (`fef9221`); migraciones 00027 y 00028 aplicadas; `/readyz` listo |
+| E2E en QA, 1.ª corrida | ❌ 238 PASS, 10 fallos | Todas las comprobaciones nuevas de P-11 y P-12 pasaron. Fallaron las del bloque de enlaces del correo: el script leyó el correo anterior (la cancelación del paso previo llegó tarde). Verificado en Mailpit que el correo de la reserva traía los tres enlaces y «Reagendar» hacia el portal: falla del script, no del backend |
+| E2E en QA, 2.ª corrida (script corregido: espera el correo con los enlaces) | ✅ **248 PASS, 0 fallos** | Con `APP_URL` y `RESCHEDULE_URL`; omitidos el alta por el admin (sin `ADMIN_EMAIL`) y el límite de peticiones (`SKIP_RATE_LIMIT=1`) |

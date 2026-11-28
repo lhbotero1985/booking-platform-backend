@@ -468,8 +468,9 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 
 ## 2026-11-27 · Fuera de fase · P-12 — Estadísticas del negocio y consolidadas
 
-- **Estado:** ✅ en `feature/p11-multiple-businesses` junto con P-11 (un solo PR, decisión del
-  usuario; commit y push).
+- **Estado:** ✅ en `qa` junto con P-11 (PR #80, un solo PR por decisión del usuario), desplegado
+  y validado en QA: E2E 248/248 (tras corregir una espera del script en el bloque de enlaces del
+  correo).
 - **Hecho:** `GET /api/v1/business/{businessId}/stats` y `GET /api/v1/me/stats` (OpenAPI: **102
   operaciones**; esquemas `BusinessStats` y `StatsFigures`). Reglas en `scheduling/domain/stats.go`
   (cifras, series con todos los periodos, minutos de trabajo menos descansos y ausencias con el
@@ -484,7 +485,7 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 
 ## 2026-11-27 · Fuera de fase · P-11 — Un dueño puede crear más negocios
 
-- **Estado:** ✅ en `feature/p11-multiple-businesses` (commit y push; PR pendiente de autorización).
+- **Estado:** ✅ en `qa` (PR #80 con P-12), validado en QA (E2E 248/248).
 - **Decisiones del usuario:** durante la demo una cuenta puede tener **hasta 2 negocios propios**;
   cada uno con su demo de 7 días; tope configurable (`OWNED_BUSINESS_LIMIT`, por defecto 2).
 - **Hecho:** `ClaimOwnership` cuenta los negocios propios (bloqueo de la cuenta, igual que antes);
