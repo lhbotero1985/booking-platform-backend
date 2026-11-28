@@ -67,7 +67,7 @@ func newBookingWorld(t *testing.T) bookingWorld {
 	w.bogota, _ = time.LoadLocation("America/Bogota")
 	w.sched = schedapp.NewService(schedapp.Deps{
 		Store: schedpg.NewStore(pool), Authz: identity, Businesses: biz, Catalog: catalog, Professionals: profs, Bookable: profs, Customers: identity,
-		Clock: w.clk,
+		Clock: w.clk, Schedules: profs, Currencies: biz, Memberships: identity,
 	})
 	LinkAgendaGuard(profs, w.sched)
 

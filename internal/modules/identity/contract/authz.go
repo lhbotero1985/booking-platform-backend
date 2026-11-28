@@ -36,6 +36,11 @@ type Membership struct {
 	Role       Role
 }
 
+// Memberships lists the caller's active memberships (P-12: the businesses it owns).
+type Memberships interface {
+	MyMemberships(ctx context.Context, p Principal) ([]Membership, error)
+}
+
 // Authorization errors (aliases of the platform sentinels so every module maps them the same).
 var (
 	ErrForbidden = authz.ErrForbidden

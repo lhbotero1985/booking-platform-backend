@@ -17,8 +17,8 @@
 #                real WhatsApp is sent to it through the worker
 #   ADMIN_EMAIL / ADMIN_PASSWORD (optional) run the business onboarding checks as PLATFORM_ADMIN;
 #                each run leaves one SUSPENDED business "QA E2E <timestamp>" behind
-# Each run also leaves one self-service business "QA E2E propia <timestamp>" whose 7-day demo
-# then expires on its own.
+# Each run also leaves two self-service businesses "QA E2E propia <timestamp>" (P-11) whose 7-day
+# demos then expire on their own.
 #
 # Exit status: number of failed checks (0 = all green).
 set -uo pipefail
@@ -328,6 +328,17 @@ check "  the barber sees them (his agenda)" 2 "$(status GET "$cust/$walkin/appoi
 check "  none in the past" 0 "$(status GET "$cust/$walkin/appointments?scope=past" "" "$T1" >/dev/null; json '.items | length')"
 check "  unknown customer -> 404" 404 "$(status GET "$cust/01a20aae-0000-7000-8000-000000000000/appointments" "" "$T1")"
 
+# --- statistics (P-12) ----------------------------------------------------------------------------
+st_from=$(date -u -d '-1 day' +%F)
+stats="/api/v1/business/$mine/stats?from=$st_from&to=$tue"
+check "owner's statistics" "200 COP true true" "$(status GET "$stats" "" "$T1") $(json '"\(.currency) \(.totals.appointments >= 2) \(.totals.availableMinutes > 0)"')"
+check "  every day of the range in the series" true "$(json "(.series | length) == $(( ( $(date -u -d "$tue" +%s) - $(date -u -d "$st_from" +%s) ) / 86400 + 1 ))")"
+check "  by professional adds up to the total" true "$(json '([.byProfessional[].figures.appointments] | add) == .totals.appointments')"
+check "barber's statistics: only his, no byProfessional" "200 false" "$(status GET "$stats&groupBy=month" "" "$TS") $(json 'has("byProfessional")')"
+check "  the owner's own figures -> 403" 403 "$(status GET "$stats&professionalId=$powner" "" "$TS")"
+check "reversed range -> 400 INVALID_RANGE" "400 INVALID_RANGE" "$(status GET "/api/v1/business/$mine/stats?from=$tue&to=$st_from" "" "$T1") $(json .code)"
+check "my businesses' statistics include it" true "$(status GET "/api/v1/me/stats?from=$st_from&to=$tue&groupBy=year" "" "$T1" >/dev/null; json "any(.byBusiness[]; .businessId == \"$mine\")")"
+
 # --- changes of an appointment (T6.6) ------------------------------------------------------------
 me_appt="/api/v1/me/appointments/$appt"
 st_appt="/api/v1/business/$mine/appointments/$appt"
@@ -488,8 +499,14 @@ check "his appointments are left to reassign" true "$(status GET "/api/v1/busine
 check "owner reactivates the barber" 200 "$(status PATCH "/api/v1/business/$mine/professionals/$pbarber" '{"status":"ACTIVE"}' "$T1")"
 check "nothing to reassign again" 0 "$(status GET "/api/v1/business/$mine/appointments/to-reassign" "" "$T1" >/dev/null; json '.items | length')"
 status POST /api/v1/auth/logout "" "$TS" >/dev/null
-check "  one per account" 409 "$(status POST /api/v1/businesses "$own" "$T1")"
-check "  code ALREADY_OWNER" ALREADY_OWNER "$(json .code)"
+# P-11: a second business with its own demo (Idempotency-Key: the replay returns it); the third
+# goes beyond OWNED_BUSINESS_LIMIT (2).
+second_key="e2e-$(date +%s)-second"
+check "  a second business" 201 "$(status POST /api/v1/businesses "$own" "$T1" "Idempotency-Key: $second_key")"
+second=$(json .id)
+check "  same Idempotency-Key: the same business" "201 $second" "$(status POST /api/v1/businesses "$own" "$T1" "Idempotency-Key: $second_key") $(json .id)"
+check "  both are mine" 2 "$(status GET /api/v1/me/memberships "" "$T1" >/dev/null; json "[.items[] | select(.role==\"OWNER\" and (.businessId==\"$mine\" or .businessId==\"$second\"))] | length")"
+check "  the third: 409 OWNED_BUSINESS_LIMIT" "409 OWNED_BUSINESS_LIMIT" "$(status POST /api/v1/businesses "$own" "$T1") $(json .code)"
 if [[ -n ${ADMIN_EMAIL:-} && -n ${ADMIN_PASSWORD:-} ]]; then
   check "admin login" 200 "$(login "$ADMIN_EMAIL" "$ADMIN_PASSWORD")"
   TA=$(token)

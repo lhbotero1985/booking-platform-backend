@@ -109,10 +109,13 @@ func TestSelfServiceOnboardingRules(t *testing.T) {
 	if got := h.subs.AuditActions(); len(got) != 1 || got[0] != "subscription.trial_started" {
 		t.Errorf("subscription audit = %v", got)
 	}
-	// One business per account.
+	// P-11: two businesses per account during the demo; the third is refused, nothing persisted.
+	if r = h.call(t, http.MethodPost, "/api/v1/businesses", "{"+base+"}", bearerH(tok)); r.status != http.StatusCreated {
+		t.Fatalf("second business: %d %s", r.status, r.body)
+	}
 	r = h.call(t, http.MethodPost, "/api/v1/businesses", "{"+base+"}", bearerH(tok))
-	if r.status != http.StatusConflict || !strings.Contains(r.body, "ALREADY_OWNER") || h.biz.Count() != 1 {
-		t.Errorf("second business: %d %s (businesses %d)", r.status, r.body, h.biz.Count())
+	if r.status != http.StatusConflict || !strings.Contains(r.body, "OWNED_BUSINESS_LIMIT") || h.biz.Count() != 2 {
+		t.Errorf("third business: %d %s (businesses %d)", r.status, r.body, h.biz.Count())
 	}
 }
 

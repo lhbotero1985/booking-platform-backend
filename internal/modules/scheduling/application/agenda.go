@@ -72,6 +72,12 @@ type AgendaTx interface {
 	// (P-10), of every professional (professionalIDs nil) or of some, upcoming (start >= now,
 	// ascending) or past (descending), after the cursor.
 	BusinessCustomerAppointments(ctx context.Context, businessID, customerID uuid.UUID, professionalIDs []uuid.UUID, now time.Time, upcoming bool, after *Cursor, limit int) ([]domain.Appointment, error)
+	// StatsAppointments returns the appointments of a business that start in [from, to), every
+	// status (P-12).
+	StatsAppointments(ctx context.Context, businessID uuid.UUID, from, to time.Time) ([]domain.StatsAppointment, error)
+	// FirstVisits returns the first COMPLETED appointment in the business of each customer whose
+	// first one starts in [from, to) (P-12: new customers).
+	FirstVisits(ctx context.Context, businessID uuid.UUID, from, to time.Time) ([]domain.FirstVisit, error)
 	// AppointmentsDuring returns the active appointments of a professional whose service overlaps
 	// [from, to), by start (T6.7).
 	AppointmentsDuring(ctx context.Context, businessID, professionalID uuid.UUID, from, to time.Time) ([]domain.Appointment, error)

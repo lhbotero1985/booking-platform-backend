@@ -4,9 +4,11 @@ package biztest
 import (
 	"bytes"
 	"context"
+	"maps"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -23,11 +25,24 @@ import (
 type Store struct {
 	mu         sync.Mutex
 	businesses map[uuid.UUID]domain.Business
+	keys       map[creationKey]keyRow
 	Audit      []audit.Entry
 }
 
+type creationKey struct {
+	user uuid.UUID
+	key  string
+}
+
+type keyRow struct {
+	fingerprint string
+	business    uuid.UUID
+}
+
 // NewStore returns an empty store.
-func NewStore() *Store { return &Store{businesses: map[uuid.UUID]domain.Business{}} }
+func NewStore() *Store {
+	return &Store{businesses: map[uuid.UUID]domain.Business{}, keys: map[creationKey]keyRow{}}
+}
 
 // Count returns the number of stored businesses.
 func (s *Store) Count() int {
@@ -51,21 +66,44 @@ func (s *Store) AuditActions() []string {
 func (s *Store) WithinTx(ctx context.Context, fn func(context.Context, application.Tx) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	t := &tx{businesses: make(map[uuid.UUID]domain.Business, len(s.businesses))}
-	for k, v := range s.businesses {
-		t.businesses[k] = v
-	}
+	t := &tx{businesses: maps.Clone(s.businesses), keys: maps.Clone(s.keys)}
 	if err := fn(ctx, t); err != nil {
 		return err
 	}
-	s.businesses = t.businesses
+	s.businesses, s.keys = t.businesses, t.keys
 	s.Audit = append(s.Audit, t.audit...)
 	return nil
 }
 
 type tx struct {
 	businesses map[uuid.UUID]domain.Business
+	keys       map[creationKey]keyRow
 	audit      []audit.Entry
+}
+
+func (t *tx) ClaimCreationKey(_ context.Context, userID uuid.UUID, key, fingerprint string, _ time.Time) (bool, error) {
+	k := creationKey{userID, key}
+	if _, ok := t.keys[k]; ok {
+		return false, nil
+	}
+	t.keys[k] = keyRow{fingerprint: fingerprint}
+	return true, nil
+}
+
+func (t *tx) CreationKeyOf(_ context.Context, userID uuid.UUID, key string) (string, uuid.UUID, error) {
+	r, ok := t.keys[creationKey{userID, key}]
+	if !ok {
+		return "", uuid.Nil, application.ErrNotFound
+	}
+	return r.fingerprint, r.business, nil
+}
+
+func (t *tx) SetCreationKeyBusiness(_ context.Context, userID uuid.UUID, key string, businessID uuid.UUID) error {
+	k := creationKey{userID, key}
+	r := t.keys[k]
+	r.business = businessID
+	t.keys[k] = r
+	return nil
 }
 
 func (t *tx) InsertBusiness(_ context.Context, b *domain.Business) error {
@@ -241,11 +279,12 @@ func (s Summaries) SummaryOf(context.Context, uuid.UUID) (subscriptions.Summary,
 	return s.Summary, s.Err
 }
 
-// Owners records self-service ownership claims; a second claim by the same user fails like the
-// identity module (one owned business per account). Err makes every claim fail.
+// Owners records self-service ownership claims; like the identity module, a claim beyond Limit
+// owned businesses per user (default 2) fails. Err makes every claim fail.
 type Owners struct {
 	Err   error
-	owned map[uuid.UUID]bool
+	Limit int
+	owned map[uuid.UUID]int
 }
 
 // ClaimOwnership implements identity.OwnershipClaimer.
@@ -254,12 +293,16 @@ func (o *Owners) ClaimOwnership(_ context.Context, p identity.Principal, _ uuid.
 		return o.Err
 	}
 	if o.owned == nil {
-		o.owned = map[uuid.UUID]bool{}
+		o.owned = map[uuid.UUID]int{}
 	}
-	if o.owned[p.UserID] {
-		return identity.ErrAlreadyOwner
+	limit := o.Limit
+	if limit == 0 {
+		limit = 2
 	}
-	o.owned[p.UserID] = true
+	if o.owned[p.UserID] >= limit {
+		return identity.ErrOwnedBusinessLimit
+	}
+	o.owned[p.UserID]++
 	return nil
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -28,6 +29,13 @@ func (slugTx) BusinessBySlug(context.Context, domain.Slug) (*domain.Business, er
 	return nil, application.ErrNotFound
 }
 func (slugTx) AppendAudit(context.Context, *audit.Entry) error { return nil }
+func (slugTx) ClaimCreationKey(context.Context, uuid.UUID, string, string, time.Time) (bool, error) {
+	return true, nil
+}
+func (slugTx) CreationKeyOf(context.Context, uuid.UUID, string) (string, uuid.UUID, error) {
+	return "", uuid.Nil, application.ErrNotFound
+}
+func (slugTx) SetCreationKeyBusiness(context.Context, uuid.UUID, string, uuid.UUID) error { return nil }
 func (slugTx) ListBusinesses(context.Context, application.ListFilter) ([]*domain.Business, error) {
 	return nil, nil
 }

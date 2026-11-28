@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -49,6 +50,12 @@ type Tx interface {
 	// SearchActive returns up to f.Limit ACTIVE businesses of f.CityID after the keyset.
 	SearchActive(ctx context.Context, f SearchFilter) ([]SearchHit, error)
 	AppendAudit(ctx context.Context, e *audit.Entry) error
+	// ClaimCreationKey inserts the Idempotency-Key of a self-service creation; false if it
+	// already existed (it waits for a concurrent transaction holding it).
+	ClaimCreationKey(ctx context.Context, userID uuid.UUID, key, fingerprint string, now time.Time) (bool, error)
+	// CreationKeyOf returns the fingerprint and business (uuid.Nil if none) of an existing key.
+	CreationKeyOf(ctx context.Context, userID uuid.UUID, key string) (fingerprint string, businessID uuid.UUID, err error)
+	SetCreationKeyBusiness(ctx context.Context, userID uuid.UUID, key string, businessID uuid.UUID) error
 }
 
 // maxSlugAttempts bounds the "-2", "-3"… search for a free slug.

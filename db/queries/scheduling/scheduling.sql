@@ -137,3 +137,22 @@ WHERE business_id = @business_id AND professional_id = @professional_id
   AND status IN ('PENDING_CONFIRMATION', 'CONFIRMED', 'IN_PROGRESS')
   AND start_at < @to_at AND end_at > @from_at
 ORDER BY start_at, id;
+
+-- name: StatsAppointments :many
+-- P-12: the appointments of a business that start in [from_at, to_at), every status.
+SELECT start_at, professional_id, service_id, customer_id, service_name, status, price_minor, duration_minutes
+FROM appointments
+WHERE business_id = @business_id AND start_at >= @from_at AND start_at < @to_at
+ORDER BY start_at, id;
+
+-- name: FirstCompletedVisits :many
+-- P-12: the first COMPLETED appointment in the business of each customer, when it starts in
+-- [from_at, to_at).
+SELECT a.customer_id::uuid AS customer_id, a.professional_id, a.service_id, a.start_at
+FROM appointments a
+WHERE a.business_id = @business_id AND a.status = 'COMPLETED' AND a.customer_id IS NOT NULL
+  AND a.start_at >= @from_at AND a.start_at < @to_at
+  AND NOT EXISTS (
+    SELECT 1 FROM appointments e
+    WHERE e.business_id = a.business_id AND e.customer_id = a.customer_id AND e.status = 'COMPLETED'
+      AND (e.start_at, e.id) < (a.start_at, a.id));

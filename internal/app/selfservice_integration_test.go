@@ -23,8 +23,9 @@ import (
 )
 
 // TestSelfServiceOnboardingOnPostgres (ADR-0018): business ACTIVE + OWNER + 7-day demo commit
-// together; one demo per account even under concurrent requests; demos expire with the real
-// SQL of the hourly job.
+// together; at most OWNED_BUSINESS_LIMIT (2) owned businesses per account even under concurrent
+// requests (P-11), each with its demo; the Idempotency-Key gives one business; demos expire with
+// the real SQL of the hourly job.
 func TestSelfServiceOnboardingOnPostgres(t *testing.T) {
 	ctx := t.Context()
 	pool := migratedPool(t)
@@ -38,10 +39,10 @@ func TestSelfServiceOnboardingOnPostgres(t *testing.T) {
 	owner := identitycontract.Principal{UserID: userID}
 	in := bizapp.BusinessInput{Name: "Barbería Autoservicio", ContactPhone: "3001234567", CityID: pgtest.SeedCaliID, AddressLine: "Calle 1"}
 
-	// Two simultaneous requests of the same account: exactly one business is created.
+	// Three simultaneous requests of the same account: exactly two businesses are created.
 	var wg sync.WaitGroup
-	results := make([]error, 2)
-	created := make([]*domain.Business, 2)
+	results := make([]error, 3)
+	created := make([]*domain.Business, 3)
 	for i := range results {
 		wg.Add(1)
 		go func(i int) {
@@ -56,19 +57,21 @@ func TestSelfServiceOnboardingOnPostgres(t *testing.T) {
 		switch {
 		case err == nil:
 			ok++
-			b = created[i]
-		case errors.Is(err, identitycontract.ErrAlreadyOwner):
+			if b == nil {
+				b = created[i]
+			}
+		case errors.Is(err, identitycontract.ErrOwnedBusinessLimit):
 			already++
 		default:
 			t.Fatalf("request %d: %v", i, err)
 		}
 	}
-	if ok != 1 || already != 1 {
-		t.Fatalf("concurrent self-service: %d created, %d refused; want 1 and 1", ok, already)
+	if ok != 2 || already != 1 {
+		t.Fatalf("concurrent self-service: %d created, %d refused; want 2 and 1", ok, already)
 	}
 	if n := count(t, pool, `SELECT count(*) FROM businesses b JOIN memberships m ON m.business_id = b.id
-		WHERE m.user_id = $1 AND m.role = 'OWNER'`, userID); n != 1 {
-		t.Errorf("businesses owned = %d, want 1", n)
+		JOIN subscriptions s ON s.business_id = b.id WHERE m.user_id = $1 AND m.role = 'OWNER' AND s.status = 'TRIALING'`, userID); n != 2 {
+		t.Errorf("businesses owned with their demo = %d, want 2", n)
 	}
 	if b.Status() != domain.StatusActive {
 		t.Errorf("status = %s, want ACTIVE", b.Status())
@@ -85,11 +88,40 @@ func TestSelfServiceOnboardingOnPostgres(t *testing.T) {
 		('business.created', 'membership.granted', 'subscription.trial_started')`, b.ID()); n != 3 {
 		t.Errorf("audit entries = %d, want 3", n)
 	}
-	if n := count(t, pool, `SELECT count(*) FROM businesses WHERE name = 'Barbería Autoservicio'`); n != 1 {
+	if n := count(t, pool, `SELECT count(*) FROM businesses WHERE name = 'Barbería Autoservicio'`); n != 2 {
 		t.Errorf("businesses with that name = %d: the refused request left a row behind", n)
 	}
 	if entitled, err := subs.Entitled(ctx, b.ID()); err != nil || !entitled {
 		t.Errorf("entitled during the demo: %v %v", entitled, err)
+	}
+
+	// P-11: three simultaneous requests with the same Idempotency-Key give one business.
+	keyUser, _ := activeUser(t, pool, "ACTIVE")
+	keyed := in
+	keyed.Name, keyed.IdempotencyKey = "Barbería Con Clave", "portal-create-0001"
+	ids := make([]uuid.UUID, 3)
+	for i := range ids {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			kb, err := biz.CreateOwnBusiness(ctx, identitycontract.Principal{UserID: keyUser}, keyed)
+			if err != nil {
+				t.Errorf("keyed request %d: %v", i, err)
+				return
+			}
+			ids[i] = kb.ID()
+		}(i)
+	}
+	wg.Wait()
+	if ids[0] != ids[1] || ids[1] != ids[2] || ids[0] == uuid.Nil {
+		t.Errorf("same key, businesses %v", ids)
+	}
+	if n := count(t, pool, `SELECT count(*) FROM businesses WHERE name = 'Barbería Con Clave'`); n != 1 {
+		t.Errorf("businesses with the same key = %d, want 1", n)
+	}
+	keyed.Name = "Otro Nombre"
+	if _, err := biz.CreateOwnBusiness(ctx, identitycontract.Principal{UserID: keyUser}, keyed); !errors.Is(err, bizapp.ErrIdempotencyKeyReused) {
+		t.Errorf("same key, other data: %v", err)
 	}
 
 	// The OWNER manages it: moving to Medellín takes Antioquia as division (location FKs).

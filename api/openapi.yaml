@@ -1381,11 +1381,22 @@ paths:
       description: |
         The authenticated (verified) account becomes OWNER of a new `ACTIVE` business with a
         7-day demo subscription; business, membership, subscription and audit entries are created
-        atomically. One per account: an account that already owns a business gets 409
-        `ALREADY_OWNER` (another one is requested from support). Strict per-client rate limit.
+        atomically. An account may own up to `OWNED_BUSINESS_LIMIT` businesses created this way
+        (2 during the demo, P-11), each with its own demo; beyond it 409 `OWNED_BUSINESS_LIMIT`.
+        With the optional `Idempotency-Key`, repeating the request returns the same business
+        (201); the same key with a different body is 422 `IDEMPOTENCY_KEY_REUSED`. Strict
+        per-client rate limit. `ALREADY_OWNER` is no longer returned.
       security:
         - bearerAuth: []
         - sessionCookie: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: Unique per creation attempt (8-100 characters, letters, digits, - and _).
+          schema:
+            type: string
+            pattern: "^[A-Za-z0-9_-]{8,100}$"
       requestBody:
         required: true
         content:
@@ -1410,6 +1421,8 @@ paths:
           $ref: "#/components/responses/Conflict"
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
         "429":
           $ref: "#/components/responses/TooManyRequests"
 
@@ -2028,6 +2041,127 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  /api/v1/business/{businessId}/stats:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Appointments]
+      operationId: getBusinessStats
+      summary: Statistics of the business (OWNER the whole business, PROFESSIONAL its own)
+      description: |
+        P-12. Figures of the appointments that start in [from, to] (the rules are in
+        `StatsFigures`), a series with every period of the range (empty ones included), and the
+        figures by service and, for the OWNER, by professional. The OWNER may ask for one
+        professional; a PROFESSIONAL only gets its own figures (another `professionalId` is 403)
+        and no `byProfessional`. Available minutes use each professional's **current** weekly
+        schedule since its profile was created (approximate for the past if it changed). 400
+        `INVALID_RANGE` when `to` is before `from` or the range is too long.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: First day (YYYY-MM-DD), inclusive, in the business's calendar.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          description: Last day (YYYY-MM-DD), inclusive. At most 366 days with `groupBy=day`, 5 years with `month` or `year`.
+          schema:
+            type: string
+            format: date
+        - name: groupBy
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [day, month, year]
+            default: day
+        - name: professionalId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The statistics.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessStats"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/me/stats:
+    get:
+      tags: [Appointments]
+      operationId: getMyStats
+      summary: Consolidated statistics of every business you own
+      description: |
+        P-12. The same figures as `getBusinessStats` for every business where the caller is
+        OWNER (not those where it is only a professional), added up, with `byBusiness`. The range
+        is applied in each business's calendar. If the businesses use different currencies,
+        `currency` and `totals` are null, `series` is empty and `totalsByCurrency` has each one.
+        Without owned businesses: zeros. 400 `INVALID_RANGE` as in `getBusinessStats`.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: First day (YYYY-MM-DD), inclusive, in the business's calendar.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          description: Last day (YYYY-MM-DD), inclusive. At most 366 days with `groupBy=day`, 5 years with `month` or `year`.
+          schema:
+            type: string
+            format: date
+        - name: groupBy
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [day, month, year]
+            default: day
+      responses:
+        "200":
+          description: The consolidated statistics.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessStats"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /api/v1/business/{businessId}/agenda:
     parameters:
@@ -5107,6 +5241,141 @@ components:
             $ref: "#/components/schemas/AgendaItem"
         nextCursor:
           type: [string, "null"]
+    BusinessStats:
+      type: object
+      additionalProperties: false
+      required: [from, to, groupBy, currency, totals, series, byService]
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        groupBy:
+          type: string
+          enum: [day, month, year]
+        currency:
+          description: ISO 4217; null in the consolidated statistics without businesses or with several currencies.
+          type: [string, "null"]
+        totals:
+          oneOf:
+            - $ref: "#/components/schemas/StatsFigures"
+            - type: "null"
+        series:
+          description: One element per period of the range, in order, also those without appointments.
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [period, figures]
+            properties:
+              period:
+                description: Day "2026-11-27", month "2026-11" or year "2026".
+                type: string
+              figures:
+                $ref: "#/components/schemas/StatsFigures"
+        byProfessional:
+          description: Only in getBusinessStats and for the OWNER.
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [professionalId, displayName, figures]
+            properties:
+              professionalId:
+                type: string
+                format: uuid
+              displayName:
+                type: string
+              figures:
+                $ref: "#/components/schemas/StatsFigures"
+        byService:
+          description: Service name when booked; no available minutes (they belong to people).
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [serviceId, name, figures]
+            properties:
+              serviceId:
+                type: string
+                format: uuid
+              name:
+                type: string
+              figures:
+                $ref: "#/components/schemas/StatsFigures"
+        byBusiness:
+          description: Only in getMyStats.
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [businessId, name, currency, figures]
+            properties:
+              businessId:
+                type: string
+                format: uuid
+              name:
+                type: string
+              currency:
+                type: string
+              figures:
+                $ref: "#/components/schemas/StatsFigures"
+        totalsByCurrency:
+          description: Only in getMyStats.
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [currency, figures]
+            properties:
+              currency:
+                type: string
+              figures:
+                $ref: "#/components/schemas/StatsFigures"
+    StatsFigures:
+      type: object
+      additionalProperties: false
+      description: |
+        Rules (P-12): `appointments` start in the period, except CANCELLED; `completed`,
+        `cancelled` (by the business or the customer) and `noShow` by status; `revenueMinor`
+        adds the price when booked of the COMPLETED ones; `averageTicketMinor` =
+        revenueMinor / completed (0 without completed); `customersServed` distinct customers with
+        a COMPLETED one (not additive across professionals or services); `newCustomers` whose
+        first COMPLETED appointment in the business is in the period; `bookedMinutes` duration
+        of PENDING_CONFIRMATION, CONFIRMED, IN_PROGRESS and COMPLETED; `availableMinutes`
+        working hours minus breaks and absences; `occupancyPercent` = booked / available × 100,
+        rounded, at most 100, null without working hours.
+      required: [appointments, completed, cancelled, noShow, revenueMinor, averageTicketMinor, customersServed,
+                 newCustomers, bookedMinutes, availableMinutes, occupancyPercent]
+      properties:
+        appointments:
+          type: integer
+        completed:
+          type: integer
+        cancelled:
+          type: integer
+        noShow:
+          type: integer
+        revenueMinor:
+          type: integer
+          format: int64
+        averageTicketMinor:
+          type: integer
+          format: int64
+        customersServed:
+          type: integer
+        newCustomers:
+          type: integer
+        bookedMinutes:
+          type: integer
+        availableMinutes:
+          type: integer
+        occupancyPercent:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 100
     CustomerAppointmentList:
       type: object
       additionalProperties: false
@@ -5633,7 +5902,8 @@ components:
             $ref: "#/components/schemas/AcceptedResponse"
     BadRequest:
       description: |
-        Invalid input (`INVALID_REQUEST` with `errors[]`) or invalid token (`INVALID_TOKEN`).
+        Invalid input (`INVALID_REQUEST` with `errors[]`), invalid token (`INVALID_TOKEN`) or an
+        invalid statistics range (`INVALID_RANGE`).
       headers:
         X-Request-ID:
           $ref: "#/components/headers/XRequestID"
@@ -5710,7 +5980,7 @@ components:
         A record with the same code or name already exists (`ALREADY_EXISTS`), a country,
         division or city with active businesses cannot be deactivated (`IN_USE`), a business
         cannot be activated while its location is inactive (`LOCATION_INACTIVE`), the account
-        already owns a business (`ALREADY_OWNER`), the subscription is not a demo
+        already owns the most businesses it can create (`OWNED_BUSINESS_LIMIT`), the subscription is not a demo
         (`NOT_EXTENDABLE`), the account is already a member (`ALREADY_MEMBER`) or the change
         would leave the business without an OWNER (`LAST_OWNER`), or the account already has a
         professional profile in the business (`ALREADY_PROFESSIONAL`), the start time is not

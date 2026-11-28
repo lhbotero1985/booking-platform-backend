@@ -158,6 +158,45 @@ func (q *Queries) BusinessBySlug(ctx context.Context, slug string) (BusinessBySl
 	return i, err
 }
 
+const claimCreationKey = `-- name: ClaimCreationKey :many
+INSERT INTO business_creation_keys (user_id, key, fingerprint, created_at)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (user_id, key) DO NOTHING
+RETURNING user_id
+`
+
+type ClaimCreationKeyParams struct {
+	UserID      uuid.UUID
+	Key         string
+	Fingerprint string
+	CreatedAt   time.Time
+}
+
+func (q *Queries) ClaimCreationKey(ctx context.Context, arg ClaimCreationKeyParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, claimCreationKey,
+		arg.UserID,
+		arg.Key,
+		arg.Fingerprint,
+		arg.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []uuid.UUID{}
+	for rows.Next() {
+		var user_id uuid.UUID
+		if err := rows.Scan(&user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, user_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const countActiveBusinessesInCity = `-- name: CountActiveBusinessesInCity :one
 SELECT count(*) FROM businesses WHERE city_id = $1 AND status = 'ACTIVE'
 `
@@ -189,6 +228,27 @@ func (q *Queries) CountActiveBusinessesInDivision(ctx context.Context, divisionI
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const creationKeyOf = `-- name: CreationKeyOf :one
+SELECT fingerprint, business_id FROM business_creation_keys WHERE user_id = $1 AND key = $2
+`
+
+type CreationKeyOfParams struct {
+	UserID uuid.UUID
+	Key    string
+}
+
+type CreationKeyOfRow struct {
+	Fingerprint string
+	BusinessID  *uuid.UUID
+}
+
+func (q *Queries) CreationKeyOf(ctx context.Context, arg CreationKeyOfParams) (CreationKeyOfRow, error) {
+	row := q.db.QueryRow(ctx, creationKeyOf, arg.UserID, arg.Key)
+	var i CreationKeyOfRow
+	err := row.Scan(&i.Fingerprint, &i.BusinessID)
+	return i, err
 }
 
 const insertBusiness = `-- name: InsertBusiness :exec
@@ -476,6 +536,21 @@ func (q *Queries) SearchActiveBusinesses(ctx context.Context, arg SearchActiveBu
 		return nil, err
 	}
 	return items, nil
+}
+
+const setCreationKeyBusiness = `-- name: SetCreationKeyBusiness :exec
+UPDATE business_creation_keys SET business_id = $1 WHERE user_id = $2 AND key = $3
+`
+
+type SetCreationKeyBusinessParams struct {
+	BusinessID *uuid.UUID
+	UserID     uuid.UUID
+	Key        string
+}
+
+func (q *Queries) SetCreationKeyBusiness(ctx context.Context, arg SetCreationKeyBusinessParams) error {
+	_, err := q.db.Exec(ctx, setCreationKeyBusiness, arg.BusinessID, arg.UserID, arg.Key)
+	return err
 }
 
 const slugTaken = `-- name: SlugTaken :one

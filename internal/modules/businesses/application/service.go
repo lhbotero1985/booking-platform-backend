@@ -2,8 +2,13 @@ package application
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -30,6 +35,16 @@ var ErrUnauthenticated = errors.New("businesses: authentication required")
 // ErrLocationInactive is returned when the business's city, division or country is inactive, so it cannot be
 // activated (it would be unreachable).
 var ErrLocationInactive = errors.New("businesses: location is inactive")
+
+var (
+	// ErrInvalidIdempotencyKey means the Idempotency-Key header is malformed (8-100 characters:
+	// letters, digits, - and _).
+	ErrInvalidIdempotencyKey = errors.New("businesses: invalid idempotency key")
+	// ErrIdempotencyKeyReused means the key was used for a different creation request.
+	ErrIdempotencyKeyReused = errors.New("businesses: idempotency key reused with another request")
+)
+
+var idempotencyKey = regexp.MustCompile(`^[A-Za-z0-9_-]{8,100}$`)
 
 // Field error codes exposed in Problem.errors[].message.
 const (
@@ -127,6 +142,22 @@ type BusinessInput struct {
 	CityID                          uuid.UUID
 	AddressLine                     string
 	Latitude, Longitude             *float64
+	// IdempotencyKey, optional and only for CreateOwnBusiness (P-11): repeating the request with
+	// it returns the same business.
+	IdempotencyKey string
+}
+
+// fingerprint identifies the data of a creation request, to tell a replay from a key reuse.
+func (in BusinessInput) fingerprint() string {
+	coord := func(f *float64) string {
+		if f == nil {
+			return ""
+		}
+		return strconv.FormatFloat(*f, 'g', -1, 64)
+	}
+	sum := sha256.Sum256([]byte(strings.Join([]string{in.Name, in.ContactPhone, in.Description,
+		in.CityID.String(), in.AddressLine, coord(in.Latitude), coord(in.Longitude)}, "\x00")))
+	return hex.EncodeToString(sum[:])
 }
 
 // CreateInput creates a business with its OWNER (PLATFORM_ADMIN, T4.3).
@@ -154,7 +185,7 @@ func (s *Service) CreateBusiness(ctx context.Context, p identity.Principal, in C
 	if err != nil {
 		return nil, err
 	}
-	return s.create(ctx, p, v, domain.StatusActive, "admin", func(ctx context.Context, businessID uuid.UUID) error {
+	return s.create(ctx, p, v, domain.StatusActive, "admin", nil, func(ctx context.Context, businessID uuid.UUID) error {
 		if _, err := s.members.AddMember(ctx, p, businessID, in.OwnerEmail, identity.RoleOwner); err != nil {
 			if errors.Is(err, identity.ErrAccountNotEligible) {
 				return invalid("ownerEmail", CodeAccountNotEligible)
@@ -166,20 +197,52 @@ func (s *Service) CreateBusiness(ctx context.Context, p identity.Principal, in C
 }
 
 // CreateOwnBusiness is the self-service onboarding (ADR-0018): the authenticated account
-// creates its business, which is ACTIVE at once (it can take real bookings during the demo),
-// becomes its OWNER and gets a 7-day demo. One per account (identity.ErrAlreadyOwner).
+// creates a business, which is ACTIVE at once (it can take real bookings during the demo),
+// becomes its OWNER and gets a 7-day demo. Each account may own up to OWNED_BUSINESS_LIMIT
+// businesses (P-11, identity.ErrOwnedBusinessLimit). With in.IdempotencyKey, repeating the
+// request returns the same business (ErrIdempotencyKeyReused with other data).
 func (s *Service) CreateOwnBusiness(ctx context.Context, p identity.Principal, in BusinessInput) (*domain.Business, error) {
 	if p.UserID == uuid.Nil {
 		return nil, ErrUnauthenticated
+	}
+	if in.IdempotencyKey != "" && !idempotencyKey.MatchString(in.IdempotencyKey) {
+		return nil, ErrInvalidIdempotencyKey
 	}
 	var verr ValidationError
 	v, err := s.validate(ctx, in, &verr)
 	if err != nil {
 		return nil, err
 	}
-	return s.create(ctx, p, v, domain.StatusActive, "self_service", func(ctx context.Context, businessID uuid.UUID) error {
+	var key *creationKey
+	if in.IdempotencyKey != "" {
+		key = &creationKey{userID: p.UserID, key: in.IdempotencyKey, fingerprint: in.fingerprint()}
+	}
+	return s.create(ctx, p, v, domain.StatusActive, "self_service", key, func(ctx context.Context, businessID uuid.UUID) error {
 		return s.owners.ClaimOwnership(ctx, p, businessID)
 	})
+}
+
+// creationKey is the Idempotency-Key of a self-service creation.
+type creationKey struct {
+	userID           uuid.UUID
+	key, fingerprint string
+}
+
+// replay claims k in tx. It returns the business a previous request with k created (nil if k
+// is new and this request must create it).
+func (k *creationKey) replay(ctx context.Context, tx Tx, now time.Time) (*domain.Business, error) {
+	claimed, err := tx.ClaimCreationKey(ctx, k.userID, k.key, k.fingerprint, now)
+	if err != nil || claimed {
+		return nil, err
+	}
+	fp, id, err := tx.CreationKeyOf(ctx, k.userID, k.key)
+	if err != nil {
+		return nil, err
+	}
+	if fp != k.fingerprint || id == uuid.Nil {
+		return nil, ErrIdempotencyKeyReused
+	}
+	return tx.BusinessByID(ctx, id)
 }
 
 // validated are the parsed inputs of a new business.
@@ -233,12 +296,20 @@ func (s *Service) validate(ctx context.Context, in BusinessInput, verr *Validati
 
 // create inserts the business, attaches its OWNER and starts the demo in one transaction (the
 // other modules join it through ctx), retrying if a concurrent creation takes the slug.
+// key, optional, is the Idempotency-Key of the request: a replay returns the business it made.
 func (s *Service) create(ctx context.Context, p identity.Principal, v validated, status domain.Status, via string,
-	attachOwner func(ctx context.Context, businessID uuid.UUID) error) (*domain.Business, error) {
+	key *creationKey, attachOwner func(ctx context.Context, businessID uuid.UUID) error) (*domain.Business, error) {
 	var b *domain.Business
 	var err error
 	for attempt := 1; ; attempt++ {
 		err = s.store.WithinTx(ctx, func(ctx context.Context, tx Tx) error {
+			if key != nil {
+				prev, err := key.replay(ctx, tx, s.clock.Now())
+				if err != nil || prev != nil {
+					b = prev
+					return err
+				}
+			}
 			slug, err := AllocateSlug(ctx, tx, v.name)
 			if err != nil {
 				return err
@@ -265,6 +336,11 @@ func (s *Service) create(ctx context.Context, p identity.Principal, v validated,
 			}
 			if err := s.trials.StartTrial(ctx, b.ID()); err != nil {
 				return err
+			}
+			if key != nil {
+				if err := tx.SetCreationKeyBusiness(ctx, key.userID, key.key, b.ID()); err != nil {
+					return err
+				}
 			}
 			return tx.AppendAudit(ctx, s.audit(ctx, p, AuditBusinessCreated, b).
 				Meta("city", v.place.CityID.String()).Meta("via", via))

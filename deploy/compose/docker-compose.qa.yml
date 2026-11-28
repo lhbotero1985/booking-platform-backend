@@ -33,6 +33,8 @@ x-app-env: &app-env
   # ?token=) and the app's download page behind GET /app. Empty = the API's own pages.
   APPOINTMENT_RESCHEDULE_URL: ${APPOINTMENT_RESCHEDULE_URL:-}
   APP_DOWNLOAD_URL: ${APP_DOWNLOAD_URL:-}
+  # P-11: businesses an account may create itself (2 during the demo).
+  OWNED_BUSINESS_LIMIT: ${OWNED_BUSINESS_LIMIT:-2}
   CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
   # Mailpit on the private network: no real email ever leaves QA.
   SMTP_HOST: mailpit

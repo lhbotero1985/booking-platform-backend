@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -179,6 +180,26 @@ func (t *txStore) SearchActive(ctx context.Context, f application.SearchFilter) 
 
 func (t *txStore) AppendAudit(ctx context.Context, e *audit.Entry) error {
 	return audit.Append(ctx, t.tx, e)
+}
+
+func (t *txStore) ClaimCreationKey(ctx context.Context, userID uuid.UUID, key, fingerprint string, now time.Time) (bool, error) {
+	rows, err := t.q.ClaimCreationKey(ctx, sqlcgen.ClaimCreationKeyParams{UserID: userID, Key: key, Fingerprint: fingerprint, CreatedAt: now})
+	return len(rows) == 1, err
+}
+
+func (t *txStore) CreationKeyOf(ctx context.Context, userID uuid.UUID, key string) (string, uuid.UUID, error) {
+	r, err := t.q.CreationKeyOf(ctx, sqlcgen.CreationKeyOfParams{UserID: userID, Key: key})
+	if err != nil {
+		return "", uuid.Nil, notFound(err)
+	}
+	if r.BusinessID == nil {
+		return r.Fingerprint, uuid.Nil, nil
+	}
+	return r.Fingerprint, *r.BusinessID, nil
+}
+
+func (t *txStore) SetCreationKeyBusiness(ctx context.Context, userID uuid.UUID, key string, businessID uuid.UUID) error {
+	return t.q.SetCreationKeyBusiness(ctx, sqlcgen.SetCreationKeyBusinessParams{UserID: userID, Key: key, BusinessID: &businessID})
 }
 
 func notFound(err error) error {

@@ -28,8 +28,9 @@ que un vencimiento de pago y una suspensión por abuso se pisen.
 ### Alta
 - **Autoservicio (T4.3b):** cuenta verificada → `POST /api/v1/businesses` → negocio `ACTIVE` +
   membresía OWNER + suscripción `TRIALING` con `trial_ends_at = ahora + 7 días`, todo en una
-  transacción (`db.ContextWithTx`). Límite: **una demo por cuenta** (si ya es OWNER de un negocio,
-  debe pedir otro al soporte). Límite de peticiones estricto y auditoría.
+  transacción (`db.ContextWithTx`). Límite: ~~una demo por cuenta~~ **hasta `OWNED_BUSINESS_LIMIT`
+  negocios propios por cuenta (2 durante la demo), cada uno con su demo** (enmienda P-11,
+  2026-11-27, abajo). Límite de peticiones estricto y auditoría.
 - **Administrador (T4.3, opción de soporte):** puede crear un negocio a nombre de un dueño; nace
   igual que el autoservicio, `ACTIVE` con demo `TRIALING` (decisión del usuario 2026-11-24: el
   administrador no tiene que activar nada). El administrador puede suspender/reactivar, extender
@@ -60,5 +61,21 @@ administrador como actor. Se implementa en el autorizador (T4.4).
 - Nuevo bounded context `subscriptions` (tabla `subscriptions`, contract para consultar si un
   negocio está habilitado). Reservas (Fase 6) y búsqueda (T4.6) consultan ese contract.
 - El riesgo R8 (crecimiento del alcance) se acepta explícitamente para pagos.
-- Riesgos nuevos: abuso de demos (mitigado con email verificado, una demo por cuenta, límites);
-  dependencia de un proveedor de pagos; obligaciones fiscales.
+- Riesgos nuevos: abuso de demos (mitigado con email verificado, tope de negocios propios por
+  cuenta, límites); dependencia de un proveedor de pagos; obligaciones fiscales.
+
+## Enmienda 2026-11-27 — Más de un negocio por cuenta (P-11)
+
+Decisión del usuario: un dueño crea otro negocio él mismo desde el portal. Durante la demo una
+cuenta puede tener **hasta 2 negocios propios** creados por autoservicio; los planes de la fase 11B
+ajustarán el número (idea del usuario: un plan siguiente con 2 y otro ilimitado).
+
+- `OWNED_BUSINESS_LIMIT` (por defecto 2, entre 1 y 1000) cuenta las membresías OWNER activas de la
+  cuenta; más allá → 409 `OWNED_BUSINESS_LIMIT` (`ALREADY_OWNER` ya no se emite). El bloqueo de la
+  fila del usuario sigue serializando las peticiones simultáneas.
+- Cada negocio nuevo trae **su propia demo de 7 días** (la suscripción sigue siendo por negocio);
+  el tope limita el encadenamiento de demos hasta que existan los pagos.
+- `Idempotency-Key` opcional en `POST /api/v1/businesses` (tabla `business_creation_keys`,
+  migración 00027): la misma clave y los mismos datos devuelven el mismo negocio; otros datos →
+  422 `IDEMPOTENCY_KEY_REUSED`.
+- El alta por el administrador no cambia ni cuenta para el tope.

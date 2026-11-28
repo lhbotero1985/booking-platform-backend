@@ -92,7 +92,8 @@ func startAuth(t *testing.T) authHarness {
 	profs := profapp.NewService(proftest.NewStore(), h.svc, h.clock)
 	cat := catapp.NewService(catalogtest.NewStore(), h.svc, biz, profs, h.clock)
 	app.LinkPublicCatalog(biz, cat, profs, biz)
-	sched := schedapp.NewService(schedapp.Deps{Store: schedtest.NewStore(), Authz: h.svc, Businesses: biz, Catalog: cat, Professionals: profs, Bookable: profs, Customers: h.svc, Clock: h.clock})
+	sched := schedapp.NewService(schedapp.Deps{Store: schedtest.NewStore(), Authz: h.svc, Businesses: biz, Catalog: cat, Professionals: profs, Bookable: profs, Customers: h.svc, Clock: h.clock,
+		Schedules: profs, Currencies: biz, Memberships: h.svc})
 	app.LinkAgendaGuard(profs, sched)
 	notif, outbox := notiftest.NewService(sched, biz, h.clock, func(d *notifapp.Deps) {
 		d.Authz, d.Recipients = h.svc, app.NewEmailRecipients(h.svc, profs)

@@ -13,9 +13,11 @@ import (
 type Querier interface {
 	BusinessByID(ctx context.Context, id uuid.UUID) (BusinessByIDRow, error)
 	BusinessBySlug(ctx context.Context, slug string) (BusinessBySlugRow, error)
+	ClaimCreationKey(ctx context.Context, arg ClaimCreationKeyParams) ([]uuid.UUID, error)
 	CountActiveBusinessesInCity(ctx context.Context, cityID uuid.UUID) (int64, error)
 	CountActiveBusinessesInCountry(ctx context.Context, countryCode string) (int64, error)
 	CountActiveBusinessesInDivision(ctx context.Context, divisionID uuid.UUID) (int64, error)
+	CreationKeyOf(ctx context.Context, arg CreationKeyOfParams) (CreationKeyOfRow, error)
 	// Businesses module (T4.2). businesses is the tenant root: other tenant tables filter by
 	// business_id; here the row itself is the business.
 	InsertBusiness(ctx context.Context, arg InsertBusinessParams) error
@@ -26,6 +28,7 @@ type Querier interface {
 	// LIKE wildcards), keyset pagination after (lower(name), id). Entitlement (demo or payment) is
 	// filtered by the subscriptions module. sort_name is the keyset (PostgreSQL's lower()).
 	SearchActiveBusinesses(ctx context.Context, arg SearchActiveBusinessesParams) ([]SearchActiveBusinessesRow, error)
+	SetCreationKeyBusiness(ctx context.Context, arg SetCreationKeyBusinessParams) error
 	SlugTaken(ctx context.Context, slug string) (bool, error)
 	// Everything but id, slug, currency and created_at (slug changes and moves between countries
 	// are separate, audited operations).

@@ -442,3 +442,19 @@ func TestWhatsAppLimitsConfig(t *testing.T) {
 		}
 	}
 }
+
+// TestOwnedBusinessLimitConfig (P-11): two businesses per account by default (the demo).
+func TestOwnedBusinessLimitConfig(t *testing.T) {
+	cfg, err := Load(envFrom(map[string]string{"APP_ENV": "development"}))
+	if err != nil || cfg.OwnedBusinessLimit != 2 {
+		t.Fatalf("default: %d %v", cfg.OwnedBusinessLimit, err)
+	}
+	if cfg, err = Load(envFrom(map[string]string{"APP_ENV": "development", "OWNED_BUSINESS_LIMIT": "5"})); err != nil || cfg.OwnedBusinessLimit != 5 {
+		t.Errorf("set: %d %v", cfg.OwnedBusinessLimit, err)
+	}
+	for _, v := range []string{"0", "-1", "dos"} {
+		if _, err := Load(envFrom(map[string]string{"APP_ENV": "development", "OWNED_BUSINESS_LIMIT": v})); err == nil {
+			t.Errorf("OWNED_BUSINESS_LIMIT=%s accepted", v)
+		}
+	}
+}

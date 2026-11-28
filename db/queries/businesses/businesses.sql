@@ -84,3 +84,15 @@ WHERE status = 'ACTIVE'
   AND (sqlc.narg(after_name)::text IS NULL OR (lower(name), id) > (sqlc.narg(after_name)::text, sqlc.narg(after_id)::uuid))
 ORDER BY lower(name), id
 LIMIT sqlc.arg(max_rows);
+
+-- name: ClaimCreationKey :many
+INSERT INTO business_creation_keys (user_id, key, fingerprint, created_at)
+VALUES (@user_id, @key, @fingerprint, @created_at)
+ON CONFLICT (user_id, key) DO NOTHING
+RETURNING user_id;
+
+-- name: CreationKeyOf :one
+SELECT fingerprint, business_id FROM business_creation_keys WHERE user_id = @user_id AND key = @key;
+
+-- name: SetCreationKeyBusiness :exec
+UPDATE business_creation_keys SET business_id = @business_id WHERE user_id = @user_id AND key = @key;

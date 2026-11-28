@@ -152,6 +152,9 @@ type Config struct {
 	AppointmentRescheduleURL string
 	// PublicAppURL is the base URL of the client app used in email links (/verify-email, …).
 	PublicAppURL string
+	// OwnedBusinessLimit is how many businesses an account may create itself (P-11): 2 during
+	// the demo (user, 2026-11-27); the plans of phase 11B will set it.
+	OwnedBusinessLimit int
 }
 
 // Load reads configuration using getenv (usually os.Getenv) and validates it.
@@ -205,9 +208,10 @@ func Load(getenv func(string) string) (Config, error) {
 			LoginBackoffThreshold: int(p.intRange("LOGIN_BACKOFF_THRESHOLD", 5, 1, 100)),
 			LoginBackoffMax:       p.duration("LOGIN_BACKOFF_MAX", 15*time.Minute),
 		},
-		PublicAppURL:   p.str("PUBLIC_APP_URL", "http://localhost:3000"),
-		AppDownloadURL: p.str("APP_DOWNLOAD_URL", ""),
-		PublicAPIURL:   strings.TrimRight(p.str("PUBLIC_API_URL", "http://localhost:8080"), "/"),
+		PublicAppURL:       p.str("PUBLIC_APP_URL", "http://localhost:3000"),
+		OwnedBusinessLimit: int(p.intRange("OWNED_BUSINESS_LIMIT", 2, 1, 1000)),
+		AppDownloadURL:     p.str("APP_DOWNLOAD_URL", ""),
+		PublicAPIURL:       strings.TrimRight(p.str("PUBLIC_API_URL", "http://localhost:8080"), "/"),
 
 		AppointmentRescheduleURL: p.str("APPOINTMENT_RESCHEDULE_URL", ""),
 		Notifications: Notifications{

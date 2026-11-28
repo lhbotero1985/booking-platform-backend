@@ -69,5 +69,26 @@ type Agenda interface {
 	DayAgenda(ctx context.Context, businessID, professionalID uuid.UUID, weekday time.Weekday, from, to time.Time) (DayAgenda, error)
 }
 
+// DaySchedule is a professional's working ranges and breaks of one weekday (local times).
+type DaySchedule struct {
+	WorkingHours []MinuteRange
+	Breaks       []MinuteRange
+}
+
+// WeekSchedule is a professional's current weekly schedule (by time.Weekday), the absences
+// overlapping a period and when the profile was created (P-12 statistics: the available minutes
+// of past periods use the current schedule, decision of the user 2026-11-27).
+type WeekSchedule struct {
+	Days      [7]DaySchedule
+	Absences  []Interval
+	CreatedAt time.Time
+}
+
+// Schedules reads the schedules of every professional profile of a business (any status) for the
+// statistics. No authorization: callers check the caller's role first.
+type Schedules interface {
+	WeekSchedules(ctx context.Context, businessID uuid.UUID, from, to time.Time) (map[uuid.UUID]WeekSchedule, error)
+}
+
 // ErrProfessionalNotFound means there is no such professional in the business.
 var ErrProfessionalNotFound = errors.New("professionals: professional not found")

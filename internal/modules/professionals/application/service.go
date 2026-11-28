@@ -445,6 +445,47 @@ func (s *Service) Roster(ctx context.Context, businessID uuid.UUID) ([]profcontr
 	return out, nil
 }
 
+// maxStatsAbsences bounds the absences of one professional read for the statistics (5 years).
+const maxStatsAbsences = 5000
+
+// WeekSchedules implements the professionals contract Schedules (P-12): the current weekly
+// schedule of every profile of the business, its absences overlapping [from, to) and its
+// creation time. No authorization.
+func (s *Service) WeekSchedules(ctx context.Context, businessID uuid.UUID, from, to time.Time) (map[uuid.UUID]profcontract.WeekSchedule, error) {
+	out := map[uuid.UUID]profcontract.WeekSchedule{}
+	err := s.store.WithinTx(ctx, func(ctx context.Context, tx Tx) error {
+		profs, err := tx.ListProfessionals(ctx, businessID)
+		if err != nil {
+			return err
+		}
+		for _, p := range profs {
+			w, err := tx.WeeklySchedule(ctx, businessID, p.ID)
+			if err != nil {
+				return err
+			}
+			ws := profcontract.WeekSchedule{CreatedAt: p.CreatedAt}
+			for d, day := range w.Days {
+				for _, r := range day.WorkingHours {
+					ws.Days[d].WorkingHours = append(ws.Days[d].WorkingHours, profcontract.MinuteRange{Start: int(r.Start), End: int(r.End)})
+				}
+				for _, r := range day.Breaks {
+					ws.Days[d].Breaks = append(ws.Days[d].Breaks, profcontract.MinuteRange{Start: int(r.Start), End: int(r.End)})
+				}
+			}
+			absences, err := tx.ListAbsences(ctx, businessID, p.ID, from.UTC(), to.UTC(), maxStatsAbsences)
+			if err != nil {
+				return err
+			}
+			for _, a := range absences {
+				ws.Absences = append(ws.Absences, profcontract.Interval{Start: a.Start, End: a.End})
+			}
+			out[p.ID] = ws
+		}
+		return nil
+	})
+	return out, err
+}
+
 // DayAgenda implements the professionals contract Agenda (T6.2): working ranges and breaks of
 // the weekday and the absences overlapping [from, to). No authorization.
 func (s *Service) DayAgenda(ctx context.Context, businessID, professionalID uuid.UUID, weekday time.Weekday, from, to time.Time) (profcontract.DayAgenda, error) {
