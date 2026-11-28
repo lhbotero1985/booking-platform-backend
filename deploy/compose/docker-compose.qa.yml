@@ -127,6 +127,11 @@ services:
       # WhatsApp webhook (T7.5): only the API receives it.
       WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
       WHATSAPP_WEBHOOK_VERIFY_TOKEN: ${WHATSAPP_WEBHOOK_VERIFY_TOKEN:-}
+      # Images of businesses and professionals (2026-11-27): a volume of the server's disk; the
+      # rest of the container stays read-only.
+      MEDIA_DIR: /data/media
+    volumes:
+      - media:/data/media
     ports:
       # Host-only, for deployment smoke tests; public traffic goes through Caddy.
       - "127.0.0.1:8080:8080"
@@ -211,5 +216,6 @@ networks:
 
 volumes:
   pgdata:
+  media:
   caddy_data:
   caddy_config:

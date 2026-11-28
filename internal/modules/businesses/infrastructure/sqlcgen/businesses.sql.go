@@ -17,7 +17,7 @@ SELECT id, name, slug::text AS slug, status, contact_phone, description, country
        city_id, address_line, latitude, longitude, time_zone, currency, slot_interval_minutes,
        buffer_minutes, min_lead_minutes, max_advance_days, cancellation_cutoff_hours,
        reschedule_cutoff_hours, require_customer_confirmation, reminders_enabled,
-       reminder_hours_before, max_customer_reschedules, created_at, updated_at
+       reminder_hours_before, max_customer_reschedules, logo_key, cover_key, created_at, updated_at
 FROM businesses
 WHERE id = $1
 `
@@ -47,6 +47,8 @@ type BusinessByIDRow struct {
 	RemindersEnabled            bool
 	ReminderHoursBefore         int16
 	MaxCustomerReschedules      int16
+	LogoKey                     *string
+	CoverKey                    *string
 	CreatedAt                   time.Time
 	UpdatedAt                   time.Time
 }
@@ -79,6 +81,8 @@ func (q *Queries) BusinessByID(ctx context.Context, id uuid.UUID) (BusinessByIDR
 		&i.RemindersEnabled,
 		&i.ReminderHoursBefore,
 		&i.MaxCustomerReschedules,
+		&i.LogoKey,
+		&i.CoverKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -90,7 +94,7 @@ SELECT id, name, slug::text AS slug, status, contact_phone, description, country
        city_id, address_line, latitude, longitude, time_zone, currency, slot_interval_minutes,
        buffer_minutes, min_lead_minutes, max_advance_days, cancellation_cutoff_hours,
        reschedule_cutoff_hours, require_customer_confirmation, reminders_enabled,
-       reminder_hours_before, max_customer_reschedules, created_at, updated_at
+       reminder_hours_before, max_customer_reschedules, logo_key, cover_key, created_at, updated_at
 FROM businesses
 WHERE slug = $1
 `
@@ -120,6 +124,8 @@ type BusinessBySlugRow struct {
 	RemindersEnabled            bool
 	ReminderHoursBefore         int16
 	MaxCustomerReschedules      int16
+	LogoKey                     *string
+	CoverKey                    *string
 	CreatedAt                   time.Time
 	UpdatedAt                   time.Time
 }
@@ -152,6 +158,8 @@ func (q *Queries) BusinessBySlug(ctx context.Context, slug string) (BusinessBySl
 		&i.RemindersEnabled,
 		&i.ReminderHoursBefore,
 		&i.MaxCustomerReschedules,
+		&i.LogoKey,
+		&i.CoverKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -329,7 +337,7 @@ SELECT id, name, slug::text AS slug, status, contact_phone, description, country
        city_id, address_line, latitude, longitude, time_zone, currency, slot_interval_minutes,
        buffer_minutes, min_lead_minutes, max_advance_days, cancellation_cutoff_hours,
        reschedule_cutoff_hours, require_customer_confirmation, reminders_enabled,
-       reminder_hours_before, max_customer_reschedules, created_at, updated_at
+       reminder_hours_before, max_customer_reschedules, logo_key, cover_key, created_at, updated_at
 FROM businesses
 WHERE ($1::text IS NULL OR status = $1::text)
   AND ($2::uuid IS NULL OR city_id = $2::uuid)
@@ -370,6 +378,8 @@ type ListBusinessesRow struct {
 	RemindersEnabled            bool
 	ReminderHoursBefore         int16
 	MaxCustomerReschedules      int16
+	LogoKey                     *string
+	CoverKey                    *string
 	CreatedAt                   time.Time
 	UpdatedAt                   time.Time
 }
@@ -415,6 +425,8 @@ func (q *Queries) ListBusinesses(ctx context.Context, arg ListBusinessesParams) 
 			&i.RemindersEnabled,
 			&i.ReminderHoursBefore,
 			&i.MaxCustomerReschedules,
+			&i.LogoKey,
+			&i.CoverKey,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -428,12 +440,28 @@ func (q *Queries) ListBusinesses(ctx context.Context, arg ListBusinessesParams) 
 	return items, nil
 }
 
+const lockBusinessImages = `-- name: LockBusinessImages :one
+SELECT logo_key, cover_key FROM businesses WHERE id = $1 FOR UPDATE
+`
+
+type LockBusinessImagesRow struct {
+	LogoKey  *string
+	CoverKey *string
+}
+
+func (q *Queries) LockBusinessImages(ctx context.Context, id uuid.UUID) (LockBusinessImagesRow, error) {
+	row := q.db.QueryRow(ctx, lockBusinessImages, id)
+	var i LockBusinessImagesRow
+	err := row.Scan(&i.LogoKey, &i.CoverKey)
+	return i, err
+}
+
 const searchActiveBusinesses = `-- name: SearchActiveBusinesses :many
 SELECT lower(name) AS sort_name, id, name, slug::text AS slug, status, contact_phone, description, country_code, division_id,
        city_id, address_line, latitude, longitude, time_zone, currency, slot_interval_minutes,
        buffer_minutes, min_lead_minutes, max_advance_days, cancellation_cutoff_hours,
        reschedule_cutoff_hours, require_customer_confirmation, reminders_enabled,
-       reminder_hours_before, max_customer_reschedules, created_at, updated_at
+       reminder_hours_before, max_customer_reschedules, logo_key, cover_key, created_at, updated_at
 FROM businesses
 WHERE status = 'ACTIVE'
   AND city_id = $1
@@ -477,6 +505,8 @@ type SearchActiveBusinessesRow struct {
 	RemindersEnabled            bool
 	ReminderHoursBefore         int16
 	MaxCustomerReschedules      int16
+	LogoKey                     *string
+	CoverKey                    *string
 	CreatedAt                   time.Time
 	UpdatedAt                   time.Time
 }
@@ -525,6 +555,8 @@ func (q *Queries) SearchActiveBusinesses(ctx context.Context, arg SearchActiveBu
 			&i.RemindersEnabled,
 			&i.ReminderHoursBefore,
 			&i.MaxCustomerReschedules,
+			&i.LogoKey,
+			&i.CoverKey,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -536,6 +568,36 @@ func (q *Queries) SearchActiveBusinesses(ctx context.Context, arg SearchActiveBu
 		return nil, err
 	}
 	return items, nil
+}
+
+const setBusinessCover = `-- name: SetBusinessCover :exec
+UPDATE businesses SET cover_key = $1, updated_at = $2 WHERE id = $3
+`
+
+type SetBusinessCoverParams struct {
+	CoverKey  *string
+	UpdatedAt time.Time
+	ID        uuid.UUID
+}
+
+func (q *Queries) SetBusinessCover(ctx context.Context, arg SetBusinessCoverParams) error {
+	_, err := q.db.Exec(ctx, setBusinessCover, arg.CoverKey, arg.UpdatedAt, arg.ID)
+	return err
+}
+
+const setBusinessLogo = `-- name: SetBusinessLogo :exec
+UPDATE businesses SET logo_key = $1, updated_at = $2 WHERE id = $3
+`
+
+type SetBusinessLogoParams struct {
+	LogoKey   *string
+	UpdatedAt time.Time
+	ID        uuid.UUID
+}
+
+func (q *Queries) SetBusinessLogo(ctx context.Context, arg SetBusinessLogoParams) error {
+	_, err := q.db.Exec(ctx, setBusinessLogo, arg.LogoKey, arg.UpdatedAt, arg.ID)
+	return err
 }
 
 const setCreationKeyBusiness = `-- name: SetCreationKeyBusiness :exec

@@ -16,6 +16,7 @@ import (
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/domain"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/httpx"
+	"github.com/lhbotero1985/booking-platform-backend/internal/platform/media"
 )
 
 // Problem codes of this module.
@@ -39,6 +40,8 @@ type Service interface {
 	GetManaged(ctx context.Context, p contract.Principal, businessID uuid.UUID) (application.ManagedBusiness, error)
 	UpdateBusiness(ctx context.Context, p contract.Principal, businessID uuid.UUID, in application.UpdateInput) (*domain.Business, error)
 	SearchPublic(ctx context.Context, q application.SearchQuery) ([]*domain.Business, string, error)
+	SetImage(ctx context.Context, p contract.Principal, businessID uuid.UUID, kind application.ImageKind, up media.Upload) (*domain.Business, error)
+	RemoveImage(ctx context.Context, p contract.Principal, businessID uuid.UUID, kind application.ImageKind) (*domain.Business, error)
 	GetPublic(ctx context.Context, slug string) (*domain.Business, error)
 }
 
@@ -112,6 +115,8 @@ type businessDTO struct {
 	Currency      string       `json:"currency"`
 	BookingPolicy policyDTO    `json:"bookingPolicy"`
 	Reminders     remindersDTO `json:"reminders"`
+	LogoURL       *string      `json:"logoUrl"`
+	CoverURL      *string      `json:"coverUrl"`
 	CreatedAt     time.Time    `json:"createdAt"`
 	UpdatedAt     time.Time    `json:"updatedAt"`
 }
@@ -119,6 +124,15 @@ type businessDTO struct {
 type listDTO struct {
 	Items      []businessDTO `json:"items"`
 	NextCursor *string       `json:"nextCursor,omitempty"`
+}
+
+// imageURL is the public address of a stored image, null if none.
+func imageURL(key string) *string {
+	if key == "" {
+		return nil
+	}
+	u := media.URL(key)
+	return &u
 }
 
 func toDTO(b *domain.Business) businessDTO {
@@ -136,6 +150,7 @@ func toDTO(b *domain.Business) businessDTO {
 			MaxCustomerReschedules: p.MaxCustomerReschedules, RequireCustomerConfirmation: p.RequireCustomerConfirmation,
 		},
 		Reminders: remindersDTO{Enabled: r.Enabled, HoursBefore: r.HoursBefore},
+		LogoURL:   imageURL(b.Images().Logo), CoverURL: imageURL(b.Images().Cover),
 	}
 	if l.Coordinates != nil {
 		out.Location.Coordinates = &coordinatesDTO{Latitude: l.Coordinates.Lat, Longitude: l.Coordinates.Lng}
@@ -270,6 +285,10 @@ func (h *Handler) byID(w http.ResponseWriter, r *http.Request, f func(context.Co
 
 func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 	if httpx.WriteAuthzProblem(w, r, err) {
+		return
+	}
+	if p, ok := media.Problem(err); ok {
+		httpx.WriteProblem(w, r, p)
 		return
 	}
 	var verr *application.ValidationError

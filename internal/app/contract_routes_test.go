@@ -15,8 +15,8 @@ func TestEveryRouteIsDocumented(t *testing.T) {
 	c := loadContract(t)
 	e := newGeoServer(t)
 	registered := map[string]bool{}
-	for _, p := range newRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), Deps{Modules: e.modules}, "").Patterns() {
-		registered[p] = true
+	for _, p := range newRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), Deps{Modules: e.modules, Media: e.media.Handler()}, "").Patterns() {
+		registered[strings.ReplaceAll(p, "...}", "}")] = true // ServeMux {key...} is OpenAPI {key}
 	}
 	model, err := c.doc.BuildV3Model()
 	if err != nil {

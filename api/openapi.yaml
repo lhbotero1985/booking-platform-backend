@@ -64,6 +64,37 @@ tags:
       from the business.
 
 paths:
+  /media/{key}:
+    get:
+      tags: [Businesses]
+      operationId: getMedia
+      summary: A stored image (public)
+      description: |
+        The URLs in `logoUrl`, `coverUrl` and the portfolios point here; `key` contains slashes
+        (`logos/<business>/<image>.jpg`). Immutable (a new upload gets a new key): cached for a
+        year, readable from any origin (`Cross-Origin-Resource-Policy: cross-origin`).
+      security: []
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The image.
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /healthz:
     get:
       tags: [Operations]
@@ -2941,6 +2972,178 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/business/{businessId}/logo:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      tags: [Businesses]
+      operationId: setBusinessLogo
+      summary: Upload or replace the logo of your business (OWNER)
+      description: |
+        `multipart/form-data` with the file in the field `image` (JPEG, PNG or WebP, at most
+        5 MiB). The server checks the content, removes the metadata (such as the GPS position of
+        a photo), corrects the rotation and scales it down to 512 px on its longest side; it is
+        stored as JPEG (PNG if it has transparency). The previous one is deleted. Audited.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/ImageUpload"
+      responses:
+        "200":
+          description: The business with its new `logoUrl`.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Business"
+        "400":
+          description: |
+            `INVALID_REQUEST` with `errors[].field = image`: `REQUIRED`, `UNSUPPORTED_IMAGE` (only
+            JPEG, PNG and WebP, by content), `INVALID_IMAGE` (cannot be read) or `IMAGE_TOO_BIG`
+            (more than 24 megapixels or 12000 px per side).
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          description: The image is larger than 5 MiB (`BODY_TOO_LARGE`).
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+    delete:
+      tags: [Businesses]
+      operationId: removeBusinessLogo
+      summary: Remove the logo of your business (OWNER)
+      description: Removing a missing one is not an error. Audited.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "204":
+          description: Removed.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/business/{businessId}/cover:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      tags: [Businesses]
+      operationId: setBusinessCover
+      summary: Upload or replace the cover image of your business (OWNER)
+      description: |
+        `multipart/form-data` with the file in the field `image` (JPEG, PNG or WebP, at most
+        5 MiB). The server checks the content, removes the metadata (such as the GPS position of
+        a photo), corrects the rotation and scales it down to 1600 px on its longest side; it is
+        stored as JPEG (PNG if it has transparency). The previous one is deleted. Audited.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/ImageUpload"
+      responses:
+        "200":
+          description: The business with its new `coverUrl`.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Business"
+        "400":
+          description: |
+            `INVALID_REQUEST` with `errors[].field = image`: `REQUIRED`, `UNSUPPORTED_IMAGE` (only
+            JPEG, PNG and WebP, by content), `INVALID_IMAGE` (cannot be read) or `IMAGE_TOO_BIG`
+            (more than 24 megapixels or 12000 px per side).
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          description: The image is larger than 5 MiB (`BODY_TOO_LARGE`).
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+    delete:
+      tags: [Businesses]
+      operationId: removeBusinessCover
+      summary: Remove the cover image of your business (OWNER)
+      description: Removing a missing one is not an error. Audited.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "204":
+          description: Removed.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/business/{businessId}:
     parameters:
       - name: businessId
@@ -3373,6 +3576,184 @@ paths:
           $ref: "#/components/responses/Conflict"
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/business/{businessId}/professionals/{professionalId}/portfolio:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: professionalId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Professionals]
+      operationId: listPortfolio
+      summary: Portfolio of a professional (staff of the business)
+      description: The images of the professional's best work, in order (`sortOrder`, then oldest first).
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The portfolio.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortfolioList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Professionals]
+      operationId: addPortfolioImage
+      summary: Add an image of your best work (the professional itself or the OWNER)
+      description: |
+        `multipart/form-data`: the file in `image` (same checks and processing as the business
+        cover, 1600 px) and an optional `caption` (at most 140 characters). It goes at the end. At
+        most **10 images** per professional: beyond that 409 `PORTFOLIO_FULL`. A PROFESSIONAL may
+        only add to its own portfolio (another → 403). Audited.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/ImageUpload"
+      responses:
+        "201":
+          description: The image added.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortfolioImage"
+        "400":
+          description: |
+            `INVALID_REQUEST` with `errors[].field = image`: `REQUIRED`, `UNSUPPORTED_IMAGE` (only
+            JPEG, PNG and WebP, by content), `INVALID_IMAGE` (cannot be read) or `IMAGE_TOO_BIG`
+            (more than 24 megapixels or 12000 px per side).
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          description: The image is larger than 5 MiB (`BODY_TOO_LARGE`).
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/business/{businessId}/professionals/{professionalId}/portfolio/{imageId}:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: professionalId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: imageId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      tags: [Professionals]
+      operationId: updatePortfolioImage
+      summary: Change the caption or the position of an image (the professional itself or the OWNER)
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                caption:
+                  type: string
+                  maxLength: 140
+                sortOrder:
+                  type: integer
+                  minimum: 0
+                  maximum: 1000
+      responses:
+        "200":
+          description: The image.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortfolioImage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+    delete:
+      tags: [Professionals]
+      operationId: deletePortfolioImage
+      summary: Delete an image and its file (the professional itself or the OWNER)
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "204":
+          description: Deleted.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/v1/business/{businessId}/professionals/{professionalId}/absences:
     parameters:
@@ -4520,8 +4901,14 @@ components:
       type: object
       additionalProperties: false
       required: [id, name, slug, status, contactPhone, description, location, timeZone, currency,
-                 bookingPolicy, reminders, createdAt, updatedAt]
+                 bookingPolicy, reminders, logoUrl, coverUrl, createdAt, updatedAt]
       properties:
+        logoUrl:
+          description: Public URL of the logo (512 px at most), null without one.
+          type: [string, "null"]
+        coverUrl:
+          description: Public URL of the cover (1600 px at most), null without one.
+          type: [string, "null"]
         id:
           type: string
           format: uuid
@@ -4788,8 +5175,14 @@ components:
     PublicBusiness:
       type: object
       additionalProperties: false
-      required: [id, name, slug, description, contactPhone, location, timeZone, currency, bookingPolicy]
+      required: [id, name, slug, description, contactPhone, location, timeZone, currency, bookingPolicy, logoUrl, coverUrl]
       properties:
+        logoUrl:
+          description: Public URL of the logo (512 px at most), null without one.
+          type: [string, "null"]
+        coverUrl:
+          description: Public URL of the cover (1600 px at most), null without one.
+          type: [string, "null"]
         id:
           type: string
           format: uuid
@@ -5801,6 +6194,57 @@ components:
                 type: string
                 format: date-time
                 description: Same instant with the business's offset, for display.
+    ImageUpload:
+      type: object
+      required: [image]
+      properties:
+        image:
+          type: string
+          format: binary
+          description: JPEG, PNG or WebP, at most 5 MiB.
+        caption:
+          type: string
+          maxLength: 140
+          description: Only for the portfolio.
+    PortfolioImage:
+      type: object
+      additionalProperties: false
+      required: [id, professionalId, url, caption, sortOrder, width, height, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        professionalId:
+          type: string
+          format: uuid
+        url:
+          type: string
+        caption:
+          type: string
+        sortOrder:
+          type: integer
+        width:
+          type: integer
+        height:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    PortfolioList:
+      type: object
+      additionalProperties: false
+      required: [items, max]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortfolioImage"
+        max:
+          type: integer
+          description: Most images allowed (10).
     PublicCatalog:
       type: object
       additionalProperties: false
@@ -5852,7 +6296,7 @@ components:
           items:
             type: object
             additionalProperties: false
-            required: [id, displayName, bio, serviceIds]
+            required: [id, displayName, bio, serviceIds, portfolio]
             properties:
               id:
                 type: string
@@ -5866,6 +6310,25 @@ components:
                 items:
                   type: string
                   format: uuid
+              portfolio:
+                description: Images of the professional's best work (at most 10), in order.
+                type: array
+                items:
+                  type: object
+                  additionalProperties: false
+                  required: [id, url, caption, width, height]
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    url:
+                      type: string
+                    caption:
+                      type: string
+                    width:
+                      type: integer
+                    height:
+                      type: integer
 
   responses:
     Unauthorized:
@@ -5983,7 +6446,8 @@ components:
         already owns the most businesses it can create (`OWNED_BUSINESS_LIMIT`), the subscription is not a demo
         (`NOT_EXTENDABLE`), the account is already a member (`ALREADY_MEMBER`) or the change
         would leave the business without an OWNER (`LAST_OWNER`), or the account already has a
-        professional profile in the business (`ALREADY_PROFESSIONAL`), the start time is not
+        professional profile in the business (`ALREADY_PROFESSIONAL`), the portfolio already has 10
+        images (`PORTFOLIO_FULL`), the start time is not
         available (`SLOT_UNAVAILABLE`), or an appointment change is not allowed
         (`INVALID_TRANSITION`, `TOO_EARLY`, `APPOINTMENT_STARTED`, `CUTOFF_PASSED`,
         `RESCHEDULE_LIMIT_REACHED`, `APPOINTMENT_CHANGED`), or an absence or weekly schedule would break active appointments

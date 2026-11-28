@@ -339,6 +339,28 @@ check "  the owner's own figures -> 403" 403 "$(status GET "$stats&professionalI
 check "reversed range -> 400 INVALID_RANGE" "400 INVALID_RANGE" "$(status GET "/api/v1/business/$mine/stats?from=$tue&to=$st_from" "" "$T1") $(json .code)"
 check "my businesses' statistics include it" true "$(status GET "/api/v1/me/stats?from=$st_from&to=$tue&groupBy=year" "" "$T1" >/dev/null; json "any(.byBusiness[]; .businessId == \"$mine\")")"
 
+# --- images (2026-11-27): logo of the business and portfolio of the barber ------------------------
+upload() { # METHOD PATH TOKEN FILE [CAPTION] -> status (body in $tmp/b)
+  local args=(-s "${X[@]}" -X "$1" "$B$2" -H "Authorization: Bearer $3" -F "image=@$4" -D "$tmp/h" -o "$tmp/b" -w '%{http_code}')
+  [[ -n ${5:-} ]] && args+=(-F "caption=$5")
+  curl "${args[@]}"
+}
+# A 4x4 opaque PNG (the server returns it as JPEG).
+base64 -d >"$tmp/pic.png" <<<'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGM4UaEBRwzEcQBTUhaBGaoOzwAAAABJRU5ErkJggg=='
+printf '%%PDF-1.7 not an image' >"$tmp/fake.png"
+check "owner uploads the logo" "200 true" "$(upload PUT "/api/v1/business/$mine/logo" "$T1" "$tmp/pic.png") $(json '.logoUrl != null')"
+logo_url=$(json .logoUrl)
+check "  it is served, cross-origin" "200 cross-origin" "$(curl -s "${X[@]}" -o /dev/null -D "$tmp/h" -w '%{http_code}' "$logo_url") $(tr -d '\r' <"$tmp/h" | sed -n 's/^[Cc]ross-[Oo]rigin-[Rr]esource-[Pp]olicy: *//p')"
+check "  the barber cannot change it" 403 "$(upload PUT "/api/v1/business/$mine/logo" "$TS" "$tmp/pic.png")"
+check "  a PDF named .png -> 400 UNSUPPORTED_IMAGE" "400 UNSUPPORTED_IMAGE" "$(upload PUT "/api/v1/business/$mine/cover" "$T1" "$tmp/fake.png") $(json '.errors[0].message')"
+port="/api/v1/business/$mine/professionals/$pbarber/portfolio"
+check "barber adds to his portfolio" 201 "$(upload POST "$port" "$TS" "$tmp/pic.png" "Degradado")"
+pimg=$(json .id)
+check "  ... but not to the owner's" 403 "$(upload POST "/api/v1/business/$mine/professionals/$powner/portfolio" "$TS" "$tmp/pic.png")"
+check "  customers see it in the catalog" "Degradado" "$(status GET "/api/v1/businesses/$myslug/catalog" >/dev/null; json ".professionals[] | select(.id == \"$pbarber\") | .portfolio[0].caption")"
+check "  barber deletes it" 204 "$(status DELETE "$port/$pimg" "" "$TS")"
+check "owner removes the logo" 204 "$(status DELETE "/api/v1/business/$mine/logo" "" "$T1")"
+
 # --- changes of an appointment (T6.6) ------------------------------------------------------------
 me_appt="/api/v1/me/appointments/$appt"
 st_appt="/api/v1/business/$mine/appointments/$appt"

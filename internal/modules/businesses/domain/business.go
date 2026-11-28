@@ -122,9 +122,13 @@ type Business struct {
 	currency     string
 	policy       BookingPolicy
 	reminders    Reminders
+	images       Images
 	createdAt    time.Time
 	updatedAt    time.Time
 }
+
+// Images are the keys (in the media store) of the logo and the cover of a business; "" = none.
+type Images struct{ Logo, Cover string }
 
 // NewBusinessParams are the validated inputs of a new business.
 type NewBusinessParams struct {
@@ -139,6 +143,7 @@ type NewBusinessParams struct {
 	Currency     string
 	Policy       BookingPolicy
 	Reminders    Reminders
+	Images       Images // stored images (none for a new business)
 	Now          time.Time
 }
 
@@ -147,7 +152,7 @@ func NewBusiness(p NewBusinessParams) (*Business, error) {
 	b := &Business{
 		id: p.ID, name: p.Name, slug: p.Slug, status: p.Status, contactPhone: p.ContactPhone,
 		description: p.Description, location: p.Location, timeZone: p.TimeZone, currency: p.Currency,
-		policy: p.Policy, reminders: p.Reminders, createdAt: p.Now, updatedAt: p.Now,
+		policy: p.Policy, reminders: p.Reminders, images: p.Images, createdAt: p.Now, updatedAt: p.Now,
 	}
 	if err := b.validate(); err != nil {
 		return nil, err
@@ -258,6 +263,15 @@ func (b *Business) Policy() BookingPolicy { return b.policy }
 
 // Reminders configures appointment reminders.
 func (b *Business) Reminders() Reminders { return b.reminders }
+
+// Images returns the keys of the logo and the cover.
+func (b *Business) Images() Images { return b.images }
+
+// SetImages replaces the keys of the logo and the cover.
+func (b *Business) SetImages(img Images, now time.Time) {
+	b.images = img
+	b.updatedAt = now
+}
 
 // CreatedAt is when the business was created.
 func (b *Business) CreatedAt() time.Time { return b.createdAt }

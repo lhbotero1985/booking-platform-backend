@@ -38,6 +38,7 @@ import (
 	subscriptionshttp "github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/interfaces/http"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/config"
+	"github.com/lhbotero1985/booking-platform-backend/internal/platform/media"
 )
 
 type geoEnv struct {
@@ -49,6 +50,7 @@ type geoEnv struct {
 	biz      *biztest.Store
 	subs     *subtest.Store
 	modules  []RouteRegistrar // as wired in cmd/api
+	media    *media.Local
 	clock    *clock.Fixed
 	notif    *notifapp.Service
 	outbox   *notiftest.Store
@@ -81,6 +83,11 @@ func newGeoServer(t *testing.T) geoEnv {
 	sched := schedapp.NewService(schedapp.Deps{Store: schedtest.NewStore(), Authz: e.identity, Businesses: biz, Catalog: cat, Professionals: profs, Bookable: profs, Customers: e.identity, Clock: clk,
 		Schedules: profs, Currencies: biz, Memberships: e.identity})
 	LinkAgendaGuard(profs, sched)
+	if e.media, err = media.NewLocal(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	biz.SetMedia(e.media)
+	profs.SetMedia(e.media)
 	notif, outbox := notiftest.NewService(sched, biz, clk, func(d *notifapp.Deps) {
 		d.Authz, d.Recipients = e.identity, NewEmailRecipients(e.identity, profs)
 	})
@@ -96,7 +103,7 @@ func newGeoServer(t *testing.T) geoEnv {
 		notificationshttp.NewWebhook(notif, notificationshttp.WebhookConfig{AppSecret: testWebhookSecret, VerifyToken: testWebhookVerifyToken}, logger),
 		notificationshttp.NewLinks(notif, notificationshttp.LinksConfig{}, nil, logger),
 	}
-	e.srv = httptest.NewServer(NewHTTPHandler(cfg, logger, Deps{Modules: e.modules}))
+	e.srv = httptest.NewServer(NewHTTPHandler(cfg, logger, Deps{Modules: e.modules, Media: e.media.Handler()}))
 	t.Cleanup(e.srv.Close)
 	return e
 }

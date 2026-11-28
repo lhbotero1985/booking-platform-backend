@@ -25,3 +25,4 @@ la fase.
 | [0017](0017-branching-strategy-main-qa.md) | Estrategia de ramas main / qa / feature / hotfix | Aceptado |
 | [0018](0018-self-service-onboarding-trial-subscriptions.md) | Alta autoservicio, demo de 7 días y suscripciones | Aceptado |
 | [0019](0019-email-channel-push-deferred.md) | Correo como canal de citas; push aplazada | Aceptado |
+| [0020](0020-media-storage-images.md) | Imágenes de negocios y profesionales en el disco del servidor | Aceptado |

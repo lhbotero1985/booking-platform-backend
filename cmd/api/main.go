@@ -119,6 +119,11 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	professionalsSvc := app.NewProfessionalsService(pool, identitySvc)
 	catalogSvc := app.NewCatalogService(pool, identitySvc, businessesSvc, professionalsSvc)
 	app.LinkPublicCatalog(businessesSvc, catalogSvc, professionalsSvc, businessesSvc)
+	// Images of businesses and professionals: the server's disk (decision of the user, 2026-11-27).
+	mediaStore, err := app.LinkMedia(cfg, businessesSvc, professionalsSvc)
+	if err != nil {
+		return err
+	}
 	schedulingSvc := app.NewSchedulingService(pool, identitySvc, businessesSvc, catalogSvc, professionalsSvc)
 	app.LinkAgendaGuard(professionalsSvc, schedulingSvc)
 	notificationsSvc, err := app.NewNotificationsService(cfg, pool, jobClient, schedulingSvc, businessesSvc,
@@ -149,6 +154,7 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 			}, logger),
 		},
 		APILimiter: limiters.API,
+		Media:      mediaStore.Handler(),
 	})
 	srv := app.NewHTTPServer(ctx, cfg, logger, handler)
 

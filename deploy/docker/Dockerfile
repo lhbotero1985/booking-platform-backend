@@ -21,6 +21,8 @@ ARG MODULE=github.com/lhbotero1985/booking-platform-backend
 RUN CGO_ENABLED=0 go build -trimpath \
       -ldflags "-s -w -X ${MODULE}/internal/platform/buildinfo.version=${VERSION} -X ${MODULE}/internal/platform/buildinfo.commit=${COMMIT}" \
       -o /out/ ./cmd/...
+# The media volume's mount point, owned by nonroot: a new named volume copies it (and its owner).
+RUN mkdir -p /out/data/media
 
 # ---- deployment stack (data only) ------------------------------------------
 FROM build AS stack
@@ -41,6 +43,7 @@ LABEL org.opencontainers.image.title="booking-platform-backend" \
 
 COPY --from=build /out/api /usr/local/bin/api
 COPY --from=build /out/worker /usr/local/bin/worker
+COPY --from=build --chown=65532:65532 /out/data /data
 
 # Deployment stack shipped inside the artifact (T3.5): the server's deploy script extracts it,
 # so CI only sends an image digest, never files. Data only; nothing here is executed.

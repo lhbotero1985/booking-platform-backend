@@ -35,6 +35,8 @@ type Deps struct {
 	Modules   []RouteRegistrar
 	// APILimiter is the general per-client limit (health probes are exempt). nil disables it.
 	APILimiter httpx.Allower
+	// Media serves the stored images at GET /media/{key...}; nil serves none.
+	Media http.Handler
 }
 
 // NewHTTPHandler builds the complete API handler with its middleware chain.
@@ -110,6 +112,9 @@ func newRouter(logger *slog.Logger, deps Deps, appDownloadURL string) *httpx.Rou
 	rt.HandleFunc("GET /healthz", healthz)
 	rt.HandleFunc("GET /app", appDownload(appDownloadURL))
 	rt.Handle("GET /readyz", readyz(logger, deps.Readiness))
+	if deps.Media != nil {
+		rt.Handle("GET /media/{key...}", deps.Media)
+	}
 	for _, m := range deps.Modules {
 		m.Routes(rt)
 	}

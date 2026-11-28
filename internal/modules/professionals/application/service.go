@@ -19,6 +19,7 @@ import (
 	scheduling "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/audit"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
+	"github.com/lhbotero1985/booking-platform-backend/internal/platform/media"
 )
 
 // Audited actions.
@@ -76,6 +77,13 @@ type Store interface {
 
 // Tx is the persistence available inside a transaction (always scoped by business).
 type Tx interface {
+	// Portfolio (2026-11-27). PortfolioImageByID returns ErrNotFound when absent.
+	InsertPortfolioImage(ctx context.Context, img domain.PortfolioImage) error
+	ListPortfolio(ctx context.Context, businessID, professionalID uuid.UUID) ([]domain.PortfolioImage, error)
+	PortfoliosOf(ctx context.Context, professionalIDs []uuid.UUID) ([]domain.PortfolioImage, error)
+	PortfolioImageByID(ctx context.Context, businessID, professionalID, id uuid.UUID) (domain.PortfolioImage, error)
+	UpdatePortfolioImage(ctx context.Context, img domain.PortfolioImage) error
+	DeletePortfolioImage(ctx context.Context, businessID, id uuid.UUID) error
 	// InsertProfessional returns ErrAlreadyExists if the account already has a profile here.
 	InsertProfessional(ctx context.Context, p domain.Professional) error
 	UpdateProfessional(ctx context.Context, p domain.Professional) error
@@ -102,6 +110,7 @@ type Service struct {
 	identity Identity
 	clock    clock.Clock
 	guard    scheduling.AgendaGuard // nil: no appointment checks (set by the composition root)
+	media    media.Store            // portfolio images, see SetMedia
 }
 
 // SetAgendaGuard plugs the scheduling module's guard (composition root only, before serving):
@@ -398,7 +407,39 @@ func (s *Service) BookableProfessionals(ctx context.Context, businessIDs []uuid.
 			}
 		}
 	}
-	return out, nil
+	return out, s.attachPortfolios(ctx, out)
+}
+
+// attachPortfolios adds the portfolio of every listed professional (one query).
+func (s *Service) attachPortfolios(ctx context.Context, byBusiness map[uuid.UUID][]profcontract.PublicProfessional) error {
+	var ids []uuid.UUID
+	for _, list := range byBusiness {
+		for _, p := range list {
+			ids = append(ids, p.ID)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	var imgs []domain.PortfolioImage
+	if err := s.store.WithinTx(ctx, func(ctx context.Context, tx Tx) (err error) {
+		imgs, err = tx.PortfoliosOf(ctx, ids)
+		return err
+	}); err != nil {
+		return err
+	}
+	photos := map[uuid.UUID][]profcontract.PortfolioPhoto{}
+	for _, img := range imgs {
+		photos[img.ProfessionalID] = append(photos[img.ProfessionalID], profcontract.PortfolioPhoto{
+			ID: img.ID, Key: img.Key, Caption: img.Caption, Width: img.Width, Height: img.Height})
+	}
+	for biz, list := range byBusiness {
+		for i := range list {
+			list[i].Portfolio = photos[list[i].ID]
+		}
+		byBusiness[biz] = list
+	}
+	return nil
 }
 
 // LockAgenda implements the professionals contract Agenda (T6.3): the same row lock as

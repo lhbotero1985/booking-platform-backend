@@ -11,6 +11,7 @@ import (
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/httpx"
+	"github.com/lhbotero1985/booking-platform-backend/internal/platform/media"
 )
 
 // manageRoutes are the endpoints of a business's own staff (T4.4). The businessId of the path
@@ -19,6 +20,46 @@ func (h *Handler) manageRoutes(rt *httpx.Router) {
 	auth := func(f http.HandlerFunc) http.Handler { return h.requireAuth(f) }
 	rt.Handle("GET /api/v1/business/{businessId}", auth(h.getManaged))
 	rt.Handle("PATCH /api/v1/business/{businessId}", auth(h.updateManaged))
+	for _, kind := range []application.ImageKind{application.ImageLogo, application.ImageCover} {
+		rt.Handle("PUT /api/v1/business/{businessId}/"+string(kind), auth(h.setImage(kind)))
+		rt.Handle("DELETE /api/v1/business/{businessId}/"+string(kind), auth(h.removeImage(kind)))
+	}
+}
+
+// setImage serves PUT /api/v1/business/{businessId}/logo|cover (multipart/form-data, field
+// "image"): the OWNER replaces the image; the response is the business.
+func (h *Handler) setImage(kind application.ImageKind) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, ok := businessIDParam(r)
+		if !ok {
+			h.fail(w, r, application.ErrNotFound)
+			return
+		}
+		p, _ := contract.PrincipalFrom(r.Context())
+		b, err := h.svc.SetImage(r.Context(), p, id, kind, media.FromRequest(r))
+		if err != nil {
+			h.fail(w, r, err)
+			return
+		}
+		httpx.WriteJSON(w, http.StatusOK, toDTO(b))
+	}
+}
+
+// removeImage serves DELETE /api/v1/business/{businessId}/logo|cover.
+func (h *Handler) removeImage(kind application.ImageKind) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, ok := businessIDParam(r)
+		if !ok {
+			h.fail(w, r, application.ErrNotFound)
+			return
+		}
+		p, _ := contract.PrincipalFrom(r.Context())
+		if _, err := h.svc.RemoveImage(r.Context(), p, id, kind); err != nil {
+			h.fail(w, r, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
 }
 
 type subscriptionSummaryDTO struct {

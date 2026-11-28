@@ -7,6 +7,7 @@ import (
 	"runtime/debug"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -85,11 +86,20 @@ func Recover(logger *slog.Logger) Middleware {
 	}
 }
 
-// LimitBody rejects requests whose declared body exceeds maxBytes and caps the readable body
-// for the rest (DecodeJSON maps the overflow to 413).
+// MaxUploadBody caps a multipart/form-data request: one image of 5 MiB plus the form (the
+// image uploads of businesses and professionals; every other request keeps the usual limit).
+const MaxUploadBody = 6 << 20
+
+// LimitBody rejects requests whose declared body exceeds maxBytes (MaxUploadBody for
+// multipart/form-data) and caps the readable body for the rest (DecodeJSON maps the overflow
+// to 413).
 func LimitBody(maxBytes int64) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			maxBytes := maxBytes
+			if strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "multipart/form-data") {
+				maxBytes = max(maxBytes, MaxUploadBody)
+			}
 			if r.ContentLength > maxBytes {
 				WriteProblem(w, r, NewProblem(http.StatusRequestEntityTooLarge, CodeBodyTooLarge,
 					"request body exceeds "+strconv.FormatInt(maxBytes, 10)+" bytes"))

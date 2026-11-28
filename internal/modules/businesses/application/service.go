@@ -20,6 +20,7 @@ import (
 	subscriptions "github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/audit"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
+	"github.com/lhbotero1985/booking-platform-backend/internal/platform/media"
 )
 
 // Audited actions (audit_log.action). Stable identifiers.
@@ -110,6 +111,7 @@ type Service struct {
 	offerings    catalog.Offerings // optional (T5.7), see SetOfferings
 	places       geography.Places
 	clock        clock.Clock
+	media        media.Store // logo and cover, see SetMedia
 }
 
 // Deps are the collaborators of the service.

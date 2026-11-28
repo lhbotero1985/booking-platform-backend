@@ -256,6 +256,9 @@ WHATSAPP_ALLOWLIST=+57XXXXXXXXXX[,+57…]   # obligatorio fuera de PROD; máx. 5
 - Enlace de la app (`GET /app`, botón de `cita_agendada_negocio`): sin `APP_DOWNLOAD_URL` muestra
   "muy pronto"; cuando la app esté en las tiendas, agregar `APP_DOWNLOAD_URL=https://…` al `.env`
   y aplicar con `docker compose up -d api worker` (el compose ya la pasa, vacía por defecto).
+- Imágenes (ADR-0020): volumen Docker `media` montado en `/data/media` de la API (lo crea el primer
+  despliegue que traiga el compose nuevo). **No entra en `backup.sh`**: en QA son datos de prueba
+  (P44 antes de PROD).
 - Negocios propios por cuenta (P-11): `OWNED_BUSINESS_LIMIT` (por defecto 2 en el compose; no hace
   falta ponerla en el `.env` salvo para cambiarla).
 - Botón «Reagendar» de los correos: `APPOINTMENT_RESCHEDULE_URL=https://booka-app-qa.duckdns.org/citas/reagendar`

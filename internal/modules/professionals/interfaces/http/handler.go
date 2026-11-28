@@ -15,6 +15,7 @@ import (
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/httpx"
+	"github.com/lhbotero1985/booking-platform-backend/internal/platform/media"
 )
 
 // CodeAlreadyProfessional is returned when the account already has a profile in this business.
@@ -28,6 +29,7 @@ type Service interface {
 	Update(ctx context.Context, p contract.Principal, businessID, id uuid.UUID, in application.UpdateInput) (application.View, error)
 	ScheduleService
 	AbsenceService
+	PortfolioService
 }
 
 // Handler serves the professionals endpoints.
@@ -47,6 +49,7 @@ func (h *Handler) Routes(rt *httpx.Router) {
 	auth := func(f http.HandlerFunc) http.Handler { return h.requireAuth(f) }
 	rt.Handle("GET /api/v1/business/{businessId}/professionals", auth(h.list))
 	rt.Handle("POST /api/v1/business/{businessId}/professionals", auth(h.create))
+	h.portfolioRoutes(rt)
 	rt.Handle("GET /api/v1/business/{businessId}/professionals/{professionalId}", auth(h.get))
 	rt.Handle("PATCH /api/v1/business/{businessId}/professionals/{professionalId}", auth(h.update))
 	rt.Handle("GET /api/v1/business/{businessId}/professionals/{professionalId}/schedule", auth(h.getSchedule))
@@ -187,9 +190,15 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 	if httpx.WriteAuthzProblem(w, r, err) {
 		return
 	}
+	if p, ok := media.Problem(err); ok {
+		httpx.WriteProblem(w, r, p)
+		return
+	}
 	var verr *application.ValidationError
 	var conflict *application.ConflictError
 	switch {
+	case errors.Is(err, application.ErrPortfolioFull):
+		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodePortfolioFull, "the portfolio already has 10 images; delete one first"))
 	case errors.As(err, &conflict):
 		p := httpx.NewProblem(http.StatusConflict, CodeAgendaConflicts, "the change would break active appointments; reschedule or cancel them first")
 		list := make([]conflictDTO, 0, len(conflict.Appointments))

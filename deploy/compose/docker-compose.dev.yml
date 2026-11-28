@@ -44,6 +44,10 @@ services:
       SMTP_TLS: none
       # Memory budget: ARGON2_MAX_CONCURRENT x 64 MiB must fit in mem_limit with headroom.
       ARGON2_MAX_CONCURRENT: "2"
+      # Images of businesses and professionals: a volume (the container is read-only).
+      MEDIA_DIR: /data/media
+    volumes:
+      - media:/data/media
     ports:
       - "127.0.0.1:${API_PORT:-8080}:8080"
     depends_on:
@@ -105,3 +109,4 @@ services:
 
 volumes:
   pgdata:
+  media:
