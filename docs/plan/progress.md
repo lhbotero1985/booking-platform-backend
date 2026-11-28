@@ -468,7 +468,7 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 
 ## 2026-11-28 · Fuera de fase · Reseñas y calificaciones (G-18)
 
-- **Estado:** ✅ en `feature/reviews` (commit y push). PR pendiente de autorización.
+- **Estado:** ✅ en `qa` (PR #84, 2026-11-28, autorizado por el usuario) y validado en QA: E2E 266/266.
 - **Decisiones del usuario:** solo con cita completada (30 días); negocio y profesional aparte; el
   dueño responde y el administrador oculta; invitación por correo al completar la cita.
 - **Hecho:** módulo `scheduling` (dominio, casos de uso, SQL) y contrato `scheduling.Ratings`;
@@ -478,7 +478,10 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
   en los profesionales del catálogo; `review` y `reviewableUntil` en `MyAppointment`; correo
   `APPOINTMENT_REVIEW_REQUEST` y variable `APPOINTMENT_REVIEW_URL`. Migración 00030. ADR-0021.
   OpenAPI: **120 operaciones**.
-- **Pendiente:** P45 (texto del correo y página del frontend); E2E en QA tras el PR.
+- **QA (2026-11-28):** CI 6/6; `release-qa` ✅ (`405961b`); migración 00030 aplicada (tabla
+  `appointment_reviews`); `/readyz` 200; E2E 266 PASS, 0 FAIL. Documentación general actualizada
+  (README, overview, modelo de dominio, roadmap).
+- **Pendiente:** P45 (texto del correo y página del frontend para calificar).
 
 ## 2026-11-27 · Fuera de fase · Imágenes del negocio y portafolio de los profesionales
 

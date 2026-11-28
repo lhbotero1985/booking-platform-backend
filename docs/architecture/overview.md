@@ -45,7 +45,7 @@ flowchart LR
 | 3 | **Businesses** (`businesses`) | Negocio, ubicación, estado, configuración de reservas y notificaciones | `Business` |
 | 4 | **Professionals** (`professionals`) | Perfil del profesional, horario semanal, descansos recurrentes, ausencias | `Professional` |
 | 5 | **Catalog** (`catalog`) | Categorías, servicios (individuales/combinados), precios, duraciones, profesionales habilitados | `ServiceCategory`, `Service` |
-| 6 | **Scheduling** (`scheduling`) | Disponibilidad, citas, bloqueos, clientes del negocio, historial, enlaces compartidos | `Appointment`, `TimeBlock`, `BusinessClient` |
+| 6 | **Scheduling** (`scheduling`) | Disponibilidad, citas, bloqueos, clientes del negocio, historial, enlaces compartidos, reseñas y calificaciones (ADR-0021) | `Appointment`, `TimeBlock`, `BusinessClient`, `Review` |
 | 7 | **Notifications** (`notifications`) | WhatsApp, push, dispositivos, consentimientos, preferencias, plantillas, webhooks | `Device`, `Consent`, `NotificationMessage` |
 
 Relaciones (context map):
@@ -61,6 +61,8 @@ flowchart TD
     PRO -->|horario, descansos, ausencias| SCH
     BUS -->|tz, intervalo, buffer, políticas| SCH
     SCH -->|eventos de dominio| NOT[Notifications]
+    SCH -->|calificaciones (Ratings)| BUS
+    SCH -->|calificaciones (Ratings)| CAT
     IAM -->|dispositivos de usuario| NOT
 ```
 
