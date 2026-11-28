@@ -49,6 +49,14 @@ Estado: **Propuesta — Fase 0.** ADR-0011.
 `POST /businesses` (cuenta verificada → OWNER de un negocio `ACTIVE` con demo de 7 días; hasta
 `OWNED_BUSINESS_LIMIT` negocios propios por cuenta, 2 durante la demo, luego 409
 `OWNED_BUSINESS_LIMIT` (P-11); `Idempotency-Key` opcional; límite estricto por cliente).
+### Estadísticas (P-12, 2026-11-27)
+`GET /business/{id}/stats?from=&to=&groupBy=&professionalId=` (OWNER todo el negocio o un
+profesional, con `byProfessional`; PROFESSIONAL solo lo suyo, otro → 403) y
+`GET /me/stats?from=&to=&groupBy=` (negocios donde la cuenta es OWNER, con `byBusiness`).
+Rango inclusivo en el calendario de cada negocio: hasta 366 días por día y 5 años por mes o año;
+si no, 400 `INVALID_RANGE`. Las reglas de cada cifra están en `StatsFigures` (OpenAPI) y en
+`scheduling/domain/stats.go`; los minutos disponibles usan el horario semanal actual.
+
 `GET /admin/businesses/{id}/subscription`, `POST /admin/businesses/{id}/subscription/extend-trial`
 (`days` 1–90), `POST /admin/businesses/{id}/subscription/activate` (cortesía hasta la Fase 11B).
 

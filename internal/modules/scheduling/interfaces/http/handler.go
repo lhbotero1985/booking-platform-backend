@@ -213,6 +213,8 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 			p.Errors = append(p.Errors, httpx.FieldError{Field: f.Field, Message: f.Code})
 		}
 		httpx.WriteProblem(w, r, p)
+	case errors.Is(err, application.ErrInvalidRange):
+		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusBadRequest, CodeInvalidRange, "to must not be before from; at most 366 days by day and 5 years by month or year"))
 	case errors.Is(err, application.ErrCustomerNotFound), errors.Is(err, application.ErrAppointmentNotFound):
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusNotFound, httpx.CodeNotFound, ""))
 	case errors.Is(err, application.ErrCustomerPhoneTaken):

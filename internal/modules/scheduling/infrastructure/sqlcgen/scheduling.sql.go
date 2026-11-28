@@ -682,6 +682,57 @@ func (q *Queries) CustomerUpcomingAppointments(ctx context.Context, arg Customer
 	return items, nil
 }
 
+const firstCompletedVisits = `-- name: FirstCompletedVisits :many
+SELECT a.customer_id::uuid AS customer_id, a.professional_id, a.service_id, a.start_at
+FROM appointments a
+WHERE a.business_id = $1 AND a.status = 'COMPLETED' AND a.customer_id IS NOT NULL
+  AND a.start_at >= $2 AND a.start_at < $3
+  AND NOT EXISTS (
+    SELECT 1 FROM appointments e
+    WHERE e.business_id = a.business_id AND e.customer_id = a.customer_id AND e.status = 'COMPLETED'
+      AND (e.start_at, e.id) < (a.start_at, a.id))
+`
+
+type FirstCompletedVisitsParams struct {
+	BusinessID uuid.UUID
+	FromAt     time.Time
+	ToAt       time.Time
+}
+
+type FirstCompletedVisitsRow struct {
+	CustomerID     uuid.UUID
+	ProfessionalID uuid.UUID
+	ServiceID      uuid.UUID
+	StartAt        time.Time
+}
+
+// P-12: the first COMPLETED appointment in the business of each customer, when it starts in
+// [from_at, to_at).
+func (q *Queries) FirstCompletedVisits(ctx context.Context, arg FirstCompletedVisitsParams) ([]FirstCompletedVisitsRow, error) {
+	rows, err := q.db.Query(ctx, firstCompletedVisits, arg.BusinessID, arg.FromAt, arg.ToAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FirstCompletedVisitsRow{}
+	for rows.Next() {
+		var i FirstCompletedVisitsRow
+		if err := rows.Scan(
+			&i.CustomerID,
+			&i.ProfessionalID,
+			&i.ServiceID,
+			&i.StartAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const idempotencyKeyOf = `-- name: IdempotencyKeyOf :one
 SELECT fingerprint, appointment_id FROM idempotency_keys WHERE user_id = $1 AND key = $2
 `
@@ -955,6 +1006,60 @@ type SetIdempotencyAppointmentParams struct {
 func (q *Queries) SetIdempotencyAppointment(ctx context.Context, arg SetIdempotencyAppointmentParams) error {
 	_, err := q.db.Exec(ctx, setIdempotencyAppointment, arg.AppointmentID, arg.UserID, arg.Key)
 	return err
+}
+
+const statsAppointments = `-- name: StatsAppointments :many
+SELECT start_at, professional_id, service_id, customer_id, service_name, status, price_minor, duration_minutes
+FROM appointments
+WHERE business_id = $1 AND start_at >= $2 AND start_at < $3
+ORDER BY start_at, id
+`
+
+type StatsAppointmentsParams struct {
+	BusinessID uuid.UUID
+	FromAt     time.Time
+	ToAt       time.Time
+}
+
+type StatsAppointmentsRow struct {
+	StartAt         time.Time
+	ProfessionalID  uuid.UUID
+	ServiceID       uuid.UUID
+	CustomerID      *uuid.UUID
+	ServiceName     string
+	Status          string
+	PriceMinor      int64
+	DurationMinutes int16
+}
+
+// P-12: the appointments of a business that start in [from_at, to_at), every status.
+func (q *Queries) StatsAppointments(ctx context.Context, arg StatsAppointmentsParams) ([]StatsAppointmentsRow, error) {
+	rows, err := q.db.Query(ctx, statsAppointments, arg.BusinessID, arg.FromAt, arg.ToAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []StatsAppointmentsRow{}
+	for rows.Next() {
+		var i StatsAppointmentsRow
+		if err := rows.Scan(
+			&i.StartAt,
+			&i.ProfessionalID,
+			&i.ServiceID,
+			&i.CustomerID,
+			&i.ServiceName,
+			&i.Status,
+			&i.PriceMinor,
+			&i.DurationMinutes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateAppointment = `-- name: UpdateAppointment :execrows

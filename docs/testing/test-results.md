@@ -1182,3 +1182,17 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Mutaciones | ✅ detectadas | Tope `>` en vez de `>=` (falla la suite de seguridad); repetición sin comparar los datos (falla `TestSelfServiceIdempotency`); código restaurado |
 | `task check` | ✅ | build, vet, golangci-lint (0), pruebas; govulncheck sin vulnerabilidades (reintento por DNS); `sqlc vet/diff` al día; shellcheck del E2E |
 | E2E en QA | ⏳ | Tras el merge (requiere autorización) |
+
+## 2026-11-27 · Fuera de fase · P-12 — Estadísticas del negocio y consolidadas
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestGrouping`, `TestStatsFigures`, `TestWorkingMinutes` (dominio) | ✅ | Periodos por día, mes y año; cada regla de `StatsFigures` con citas conocidas; por profesional suman el total; ocupación redondeada, máximo 100, nula sin horario; consolidado sin mezclar clientes; horario menos descansos y ausencias; día de cambio de hora (Madrid) |
+| `TestStats` (aplicación) | ✅ | Noviembre 2026: 3 citas, 1 cancelada, 1 ausencia del cliente, $45.000, 1 cliente nuevo, 810 min disponibles (ausencia del día 17, perfil creado el 15), ocupación 6 %; por día 30 periodos; filtro por profesional; el barbero solo lo suyo y sin `byProfessional`; 403, 404 antes de validar, rangos (367 días por día, más de 5 años, 366 en año bisiesto), parámetros inválidos; consolidado del dueño y en cero para el barbero |
+| `TestContractAgenda` (contrato OpenAPI) | ✅ | Las 2 operaciones con respuestas reales validadas contra el esquema (200, 400 `INVALID_RANGE`, 403, 404); ocupación 17 % con 60 de 360 min |
+| Suite de seguridad | ✅ | Aislamiento en **45 operaciones** (28 con ids ajenos): la ruta nueva entra sola desde el OpenAPI |
+| `TestStatsOnPostgres` (`-tags integration`) | ✅ | SQL real, horarios y ausencias reales: marzo 2030, $5.000.000, 1 cliente nuevo (el otro vino en febrero), 1260 min disponibles, ocupación 6 %; Juan 540 min por su ausencia; serie diaria de 31 días |
+| `task test:integration` | ✅ | Toda la suite de integración (con P-11) |
+| Mutaciones | ✅ detectadas | Contar las ausencias del cliente como minutos ocupados; ignorar las ausencias del profesional; el barbero viendo todo el negocio; código restaurado |
+| `task check` | ✅ | build, vet, golangci-lint (0), pruebas; govulncheck sin vulnerabilidades (reintento por DNS); `sqlc vet/diff` al día; shellcheck del E2E |
+| E2E en QA | ⏳ | Tras el merge (requiere autorización): 7 comprobaciones nuevas de P-12 y 4 de P-11 |

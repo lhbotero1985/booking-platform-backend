@@ -230,6 +230,41 @@ func (t *tx) BusinessCustomerAppointments(_ context.Context, businessID, custome
 	return out, nil
 }
 
+func (t *tx) StatsAppointments(_ context.Context, businessID uuid.UUID, from, to time.Time) ([]domain.StatsAppointment, error) {
+	var out []domain.StatsAppointment
+	for _, a := range t.appts {
+		if a.BusinessID != businessID || a.Start.Before(from) || !a.Start.Before(to) {
+			continue
+		}
+		out = append(out, domain.StatsAppointment{Start: a.Start, ProfessionalID: a.ProfessionalID, ServiceID: a.Service.ServiceID,
+			CustomerID: a.Customer.CustomerID, ServiceName: a.Service.Name, Status: a.Status, PriceMinor: a.Service.PriceMinor,
+			DurationMinutes: a.Service.DurationMinutes})
+	}
+	return out, nil
+}
+
+// FirstVisits works like the SQL query: the first COMPLETED appointment of each customer, by
+// start then id, when it starts in [from, to).
+func (t *tx) FirstVisits(_ context.Context, businessID uuid.UUID, from, to time.Time) ([]domain.FirstVisit, error) {
+	first := map[uuid.UUID]domain.Appointment{}
+	for _, a := range t.appts {
+		if a.BusinessID != businessID || a.Status != domain.StatusCompleted || a.Customer.CustomerID == uuid.Nil {
+			continue
+		}
+		f, ok := first[a.Customer.CustomerID]
+		if !ok || a.Start.Before(f.Start) || (a.Start.Equal(f.Start) && a.ID.String() < f.ID.String()) {
+			first[a.Customer.CustomerID] = a
+		}
+	}
+	var out []domain.FirstVisit
+	for c, a := range first {
+		if !a.Start.Before(from) && a.Start.Before(to) {
+			out = append(out, domain.FirstVisit{CustomerID: c, ProfessionalID: a.ProfessionalID, ServiceID: a.Service.ServiceID, Start: a.Start})
+		}
+	}
+	return out, nil
+}
+
 func (t *tx) ActiveAppointments(_ context.Context, businessID, professionalID uuid.UUID, from, to time.Time) ([]domain.Booked, error) {
 	var out []domain.Booked
 	for _, a := range t.appts {

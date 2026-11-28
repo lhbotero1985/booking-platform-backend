@@ -328,6 +328,17 @@ check "  the barber sees them (his agenda)" 2 "$(status GET "$cust/$walkin/appoi
 check "  none in the past" 0 "$(status GET "$cust/$walkin/appointments?scope=past" "" "$T1" >/dev/null; json '.items | length')"
 check "  unknown customer -> 404" 404 "$(status GET "$cust/01a20aae-0000-7000-8000-000000000000/appointments" "" "$T1")"
 
+# --- statistics (P-12) ----------------------------------------------------------------------------
+st_from=$(date -u -d '-1 day' +%F)
+stats="/api/v1/business/$mine/stats?from=$st_from&to=$tue"
+check "owner's statistics" "200 COP true true" "$(status GET "$stats" "" "$T1") $(json '"\(.currency) \(.totals.appointments >= 2) \(.totals.availableMinutes > 0)"')"
+check "  every day of the range in the series" true "$(json "(.series | length) == $(( ( $(date -u -d "$tue" +%s) - $(date -u -d "$st_from" +%s) ) / 86400 + 1 ))")"
+check "  by professional adds up to the total" true "$(json '([.byProfessional[].figures.appointments] | add) == .totals.appointments')"
+check "barber's statistics: only his, no byProfessional" "200 false" "$(status GET "$stats&groupBy=month" "" "$TS") $(json 'has("byProfessional")')"
+check "  the owner's own figures -> 403" 403 "$(status GET "$stats&professionalId=$powner" "" "$TS")"
+check "reversed range -> 400 INVALID_RANGE" "400 INVALID_RANGE" "$(status GET "/api/v1/business/$mine/stats?from=$tue&to=$st_from" "" "$T1") $(json .code)"
+check "my businesses' statistics include it" true "$(status GET "/api/v1/me/stats?from=$st_from&to=$tue&groupBy=year" "" "$T1" >/dev/null; json "any(.byBusiness[]; .businessId == \"$mine\")")"
+
 # --- changes of an appointment (T6.6) ------------------------------------------------------------
 me_appt="/api/v1/me/appointments/$appt"
 st_appt="/api/v1/business/$mine/appointments/$appt"

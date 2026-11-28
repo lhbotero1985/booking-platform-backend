@@ -1,8 +1,9 @@
 # Siguiente tarea
 
 ## Última tarea completada
-P-11 — Un dueño puede crear más negocios (2026-11-27), en `feature/p11-multiple-businesses`
-(commit y push; PR, merge y E2E en QA pendientes de autorización). Siguiente: P-12 (plan aprobado).
+P-11 y P-12 — Más negocios por dueño y estadísticas (2026-11-27), en
+`feature/p11-multiple-businesses` (un solo PR, decisión del usuario; merge y E2E en QA pendientes
+de autorización).
 
 Anterior: Operación QA (2026-11-27): botón «Reagendar» de los correos hacia
 `https://booka-app-qa.duckdns.org/citas/reagendar`, en `qa` (PR #78) y validado en QA (E2E 239

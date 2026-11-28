@@ -119,7 +119,7 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	professionalsSvc := app.NewProfessionalsService(pool, identitySvc)
 	catalogSvc := app.NewCatalogService(pool, identitySvc, businessesSvc, professionalsSvc)
 	app.LinkPublicCatalog(businessesSvc, catalogSvc, professionalsSvc, businessesSvc)
-	schedulingSvc := app.NewSchedulingService(pool, identitySvc, businessesSvc, catalogSvc, professionalsSvc, identitySvc)
+	schedulingSvc := app.NewSchedulingService(pool, identitySvc, businessesSvc, catalogSvc, professionalsSvc)
 	app.LinkAgendaGuard(professionalsSvc, schedulingSvc)
 	notificationsSvc, err := app.NewNotificationsService(cfg, pool, jobClient, schedulingSvc, businessesSvc,
 		app.NewEmailRecipients(identitySvc, professionalsSvc), identitySvc, logger)

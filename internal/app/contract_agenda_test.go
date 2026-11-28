@@ -98,4 +98,32 @@ func TestContractAgenda(t *testing.T) {
 	history(owner, laura, "?scope=all", http.StatusBadRequest)
 	history(owner, "01a20aae-0000-7000-8000-000000000000", "", http.StatusNotFound)
 	history(ana, laura, "", http.StatusNotFound)
+
+	// P-12: statistics. Juan's and the owner's Tuesday 09:00–12:00 (180 min each), two booked
+	// appointments of 30 min.
+	stats := func(tok, path string, want int) string {
+		return c.callAuth(t, e.srv, http.MethodGet, path, "", tok, want)
+	}
+	week := "?from=2026-11-23&to=2026-11-29"
+	if got := stats(owner, base+"/stats"+week, http.StatusOK); !strings.Contains(got, `"currency":"COP"`) || strings.Count(got, `"period":`) != 7 ||
+		!strings.Contains(got, `"bookedMinutes":60,"availableMinutes":360,"occupancyPercent":17`) || !strings.Contains(got, `"byProfessional":[`) {
+		t.Errorf("owner stats = %s", got)
+	}
+	if got := stats(barber, base+"/stats"+week+"&groupBy=month", http.StatusOK); strings.Contains(got, "byProfessional") || !strings.Contains(got, `"period":"2026-11"`) ||
+		!strings.Contains(got, `"bookedMinutes":30,"availableMinutes":180`) {
+		t.Errorf("barber stats = %s", got)
+	}
+	stats(barber, base+"/stats"+week+"&professionalId="+boss, http.StatusForbidden)
+	stats(ana, base+"/stats"+week, http.StatusNotFound)
+	if got := stats(owner, base+"/stats?from=2026-11-29&to=2026-11-23", http.StatusBadRequest); !strings.Contains(got, `"INVALID_RANGE"`) {
+		t.Errorf("reversed range = %s", got)
+	}
+	stats(owner, base+"/stats?from=2026-11-23", http.StatusBadRequest)
+	if got := stats(owner, "/api/v1/me/stats"+week+"&groupBy=year", http.StatusOK); !strings.Contains(got, `"byBusiness":[{"businessId":"`+biz+`"`) || !strings.Contains(got, `"totalsByCurrency":[{"currency":"COP"`) {
+		t.Errorf("my stats = %s", got)
+	}
+	if got := stats(barber, "/api/v1/me/stats"+week, http.StatusOK); !strings.Contains(got, `"byBusiness":[]`) || !strings.Contains(got, `"currency":null`) {
+		t.Errorf("my stats, not an owner = %s", got)
+	}
+	stats(owner, "/api/v1/me/stats?from=2026-11-23&to=2027-11-29", http.StatusBadRequest)
 }

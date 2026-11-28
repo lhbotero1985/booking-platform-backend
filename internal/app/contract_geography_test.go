@@ -78,7 +78,8 @@ func newGeoServer(t *testing.T) geoEnv {
 	profs := profapp.NewService(proftest.NewStore(), e.identity, clk)
 	cat := catapp.NewService(catalogtest.NewStore(), e.identity, biz, profs, clk)
 	LinkPublicCatalog(biz, cat, profs, biz)
-	sched := schedapp.NewService(schedapp.Deps{Store: schedtest.NewStore(), Authz: e.identity, Businesses: biz, Catalog: cat, Professionals: profs, Bookable: profs, Customers: e.identity, Clock: clk})
+	sched := schedapp.NewService(schedapp.Deps{Store: schedtest.NewStore(), Authz: e.identity, Businesses: biz, Catalog: cat, Professionals: profs, Bookable: profs, Customers: e.identity, Clock: clk,
+		Schedules: profs, Currencies: biz, Memberships: e.identity})
 	LinkAgendaGuard(profs, sched)
 	notif, outbox := notiftest.NewService(sched, biz, clk, func(d *notifapp.Deps) {
 		d.Authz, d.Recipients = e.identity, NewEmailRecipients(e.identity, profs)

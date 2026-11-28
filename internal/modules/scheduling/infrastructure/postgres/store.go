@@ -261,6 +261,35 @@ func (t *txStore) BusinessCustomerAppointments(ctx context.Context, businessID, 
 	}))
 }
 
+func (t *txStore) StatsAppointments(ctx context.Context, businessID uuid.UUID, from, to time.Time) ([]domain.StatsAppointment, error) {
+	rows, err := t.q.StatsAppointments(ctx, sqlcgen.StatsAppointmentsParams{BusinessID: businessID, FromAt: from, ToAt: to})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.StatsAppointment, 0, len(rows))
+	for _, r := range rows {
+		a := domain.StatsAppointment{Start: r.StartAt, ProfessionalID: r.ProfessionalID, ServiceID: r.ServiceID, ServiceName: r.ServiceName,
+			Status: domain.Status(r.Status), PriceMinor: r.PriceMinor, DurationMinutes: int(r.DurationMinutes)}
+		if r.CustomerID != nil {
+			a.CustomerID = *r.CustomerID
+		}
+		out = append(out, a)
+	}
+	return out, nil
+}
+
+func (t *txStore) FirstVisits(ctx context.Context, businessID uuid.UUID, from, to time.Time) ([]domain.FirstVisit, error) {
+	rows, err := t.q.FirstCompletedVisits(ctx, sqlcgen.FirstCompletedVisitsParams{BusinessID: businessID, FromAt: from, ToAt: to})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.FirstVisit, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, domain.FirstVisit{CustomerID: r.CustomerID, ProfessionalID: r.ProfessionalID, ServiceID: r.ServiceID, Start: r.StartAt})
+	}
+	return out, nil
+}
+
 func (t *txStore) ActiveAppointments(ctx context.Context, businessID, professionalID uuid.UUID, from, to time.Time) ([]domain.Booked, error) {
 	rows, err := t.q.ActiveAppointmentsOverlapping(ctx, sqlcgen.ActiveAppointmentsOverlappingParams{
 		BusinessID: businessID, ProfessionalID: professionalID, FromAt: from, ToAt: to,

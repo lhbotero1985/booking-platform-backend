@@ -24,6 +24,8 @@ type AgendaService interface {
 	ToReassign(ctx context.Context, p contract.Principal, businessID uuid.UUID) (application.AgendaPage, error)
 	StaffAvailability(ctx context.Context, p contract.Principal, businessID uuid.UUID, q application.StaffAvailabilityQuery) (application.Availability, error)
 	CustomerAppointments(ctx context.Context, p contract.Principal, businessID, customerID uuid.UUID, q application.CustomerAppointmentsQuery) (application.CustomerHistory, error)
+	BusinessStats(ctx context.Context, p contract.Principal, businessID uuid.UUID, q application.StatsQuery) (application.Stats, error)
+	MyStats(ctx context.Context, p contract.Principal, q application.StatsQuery) (application.Stats, error)
 }
 
 type agendaCustomerDTO struct {
@@ -101,6 +103,7 @@ func (h *Handler) agendaRoutes(rt *httpx.Router) {
 	rt.Handle("GET /api/v1/business/{businessId}/customers/{customerId}/appointments", auth(h.customerAppointments))
 	rt.Handle("GET /api/v1/me/appointments", auth(h.myAppointments))
 	rt.Handle("GET /api/v1/me/appointments/{appointmentId}", auth(h.myAppointment))
+	h.statsRoutes(rt)
 }
 
 func optionalCursor(s string) *string {

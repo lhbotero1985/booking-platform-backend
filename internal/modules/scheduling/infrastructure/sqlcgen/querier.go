@@ -36,6 +36,9 @@ type Querier interface {
 	CustomerPastAppointments(ctx context.Context, arg CustomerPastAppointmentsParams) ([]Appointment, error)
 	// Appointments of a customer account from now on, in every business, by start.
 	CustomerUpcomingAppointments(ctx context.Context, arg CustomerUpcomingAppointmentsParams) ([]Appointment, error)
+	// P-12: the first COMPLETED appointment in the business of each customer, when it starts in
+	// [from_at, to_at).
+	FirstCompletedVisits(ctx context.Context, arg FirstCompletedVisitsParams) ([]FirstCompletedVisitsRow, error)
 	IdempotencyKeyOf(ctx context.Context, arg IdempotencyKeyOfParams) (IdempotencyKeyOfRow, error)
 	InsertAppointment(ctx context.Context, arg InsertAppointmentParams) error
 	InsertAppointmentEvent(ctx context.Context, arg InsertAppointmentEventParams) error
@@ -49,6 +52,8 @@ type Querier interface {
 	// hanging). is_local = true: the settings last until the end of the transaction.
 	SetBookingTimeouts(ctx context.Context) error
 	SetIdempotencyAppointment(ctx context.Context, arg SetIdempotencyAppointmentParams) error
+	// P-12: the appointments of a business that start in [from_at, to_at), every status.
+	StatsAppointments(ctx context.Context, arg StatsAppointmentsParams) ([]StatsAppointmentsRow, error)
 	// Writes a change; the version guard makes a lost update impossible (0 rows = changed meanwhile).
 	UpdateAppointment(ctx context.Context, arg UpdateAppointmentParams) (int64, error)
 	UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) error

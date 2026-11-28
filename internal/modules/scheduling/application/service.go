@@ -55,6 +55,11 @@ type Deps struct {
 	Bookable      professionals.Bookable
 	Customers     identity.Customers
 	Clock         clock.Clock
+	// Statistics (P-12): schedules of the professionals, currency of the business and the
+	// businesses the caller owns.
+	Schedules   professionals.Schedules
+	Currencies  businesses.Currencies
+	Memberships identity.Memberships
 }
 
 // Service implements the scheduling use cases.
