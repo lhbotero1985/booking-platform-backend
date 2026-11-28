@@ -1230,4 +1230,6 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | `task check` | ✅ | build, vet, golangci-lint (0), pruebas, govulncheck sin vulnerabilidades |
 | `task sqlc:check`, `task shellcheck` | ✅ | Código SQLC al día; script E2E sin hallazgos |
 | `task test:integration` (completa) | ✅ | Toda la suite con PostgreSQL real |
-| E2E en QA | ⏳ | Tras PR, merge y despliegue (requieren autorización): 9 comprobaciones nuevas (pendiente no calificable, cita ajena, `rating` público y del catálogo, listas del personal, permisos de ocultar). El flujo completo necesita una cita completada: lo cubren el contrato y la integración |
+| CI del PR #84 | ✅ 6/6 | Incluye `-race`, integración PostgreSQL, Trivy y gitleaks |
+| Despliegue en QA (PR #84) | ✅ | `release-qa` ✅ (`405961b`); migración 00030 aplicada (`goose_db_version` = 30, tabla `appointment_reviews`); `/readyz` 200 |
+| E2E en QA | ✅ **266 PASS, 0 fallos** | 9 comprobaciones nuevas de reseñas: cita pendiente → 409 `NOT_REVIEWABLE`; cita ajena → 404; `review` y `reviewableUntil` null; lista pública vacía con `rating` 0/null; `rating` en la página pública y en cada profesional del catálogo; listas del personal (dueño y barbero 200, barbero sobre el dueño 403); ocultar sin ser administrador → 403. El flujo completo necesita una cita completada: lo cubren el contrato y la integración. Omitidos el alta por el admin y el límite de peticiones (`SKIP_RATE_LIMIT=1`) |

@@ -1,9 +1,11 @@
 # Siguiente tarea
 
 ## Última tarea completada
-Reseñas y calificaciones de negocios y profesionales (2026-11-28, ADR-0021), en `feature/reviews`
-con commit y push. Falta autorizar: PR, merge, despliegue y E2E en QA. Para el correo de
-invitación, configurar `APPOINTMENT_REVIEW_URL` en QA cuando el frontend tenga la página (P45).
+Reseñas y calificaciones de negocios y profesionales (2026-11-28, ADR-0021), en `qa` (PR #84) y
+validadas en QA: E2E 266/266. El frontend debe crear la página para calificar (recibe
+`?appointmentId=`), mostrar `rating` en la página pública, la búsqueda y el catálogo, y la lista de
+reseñas; con esa página se configura `APPOINTMENT_REVIEW_URL` en QA (P45, junto con el texto del
+correo).
 
 Anterior: Imágenes del negocio (logo, portada) y portafolio de los profesionales (2026-11-27), en `qa`
 (PR #82, 2026-11-28) y validadas en QA: E2E 257/257. El frontend puede usar `logoUrl`, `coverUrl`,

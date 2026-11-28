@@ -124,6 +124,13 @@ Gestionado solo por `PLATFORM_ADMIN`; se siembra con un seed de los países del 
 - **AgendaShareLink (A)**: `id`, `businessId`, `professionalId`, `scope` (`DAY_AGENDA`,
   `APPOINTMENT`), `resourceRef`, `tokenHash`, `expiresAt`, `revokedAt?`. Acceso de solo lectura
   y datos mínimos.
+- **Review (A)** (ADR-0021): `id`, `businessId`, `appointmentId` (único), `professionalId`,
+  `customerUserId`, `authorName` («Ana M.»), `serviceName`, `businessRating` y
+  `professionalRating` (1 a 5), `comment?` (1000), `reply?` (OWNER, con fecha y autor),
+  `hidden?` (administrador, con motivo, fecha y autor).
+  - Invariantes: solo el cliente de una cita COMPLETED; una por cita; se escribe o cambia hasta 30
+    días después del fin de la cita y se borra en cualquier momento; una oculta no es pública ni
+    cuenta en los promedios. Promedio con un decimal sobre las visibles.
 - **Servicio de dominio `AvailabilityCalculator`**: función pura que recibe horario, descansos,
   ausencias, bloqueos, citas, duración, política y `now`, y devuelve slots. Ver
   `availability-engine.md`.

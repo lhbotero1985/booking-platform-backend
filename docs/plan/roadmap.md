@@ -167,6 +167,14 @@ cliente conserva al menos uno); límite de reprogramaciones por negocio.
 
 Las fases 8–13 se desglosarán en tareas al iniciar cada una.
 
+## Fuera de fase (pedidos del usuario, ya en QA)
+
+| Fecha | Funcionalidad | Referencia | QA |
+|---|---|---|---|
+| 2026-11-27 | Varios negocios por dueño y estadísticas | P-11, P-12 (PR #80) | ✅ E2E 248/248 |
+| 2026-11-27 | Logo y portada del negocio, portafolio de los profesionales | ADR-0020 (PR #82) | ✅ E2E 257/257 |
+| 2026-11-28 | Reseñas y calificaciones de negocios y profesionales | ADR-0021 (PR #84) | ✅ E2E 266/266 |
+
 ## Riesgos identificados
 
 | # | Riesgo | Prob. | Impacto | Mitigación |
@@ -178,7 +186,7 @@ Las fases 8–13 se desglosarán en tareas al iniciar cada una.
 | R5 | Costos de WhatsApp crecen sin control | Media | Medio | Topes por negocio, solo mensajes utility, kill switch, métricas |
 | R6 | PostgreSQL autogestionado: pérdida de datos | Baja | Crítico | Backups cifrados diarios fuera del Droplet, pruebas de restauración, evaluar Managed PG en PROD |
 | R7 | Secretos filtrados en Git | Baja | Alto | gitleaks pre-commit + CI, push protection, `.gitignore`, rotación inmediata |
-| R8 | Alcance del MVP crece (pagos, reseñas…) | Alta | Medio | Roadmap estricto; pagos aceptados en la Fase 11B (ADR-0018); reseñas y otros fuera del MVP |
+| R8 | Alcance del MVP crece (pagos, reseñas…) | Alta | Medio | Roadmap estricto; pagos aceptados en la Fase 11B (ADR-0018); reseñas aceptadas fuera de fase por el usuario el 2026-11-28 (ADR-0021); favoritos y otros fuera del MVP |
 | R9 | Notificaciones obsoletas (recordatorio de cita cancelada) | Media | Medio | Verificación de versión al ejecutar job + cancelación de jobs |
 | R10 | Cumplimiento legal de datos personales por país | Media | Alto | Consentimiento registrado, minimización, definir países del piloto |
 | R11 | Entorno local Windows sin Go/herramientas | Alta | Bajo | T1.1 instala toolchain; todo reproducible también en Docker/CI |
