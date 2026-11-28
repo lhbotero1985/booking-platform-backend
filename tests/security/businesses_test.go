@@ -308,7 +308,7 @@ func TestPublicSearchExposesOnlyBookableBusinesses(t *testing.T) {
 	}
 	for k := range page.Items[0] {
 		switch k {
-		case "id", "name", "slug", "description", "contactPhone", "location", "timeZone", "currency", "bookingPolicy":
+		case "id", "name", "slug", "description", "contactPhone", "location", "timeZone", "currency", "bookingPolicy", "logoUrl", "coverUrl":
 		default:
 			t.Errorf("internal field %q exposed publicly", k)
 		}
@@ -325,7 +325,7 @@ func TestPublicSearchExposesOnlyBookableBusinesses(t *testing.T) {
 	for _, item := range append(pc.Services, pc.Professionals...) {
 		for k := range item {
 			switch k {
-			case "id", "categoryId", "name", "description", "durationMinutes", "priceMinor", "currency", "professionalIds", "displayName", "bio", "serviceIds":
+			case "id", "categoryId", "name", "description", "durationMinutes", "priceMinor", "currency", "professionalIds", "displayName", "bio", "serviceIds", "portfolio":
 			default:
 				t.Errorf("internal field %q exposed in the public catalog", k)
 			}

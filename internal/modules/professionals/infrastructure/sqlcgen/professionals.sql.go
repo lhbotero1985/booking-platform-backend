@@ -148,6 +148,20 @@ func (q *Queries) DeleteBreaks(ctx context.Context, arg DeleteBreaksParams) erro
 	return err
 }
 
+const deletePortfolioImage = `-- name: DeletePortfolioImage :exec
+DELETE FROM professional_portfolio_images WHERE business_id = $1 AND id = $2
+`
+
+type DeletePortfolioImageParams struct {
+	BusinessID uuid.UUID
+	ID         uuid.UUID
+}
+
+func (q *Queries) DeletePortfolioImage(ctx context.Context, arg DeletePortfolioImageParams) error {
+	_, err := q.db.Exec(ctx, deletePortfolioImage, arg.BusinessID, arg.ID)
+	return err
+}
+
 const deleteWorkingHours = `-- name: DeleteWorkingHours :exec
 DELETE FROM professional_working_hours WHERE business_id = $1 AND professional_id = $2
 `
@@ -218,6 +232,44 @@ func (q *Queries) InsertBreak(ctx context.Context, arg InsertBreakParams) error 
 		arg.Weekday,
 		arg.StartMinute,
 		arg.EndMinute,
+	)
+	return err
+}
+
+const insertPortfolioImage = `-- name: InsertPortfolioImage :exec
+INSERT INTO professional_portfolio_images (id, business_id, professional_id, storage_key, caption, sort_order,
+    width, height, created_by, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
+    $10, $11)
+`
+
+type InsertPortfolioImageParams struct {
+	ID             uuid.UUID
+	BusinessID     uuid.UUID
+	ProfessionalID uuid.UUID
+	StorageKey     string
+	Caption        string
+	SortOrder      int32
+	Width          int32
+	Height         int32
+	CreatedBy      uuid.UUID
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+func (q *Queries) InsertPortfolioImage(ctx context.Context, arg InsertPortfolioImageParams) error {
+	_, err := q.db.Exec(ctx, insertPortfolioImage,
+		arg.ID,
+		arg.BusinessID,
+		arg.ProfessionalID,
+		arg.StorageKey,
+		arg.Caption,
+		arg.SortOrder,
+		arg.Width,
+		arg.Height,
+		arg.CreatedBy,
+		arg.CreatedAt,
+		arg.UpdatedAt,
 	)
 	return err
 }
@@ -336,6 +388,50 @@ func (q *Queries) ListAbsences(ctx context.Context, arg ListAbsencesParams) ([]P
 	return items, nil
 }
 
+const listPortfolio = `-- name: ListPortfolio :many
+SELECT id, business_id, professional_id, storage_key, caption, sort_order, width, height, created_by, created_at, updated_at
+FROM professional_portfolio_images
+WHERE business_id = $1 AND professional_id = $2
+ORDER BY sort_order, created_at, id
+`
+
+type ListPortfolioParams struct {
+	BusinessID     uuid.UUID
+	ProfessionalID uuid.UUID
+}
+
+func (q *Queries) ListPortfolio(ctx context.Context, arg ListPortfolioParams) ([]ProfessionalPortfolioImage, error) {
+	rows, err := q.db.Query(ctx, listPortfolio, arg.BusinessID, arg.ProfessionalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ProfessionalPortfolioImage{}
+	for rows.Next() {
+		var i ProfessionalPortfolioImage
+		if err := rows.Scan(
+			&i.ID,
+			&i.BusinessID,
+			&i.ProfessionalID,
+			&i.StorageKey,
+			&i.Caption,
+			&i.SortOrder,
+			&i.Width,
+			&i.Height,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProfessionals = `-- name: ListProfessionals :many
 SELECT id, business_id, user_id, display_name, bio, status, sort_order, created_at, updated_at
 FROM professionals
@@ -402,6 +498,77 @@ func (q *Queries) LockProfessional(ctx context.Context, arg LockProfessionalPara
 	return i, err
 }
 
+const portfolioImageByID = `-- name: PortfolioImageByID :one
+SELECT id, business_id, professional_id, storage_key, caption, sort_order, width, height, created_by, created_at, updated_at
+FROM professional_portfolio_images
+WHERE business_id = $1 AND professional_id = $2 AND id = $3
+`
+
+type PortfolioImageByIDParams struct {
+	BusinessID     uuid.UUID
+	ProfessionalID uuid.UUID
+	ID             uuid.UUID
+}
+
+func (q *Queries) PortfolioImageByID(ctx context.Context, arg PortfolioImageByIDParams) (ProfessionalPortfolioImage, error) {
+	row := q.db.QueryRow(ctx, portfolioImageByID, arg.BusinessID, arg.ProfessionalID, arg.ID)
+	var i ProfessionalPortfolioImage
+	err := row.Scan(
+		&i.ID,
+		&i.BusinessID,
+		&i.ProfessionalID,
+		&i.StorageKey,
+		&i.Caption,
+		&i.SortOrder,
+		&i.Width,
+		&i.Height,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const portfoliosOf = `-- name: PortfoliosOf :many
+SELECT id, business_id, professional_id, storage_key, caption, sort_order, width, height, created_by, created_at, updated_at
+FROM professional_portfolio_images
+WHERE professional_id = ANY($1::uuid[])
+ORDER BY professional_id, sort_order, created_at, id
+`
+
+// The portfolios of several professionals (public catalog).
+func (q *Queries) PortfoliosOf(ctx context.Context, professionalIds []uuid.UUID) ([]ProfessionalPortfolioImage, error) {
+	rows, err := q.db.Query(ctx, portfoliosOf, professionalIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ProfessionalPortfolioImage{}
+	for rows.Next() {
+		var i ProfessionalPortfolioImage
+		if err := rows.Scan(
+			&i.ID,
+			&i.BusinessID,
+			&i.ProfessionalID,
+			&i.StorageKey,
+			&i.Caption,
+			&i.SortOrder,
+			&i.Width,
+			&i.Height,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const professionalByID = `-- name: ProfessionalByID :one
 SELECT id, business_id, user_id, display_name, bio, status, sort_order, created_at, updated_at
 FROM professionals
@@ -455,6 +622,30 @@ func (q *Queries) UpdateAbsence(ctx context.Context, arg UpdateAbsenceParams) er
 		arg.EndsAt,
 		arg.Reason,
 		arg.UpdatedAt,
+	)
+	return err
+}
+
+const updatePortfolioImage = `-- name: UpdatePortfolioImage :exec
+UPDATE professional_portfolio_images SET caption = $1, sort_order = $2, updated_at = $3
+WHERE business_id = $4 AND id = $5
+`
+
+type UpdatePortfolioImageParams struct {
+	Caption    string
+	SortOrder  int32
+	UpdatedAt  time.Time
+	BusinessID uuid.UUID
+	ID         uuid.UUID
+}
+
+func (q *Queries) UpdatePortfolioImage(ctx context.Context, arg UpdatePortfolioImageParams) error {
+	_, err := q.db.Exec(ctx, updatePortfolioImage,
+		arg.Caption,
+		arg.SortOrder,
+		arg.UpdatedAt,
+		arg.BusinessID,
+		arg.ID,
 	)
 	return err
 }

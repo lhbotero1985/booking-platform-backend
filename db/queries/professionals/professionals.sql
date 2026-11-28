@@ -95,3 +95,34 @@ SELECT id, business_id, user_id, display_name, bio, status, sort_order, created_
 FROM professionals
 WHERE business_id = ANY(sqlc.arg(business_ids)::uuid[]) AND status = 'ACTIVE'
 ORDER BY business_id, sort_order, display_name, id;
+
+-- name: InsertPortfolioImage :exec
+INSERT INTO professional_portfolio_images (id, business_id, professional_id, storage_key, caption, sort_order,
+    width, height, created_by, created_at, updated_at)
+VALUES (@id, @business_id, @professional_id, @storage_key, @caption, @sort_order, @width, @height, @created_by,
+    @created_at, @updated_at);
+
+-- name: ListPortfolio :many
+SELECT id, business_id, professional_id, storage_key, caption, sort_order, width, height, created_by, created_at, updated_at
+FROM professional_portfolio_images
+WHERE business_id = @business_id AND professional_id = @professional_id
+ORDER BY sort_order, created_at, id;
+
+-- name: PortfoliosOf :many
+-- The portfolios of several professionals (public catalog).
+SELECT id, business_id, professional_id, storage_key, caption, sort_order, width, height, created_by, created_at, updated_at
+FROM professional_portfolio_images
+WHERE professional_id = ANY(@professional_ids::uuid[])
+ORDER BY professional_id, sort_order, created_at, id;
+
+-- name: PortfolioImageByID :one
+SELECT id, business_id, professional_id, storage_key, caption, sort_order, width, height, created_by, created_at, updated_at
+FROM professional_portfolio_images
+WHERE business_id = @business_id AND professional_id = @professional_id AND id = @id;
+
+-- name: UpdatePortfolioImage :exec
+UPDATE professional_portfolio_images SET caption = @caption, sort_order = @sort_order, updated_at = @updated_at
+WHERE business_id = @business_id AND id = @id;
+
+-- name: DeletePortfolioImage :exec
+DELETE FROM professional_portfolio_images WHERE business_id = @business_id AND id = @id;

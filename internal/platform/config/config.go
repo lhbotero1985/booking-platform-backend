@@ -155,6 +155,9 @@ type Config struct {
 	// OwnedBusinessLimit is how many businesses an account may create itself (P-11): 2 during
 	// the demo (user, 2026-11-27); the plans of phase 11B will set it.
 	OwnedBusinessLimit int
+	// MediaDir is the directory of the images of businesses and professionals (server's disk,
+	// decision of the user 2026-11-27).
+	MediaDir string
 }
 
 // Load reads configuration using getenv (usually os.Getenv) and validates it.
@@ -210,6 +213,7 @@ func Load(getenv func(string) string) (Config, error) {
 		},
 		PublicAppURL:       p.str("PUBLIC_APP_URL", "http://localhost:3000"),
 		OwnedBusinessLimit: int(p.intRange("OWNED_BUSINESS_LIMIT", 2, 1, 1000)),
+		MediaDir:           p.str("MEDIA_DIR", "./data/media"),
 		AppDownloadURL:     p.str("APP_DOWNLOAD_URL", ""),
 		PublicAPIURL:       strings.TrimRight(p.str("PUBLIC_API_URL", "http://localhost:8080"), "/"),
 

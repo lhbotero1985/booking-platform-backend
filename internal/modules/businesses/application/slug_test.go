@@ -36,6 +36,10 @@ func (slugTx) CreationKeyOf(context.Context, uuid.UUID, string) (string, uuid.UU
 	return "", uuid.Nil, application.ErrNotFound
 }
 func (slugTx) SetCreationKeyBusiness(context.Context, uuid.UUID, string, uuid.UUID) error { return nil }
+func (slugTx) LockImages(context.Context, uuid.UUID) (domain.Images, error) {
+	return domain.Images{}, application.ErrNotFound
+}
+func (slugTx) SetImages(context.Context, uuid.UUID, domain.Images, time.Time) error { return nil }
 func (slugTx) ListBusinesses(context.Context, application.ListFilter) ([]*domain.Business, error) {
 	return nil, nil
 }

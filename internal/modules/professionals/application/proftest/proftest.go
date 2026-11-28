@@ -4,6 +4,7 @@ package proftest
 import (
 	"context"
 	"maps"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -22,12 +23,14 @@ type Store struct {
 	profs     map[uuid.UUID]domain.Professional
 	schedules map[uuid.UUID]domain.WeeklySchedule
 	absences  map[uuid.UUID]domain.Absence
+	portfolio map[uuid.UUID]domain.PortfolioImage
 	Audit     []audit.Entry
 }
 
 // NewStore returns an empty store.
 func NewStore() *Store {
-	return &Store{profs: map[uuid.UUID]domain.Professional{}, schedules: map[uuid.UUID]domain.WeeklySchedule{}, absences: map[uuid.UUID]domain.Absence{}}
+	return &Store{profs: map[uuid.UUID]domain.Professional{}, schedules: map[uuid.UUID]domain.WeeklySchedule{}, absences: map[uuid.UUID]domain.Absence{},
+		portfolio: map[uuid.UUID]domain.PortfolioImage{}}
 }
 
 // AuditActions lists the audited actions in order.
@@ -52,11 +55,11 @@ func (s *Store) Count() int {
 func (s *Store) WithinTx(ctx context.Context, fn func(context.Context, application.Tx) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	t := &tx{profs: maps.Clone(s.profs), schedules: maps.Clone(s.schedules), absences: maps.Clone(s.absences)}
+	t := &tx{profs: maps.Clone(s.profs), schedules: maps.Clone(s.schedules), absences: maps.Clone(s.absences), portfolio: maps.Clone(s.portfolio)}
 	if err := fn(ctx, t); err != nil {
 		return err
 	}
-	s.profs, s.schedules, s.absences = t.profs, t.schedules, t.absences
+	s.profs, s.schedules, s.absences, s.portfolio = t.profs, t.schedules, t.absences, t.portfolio
 	s.Audit = append(s.Audit, t.audit...)
 	return nil
 }
@@ -65,7 +68,70 @@ type tx struct {
 	profs     map[uuid.UUID]domain.Professional
 	schedules map[uuid.UUID]domain.WeeklySchedule
 	absences  map[uuid.UUID]domain.Absence
+	portfolio map[uuid.UUID]domain.PortfolioImage
 	audit     []audit.Entry
+}
+
+func (t *tx) InsertPortfolioImage(_ context.Context, img domain.PortfolioImage) error {
+	t.portfolio[img.ID] = img
+	return nil
+}
+
+func sortPortfolio(out []domain.PortfolioImage) []domain.PortfolioImage {
+	sort.Slice(out, func(i, j int) bool {
+		a, b := out[i], out[j]
+		if a.ProfessionalID != b.ProfessionalID {
+			return a.ProfessionalID.String() < b.ProfessionalID.String()
+		}
+		if a.SortOrder != b.SortOrder {
+			return a.SortOrder < b.SortOrder
+		}
+		if !a.CreatedAt.Equal(b.CreatedAt) {
+			return a.CreatedAt.Before(b.CreatedAt)
+		}
+		return a.ID.String() < b.ID.String()
+	})
+	return out
+}
+
+func (t *tx) ListPortfolio(_ context.Context, businessID, professionalID uuid.UUID) ([]domain.PortfolioImage, error) {
+	out := []domain.PortfolioImage{}
+	for _, img := range t.portfolio {
+		if img.BusinessID == businessID && img.ProfessionalID == professionalID {
+			out = append(out, img)
+		}
+	}
+	return sortPortfolio(out), nil
+}
+
+func (t *tx) PortfoliosOf(_ context.Context, professionalIDs []uuid.UUID) ([]domain.PortfolioImage, error) {
+	out := []domain.PortfolioImage{}
+	for _, img := range t.portfolio {
+		if slices.Contains(professionalIDs, img.ProfessionalID) {
+			out = append(out, img)
+		}
+	}
+	return sortPortfolio(out), nil
+}
+
+func (t *tx) PortfolioImageByID(_ context.Context, businessID, professionalID, id uuid.UUID) (domain.PortfolioImage, error) {
+	img, ok := t.portfolio[id]
+	if !ok || img.BusinessID != businessID || img.ProfessionalID != professionalID {
+		return domain.PortfolioImage{}, application.ErrNotFound
+	}
+	return img, nil
+}
+
+func (t *tx) UpdatePortfolioImage(_ context.Context, img domain.PortfolioImage) error {
+	t.portfolio[img.ID] = img
+	return nil
+}
+
+func (t *tx) DeletePortfolioImage(_ context.Context, businessID, id uuid.UUID) error {
+	if img, ok := t.portfolio[id]; ok && img.BusinessID == businessID {
+		delete(t.portfolio, id)
+	}
+	return nil
 }
 
 func (t *tx) overlaps(a domain.Absence) bool {

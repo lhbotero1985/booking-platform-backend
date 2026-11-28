@@ -1198,3 +1198,18 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Despliegue en QA (PR #80) | ✅ | CI 6/6; `release-qa` ✅ (`fef9221`); migraciones 00027 y 00028 aplicadas; `/readyz` listo |
 | E2E en QA, 1.ª corrida | ❌ 238 PASS, 10 fallos | Todas las comprobaciones nuevas de P-11 y P-12 pasaron. Fallaron las del bloque de enlaces del correo: el script leyó el correo anterior (la cancelación del paso previo llegó tarde). Verificado en Mailpit que el correo de la reserva traía los tres enlaces y «Reagendar» hacia el portal: falla del script, no del backend |
 | E2E en QA, 2.ª corrida (script corregido: espera el correo con los enlaces) | ✅ **248 PASS, 0 fallos** | Con `APP_URL` y `RESCHEDULE_URL`; omitidos el alta por el admin (sin `ADMIN_EMAIL`) y el límite de peticiones (`SKIP_RATE_LIMIT=1`) |
+
+## 2026-11-27 · Fuera de fase · Imágenes del negocio y portafolio de los profesionales
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestProcess`, `TestLocalStore`, `TestFromRequest` (`internal/platform/media`) | ✅ | PNG con transparencia sigue PNG, opaco pasa a JPEG; reducción sin agrandar; orientación EXIF 6 corregida y sin metadatos en la salida; PDF, script, GIF, JPEG truncado y 12001 px rechazados; guardar, servir (tipo, `cross-origin`, `immutable`), claves inválidas y `../` no se sirven; borrar dos veces; lectura del formulario, campo faltante, 5 MiB + 1, cuerpo JSON |
+| `TestBusinessImages` | ✅ | Solo el OWNER (PROFESSIONAL 403, ajeno 404) y **sin leer el archivo antes de autorizar**; reemplazar borra el archivo viejo; si la actualización falla no queda archivo; quitar; auditoría |
+| `TestPortfolio` | ✅ | El barbero el suyo, no el de otro (403 sin leer el archivo); el dueño cualquiera; leyenda (recorte, 141 caracteres); PDF rechazado; **10 como máximo** y la 11.ª no deja archivo; orden; editar, validar `sortOrder`; borrar quita el archivo; auditoría |
+| `TestContractImages` (contrato OpenAPI, HTTP real) | ✅ | Logo 1200×600 → JPEG 512×256 servido `cross-origin`; reemplazo borra el anterior; `logoUrl`/`coverUrl` en la vista pública y la administrada; 403/404 (también con cuerpo JSON en negocio ajeno); PDF y script → 400 `UNSUPPORTED_IMAGE`; JSON → 415; 5 MiB + 10 → 413; portafolio 3000×2000 → 1600×1066; 11.ª → 409 `PORTFOLIO_FULL`; catálogo público con las 10; borrar y `../` |
+| `TestImagesOnPostgres` (`-tags integration`) | ✅ | Claves en todas las lecturas (por id, por slug y búsqueda pública); `CHECK` rechaza una clave inválida; **12 subidas simultáneas → 10 guardadas y 2 rechazadas**; orden y borrado |
+| Suite de seguridad | ✅ | Aislamiento en las rutas nuevas (las de imágenes entran solas desde el OpenAPI); campos públicos permitidos actualizados (`logoUrl`, `coverUrl`, `portfolio`) |
+| Mutaciones | ✅ detectadas | Sin el límite de 10; un barbero subiendo al portafolio de otro; sin borrar el archivo si falla la transacción; código restaurado |
+| Imagen Docker | ✅ | `task docker:build`; un volumen nuevo montado en `/data/media` queda a nombre de `65532:65532` (nonroot) |
+| `task check` | ✅ | build, vet, golangci-lint (0), pruebas; govulncheck sin vulnerabilidades (reintento por DNS); `sqlc vet/diff` al día; shellcheck del E2E |
+| E2E en QA | ⏳ | Tras el merge y el despliegue (requieren autorización): 10 comprobaciones nuevas (logo, servirlo, permisos, PDF disfrazado, portafolio, catálogo, borrar) |

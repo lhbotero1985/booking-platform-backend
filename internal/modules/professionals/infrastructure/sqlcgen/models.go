@@ -33,3 +33,17 @@ type ProfessionalAbsence struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
+
+type ProfessionalPortfolioImage struct {
+	ID             uuid.UUID
+	BusinessID     uuid.UUID
+	ProfessionalID uuid.UUID
+	StorageKey     string
+	Caption        string
+	SortOrder      int32
+	Width          int32
+	Height         int32
+	CreatedBy      uuid.UUID
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}

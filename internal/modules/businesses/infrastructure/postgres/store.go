@@ -168,7 +168,8 @@ func (t *txStore) SearchActive(ctx context.Context, f application.SearchFilter) 
 			MaxAdvanceDays: r.MaxAdvanceDays, CancellationCutoffHours: r.CancellationCutoffHours,
 			RescheduleCutoffHours: r.RescheduleCutoffHours, RequireCustomerConfirmation: r.RequireCustomerConfirmation,
 			RemindersEnabled: r.RemindersEnabled, ReminderHoursBefore: r.ReminderHoursBefore,
-			MaxCustomerReschedules: r.MaxCustomerReschedules, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+			MaxCustomerReschedules: r.MaxCustomerReschedules, LogoKey: r.LogoKey, CoverKey: r.CoverKey,
+			CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
 		})
 		if err != nil {
 			return nil, err
@@ -200,6 +201,37 @@ func (t *txStore) CreationKeyOf(ctx context.Context, userID uuid.UUID, key strin
 
 func (t *txStore) SetCreationKeyBusiness(ctx context.Context, userID uuid.UUID, key string, businessID uuid.UUID) error {
 	return t.q.SetCreationKeyBusiness(ctx, sqlcgen.SetCreationKeyBusinessParams{UserID: userID, Key: key, BusinessID: &businessID})
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+func ref(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+// LockImages implements application.Tx: the business row, locked, with its image keys.
+func (t *txStore) LockImages(ctx context.Context, id uuid.UUID) (domain.Images, error) {
+	r, err := t.q.LockBusinessImages(ctx, id)
+	if err != nil {
+		return domain.Images{}, notFound(err)
+	}
+	return domain.Images{Logo: deref(r.LogoKey), Cover: deref(r.CoverKey)}, nil
+}
+
+// SetImages implements application.Tx.
+func (t *txStore) SetImages(ctx context.Context, id uuid.UUID, img domain.Images, now time.Time) error {
+	if err := t.q.SetBusinessLogo(ctx, sqlcgen.SetBusinessLogoParams{ID: id, LogoKey: ref(img.Logo), UpdatedAt: now}); err != nil {
+		return err
+	}
+	return t.q.SetBusinessCover(ctx, sqlcgen.SetBusinessCoverParams{ID: id, CoverKey: ref(img.Cover), UpdatedAt: now})
 }
 
 func notFound(err error) error {
@@ -245,6 +277,7 @@ func toDomain(r sqlcgen.BusinessByIDRow) (*domain.Business, error) {
 			RequireCustomerConfirmation: r.RequireCustomerConfirmation, MaxCustomerReschedules: int(r.MaxCustomerReschedules),
 		},
 		Reminders: domain.Reminders{Enabled: r.RemindersEnabled, HoursBefore: int(r.ReminderHoursBefore)},
+		Images:    domain.Images{Logo: deref(r.LogoKey), Cover: deref(r.CoverKey)},
 		Now:       r.CreatedAt,
 	}, r.CreatedAt, r.UpdatedAt)
 	if err != nil {

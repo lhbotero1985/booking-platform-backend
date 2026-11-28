@@ -44,6 +44,7 @@ import (
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/clock"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/config"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/logging"
+	"github.com/lhbotero1985/booking-platform-backend/internal/platform/media"
 )
 
 const (
@@ -95,12 +96,18 @@ func startAuth(t *testing.T) authHarness {
 	sched := schedapp.NewService(schedapp.Deps{Store: schedtest.NewStore(), Authz: h.svc, Businesses: biz, Catalog: cat, Professionals: profs, Bookable: profs, Customers: h.svc, Clock: h.clock,
 		Schedules: profs, Currencies: biz, Memberships: h.svc})
 	app.LinkAgendaGuard(profs, sched)
+	mediaStore, err := media.NewLocal(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	biz.SetMedia(mediaStore)
+	profs.SetMedia(mediaStore)
 	notif, outbox := notiftest.NewService(sched, biz, h.clock, func(d *notifapp.Deps) {
 		d.Authz, d.Recipients = h.svc, app.NewEmailRecipients(h.svc, profs)
 	})
 	app.LinkNotifications(sched, notif)
 	h.notif, h.outbox = notif, outbox
-	h.srv = httptest.NewServer(app.NewHTTPHandler(cfg, logger, app.Deps{Modules: []app.RouteRegistrar{
+	h.srv = httptest.NewServer(app.NewHTTPHandler(cfg, logger, app.Deps{Media: mediaStore.Handler(), Modules: []app.RouteRegistrar{
 		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),
 		subscriptionshttp.New(subs, logger, idh.RequireAuth),
 		professionalshttp.New(profs, logger, idh.RequireAuth),

@@ -113,6 +113,13 @@ servicio).
 | Errores | RFC 9457 sin stack traces ni mensajes internos hacia el cliente. |
 | Dependencias | govulncheck, Dependabot, Trivy (ver `devsecops.md`). |
 
+### Subida de imágenes (ADR-0020)
+Autorización antes de leer el archivo; `multipart/form-data` con tope de 5 MiB (el resto de la API
+sigue en 1 MiB); tipo por contenido (JPEG, PNG, WebP), tope de píxeles, **nueva codificación** en
+el servidor (sin metadatos ni GPS; un archivo disfrazado no sobrevive); claves generadas por el
+servidor y validadas por el esquema (sin recorrido de rutas); `GET /media/{key}` solo sirve claves
+con ese formato.
+
 ## 4. Datos personales
 
 - Minimización: solo nombre, email, teléfono y datos de citas.

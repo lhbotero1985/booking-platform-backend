@@ -23,6 +23,14 @@ type PublicProfessional struct {
 	DisplayName string
 	Bio         string
 	SortOrder   int
+	Portfolio   []PortfolioPhoto // images of its best work, in order (2026-11-27)
+}
+
+// PortfolioPhoto is a public portfolio image; Key is its key in the media store.
+type PortfolioPhoto struct {
+	ID            uuid.UUID
+	Key, Caption  string
+	Width, Height int
 }
 
 // Bookable lists, per business, the professionals customers can book: profile ACTIVE and the

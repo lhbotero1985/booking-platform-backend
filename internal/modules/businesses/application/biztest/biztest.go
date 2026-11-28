@@ -81,6 +81,21 @@ type tx struct {
 	audit      []audit.Entry
 }
 
+func (t *tx) LockImages(_ context.Context, id uuid.UUID) (domain.Images, error) {
+	b, ok := t.businesses[id]
+	if !ok {
+		return domain.Images{}, application.ErrNotFound
+	}
+	return b.Images(), nil
+}
+
+func (t *tx) SetImages(_ context.Context, id uuid.UUID, img domain.Images, now time.Time) error {
+	b := t.businesses[id]
+	b.SetImages(img, now)
+	t.businesses[id] = b
+	return nil
+}
+
 func (t *tx) ClaimCreationKey(_ context.Context, userID uuid.UUID, key, fingerprint string, _ time.Time) (bool, error) {
 	k := creationKey{userID, key}
 	if _, ok := t.keys[k]; ok {

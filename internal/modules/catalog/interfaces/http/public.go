@@ -8,6 +8,7 @@ import (
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/httpx"
+	"github.com/lhbotero1985/booking-platform-backend/internal/platform/media"
 )
 
 // PublicCatalogService is the public view of the catalog (T5.7).
@@ -32,10 +33,20 @@ type publicServiceDTO struct {
 }
 
 type publicProfessionalDTO struct {
-	ID          uuid.UUID   `json:"id"`
-	DisplayName string      `json:"displayName"`
-	Bio         string      `json:"bio"`
-	ServiceIDs  []uuid.UUID `json:"serviceIds"`
+	ID          uuid.UUID           `json:"id"`
+	DisplayName string              `json:"displayName"`
+	Bio         string              `json:"bio"`
+	ServiceIDs  []uuid.UUID         `json:"serviceIds"`
+	Portfolio   []portfolioPhotoDTO `json:"portfolio"`
+}
+
+// portfolioPhotoDTO is an image of a professional's best work.
+type portfolioPhotoDTO struct {
+	ID      uuid.UUID `json:"id"`
+	URL     string    `json:"url"`
+	Caption string    `json:"caption"`
+	Width   int       `json:"width"`
+	Height  int       `json:"height"`
 }
 
 // publicCatalogDTO is what customers see: no status, sort keys, accounts or timestamps.
@@ -66,7 +77,11 @@ func toPublicCatalogDTO(c application.PublicCatalog) publicCatalogDTO {
 		out.Services = append(out.Services, dto)
 	}
 	for _, p := range c.Professionals {
-		out.Professionals = append(out.Professionals, publicProfessionalDTO{ID: p.ID, DisplayName: p.DisplayName, Bio: p.Bio, ServiceIDs: p.ServiceIDs})
+		photos := make([]portfolioPhotoDTO, 0, len(p.Portfolio))
+		for _, ph := range p.Portfolio {
+			photos = append(photos, portfolioPhotoDTO{ID: ph.ID, URL: media.URL(ph.Key), Caption: ph.Caption, Width: ph.Width, Height: ph.Height})
+		}
+		out.Professionals = append(out.Professionals, publicProfessionalDTO{ID: p.ID, DisplayName: p.DisplayName, Bio: p.Bio, ServiceIDs: p.ServiceIDs, Portfolio: photos})
 	}
 	return out
 }

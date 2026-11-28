@@ -49,6 +49,16 @@ Estado: **Propuesta — Fase 0.** ADR-0011.
 `POST /businesses` (cuenta verificada → OWNER de un negocio `ACTIVE` con demo de 7 días; hasta
 `OWNED_BUSINESS_LIMIT` negocios propios por cuenta, 2 durante la demo, luego 409
 `OWNED_BUSINESS_LIMIT` (P-11); `Idempotency-Key` opcional; límite estricto por cliente).
+### Imágenes (2026-11-27, ADR-0020)
+`PUT|DELETE /business/{id}/logo` y `/cover` (OWNER) y
+`GET|POST /business/{id}/professionals/{pid}/portfolio`, `PATCH|DELETE …/portfolio/{imageId}`
+(el profesional el suyo, el OWNER cualquiera; 10 como máximo, luego 409 `PORTFOLIO_FULL`). Subidas
+en `multipart/form-data` (campo `image`, 5 MiB; `caption` opcional en el portafolio). Errores de
+imagen: 400 con `errors[].field = image` (`REQUIRED`, `UNSUPPORTED_IMAGE`, `INVALID_IMAGE`,
+`IMAGE_TOO_BIG`), 413 y 415. `Business` y `PublicBusiness` traen `logoUrl` y `coverUrl` (null sin
+imagen) y el catálogo público trae `portfolio` en cada profesional. Las imágenes se sirven en
+`GET /media/{key}` (público, inmutable).
+
 ### Estadísticas (P-12, 2026-11-27)
 `GET /business/{id}/stats?from=&to=&groupBy=&professionalId=` (OWNER todo el negocio o un
 profesional, con `byProfessional`; PROFESSIONAL solo lo suyo, otro → 403) y

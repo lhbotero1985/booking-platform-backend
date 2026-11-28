@@ -37,6 +37,8 @@ type publicBusinessDTO struct {
 	TimeZone      string          `json:"timeZone"`
 	Currency      string          `json:"currency"`
 	BookingPolicy publicPolicyDTO `json:"bookingPolicy"`
+	LogoURL       *string         `json:"logoUrl"`
+	CoverURL      *string         `json:"coverUrl"`
 }
 
 type publicListDTO struct {
@@ -54,6 +56,7 @@ func toPublicDTO(b *domain.Business) publicBusinessDTO {
 			CancellationCutoffHours: p.CancellationCutoffHours, RescheduleCutoffHours: p.RescheduleCutoffHours,
 			MaxCustomerReschedules: p.MaxCustomerReschedules,
 		},
+		LogoURL: full.LogoURL, CoverURL: full.CoverURL,
 	}
 }
 

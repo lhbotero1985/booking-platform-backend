@@ -28,7 +28,7 @@ SELECT id, name, slug::text AS slug, status, contact_phone, description, country
        city_id, address_line, latitude, longitude, time_zone, currency, slot_interval_minutes,
        buffer_minutes, min_lead_minutes, max_advance_days, cancellation_cutoff_hours,
        reschedule_cutoff_hours, require_customer_confirmation, reminders_enabled,
-       reminder_hours_before, max_customer_reschedules, created_at, updated_at
+       reminder_hours_before, max_customer_reschedules, logo_key, cover_key, created_at, updated_at
 FROM businesses
 WHERE id = $1;
 
@@ -37,7 +37,7 @@ SELECT id, name, slug::text AS slug, status, contact_phone, description, country
        city_id, address_line, latitude, longitude, time_zone, currency, slot_interval_minutes,
        buffer_minutes, min_lead_minutes, max_advance_days, cancellation_cutoff_hours,
        reschedule_cutoff_hours, require_customer_confirmation, reminders_enabled,
-       reminder_hours_before, max_customer_reschedules, created_at, updated_at
+       reminder_hours_before, max_customer_reschedules, logo_key, cover_key, created_at, updated_at
 FROM businesses
 WHERE slug = $1;
 
@@ -60,7 +60,7 @@ SELECT id, name, slug::text AS slug, status, contact_phone, description, country
        city_id, address_line, latitude, longitude, time_zone, currency, slot_interval_minutes,
        buffer_minutes, min_lead_minutes, max_advance_days, cancellation_cutoff_hours,
        reschedule_cutoff_hours, require_customer_confirmation, reminders_enabled,
-       reminder_hours_before, max_customer_reschedules, created_at, updated_at
+       reminder_hours_before, max_customer_reschedules, logo_key, cover_key, created_at, updated_at
 FROM businesses
 WHERE (sqlc.narg(status)::text IS NULL OR status = sqlc.narg(status)::text)
   AND (sqlc.narg(city_id)::uuid IS NULL OR city_id = sqlc.narg(city_id)::uuid)
@@ -76,7 +76,7 @@ SELECT lower(name) AS sort_name, id, name, slug::text AS slug, status, contact_p
        city_id, address_line, latitude, longitude, time_zone, currency, slot_interval_minutes,
        buffer_minutes, min_lead_minutes, max_advance_days, cancellation_cutoff_hours,
        reschedule_cutoff_hours, require_customer_confirmation, reminders_enabled,
-       reminder_hours_before, max_customer_reschedules, created_at, updated_at
+       reminder_hours_before, max_customer_reschedules, logo_key, cover_key, created_at, updated_at
 FROM businesses
 WHERE status = 'ACTIVE'
   AND city_id = sqlc.arg(city_id)
@@ -96,3 +96,12 @@ SELECT fingerprint, business_id FROM business_creation_keys WHERE user_id = @use
 
 -- name: SetCreationKeyBusiness :exec
 UPDATE business_creation_keys SET business_id = @business_id WHERE user_id = @user_id AND key = @key;
+
+-- name: LockBusinessImages :one
+SELECT logo_key, cover_key FROM businesses WHERE id = $1 FOR UPDATE;
+
+-- name: SetBusinessLogo :exec
+UPDATE businesses SET logo_key = @logo_key, updated_at = @updated_at WHERE id = @id;
+
+-- name: SetBusinessCover :exec
+UPDATE businesses SET cover_key = @cover_key, updated_at = @updated_at WHERE id = @id;

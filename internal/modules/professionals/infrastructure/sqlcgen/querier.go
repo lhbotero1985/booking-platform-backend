@@ -17,18 +17,25 @@ type Querier interface {
 	BreaksOf(ctx context.Context, arg BreaksOfParams) ([]BreaksOfRow, error)
 	DeleteAbsence(ctx context.Context, arg DeleteAbsenceParams) error
 	DeleteBreaks(ctx context.Context, arg DeleteBreaksParams) error
+	DeletePortfolioImage(ctx context.Context, arg DeletePortfolioImageParams) error
 	DeleteWorkingHours(ctx context.Context, arg DeleteWorkingHoursParams) error
 	// Absences (T5.4).
 	InsertAbsence(ctx context.Context, arg InsertAbsenceParams) error
 	InsertBreak(ctx context.Context, arg InsertBreakParams) error
+	InsertPortfolioImage(ctx context.Context, arg InsertPortfolioImageParams) error
 	// Professionals module (T5.2). Every query is scoped by business_id (ADR-0007).
 	InsertProfessional(ctx context.Context, arg InsertProfessionalParams) error
 	InsertWorkingHours(ctx context.Context, arg InsertWorkingHoursParams) error
 	ListAbsences(ctx context.Context, arg ListAbsencesParams) ([]ProfessionalAbsence, error)
+	ListPortfolio(ctx context.Context, arg ListPortfolioParams) ([]ProfessionalPortfolioImage, error)
 	ListProfessionals(ctx context.Context, businessID uuid.UUID) ([]Professional, error)
 	LockProfessional(ctx context.Context, arg LockProfessionalParams) (Professional, error)
+	PortfolioImageByID(ctx context.Context, arg PortfolioImageByIDParams) (ProfessionalPortfolioImage, error)
+	// The portfolios of several professionals (public catalog).
+	PortfoliosOf(ctx context.Context, professionalIds []uuid.UUID) ([]ProfessionalPortfolioImage, error)
 	ProfessionalByID(ctx context.Context, arg ProfessionalByIDParams) (Professional, error)
 	UpdateAbsence(ctx context.Context, arg UpdateAbsenceParams) error
+	UpdatePortfolioImage(ctx context.Context, arg UpdatePortfolioImageParams) error
 	UpdateProfessional(ctx context.Context, arg UpdateProfessionalParams) error
 	// Weekly schedule (T5.3). Minutes since midnight in and out, so Go never handles pgtype.Time.
 	WorkingHoursOf(ctx context.Context, arg WorkingHoursOfParams) ([]WorkingHoursOfRow, error)

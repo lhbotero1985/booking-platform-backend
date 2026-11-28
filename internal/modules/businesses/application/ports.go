@@ -56,6 +56,9 @@ type Tx interface {
 	// CreationKeyOf returns the fingerprint and business (uuid.Nil if none) of an existing key.
 	CreationKeyOf(ctx context.Context, userID uuid.UUID, key string) (fingerprint string, businessID uuid.UUID, err error)
 	SetCreationKeyBusiness(ctx context.Context, userID uuid.UUID, key string, businessID uuid.UUID) error
+	// LockImages locks the business row and returns its image keys; ErrNotFound if absent.
+	LockImages(ctx context.Context, id uuid.UUID) (domain.Images, error)
+	SetImages(ctx context.Context, id uuid.UUID, img domain.Images, now time.Time) error
 }
 
 // maxSlugAttempts bounds the "-2", "-3"… search for a free slug.
