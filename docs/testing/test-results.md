@@ -1212,4 +1212,6 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Mutaciones | ✅ detectadas | Sin el límite de 10; un barbero subiendo al portafolio de otro; sin borrar el archivo si falla la transacción; código restaurado |
 | Imagen Docker | ✅ | `task docker:build`; un volumen nuevo montado en `/data/media` queda a nombre de `65532:65532` (nonroot) |
 | `task check` | ✅ | build, vet, golangci-lint (0), pruebas; govulncheck sin vulnerabilidades (reintento por DNS); `sqlc vet/diff` al día; shellcheck del E2E |
-| E2E en QA | ⏳ | Tras el merge y el despliegue (requieren autorización): 10 comprobaciones nuevas (logo, servirlo, permisos, PDF disfrazado, portafolio, catálogo, borrar) |
+| CI del PR #82 | ✅ 6/6 | Incluye `-race`, integración PostgreSQL, Trivy y gitleaks |
+| Despliegue en QA (PR #82) | ✅ | `release-qa` ✅ (`75a37dd`); migración 00029 aplicada (`goose_db_version` = 29, tabla `professional_portfolio_images`); volumen `booking-qa_media` a nombre de `65532:65532`; `/readyz` 200 |
+| E2E en QA | ✅ **257 PASS, 0 fallos** | 9 comprobaciones nuevas de imágenes: logo 200 y servido `cross-origin`; barbero 403 en el logo; PDF con nombre `.png` → 400 `UNSUPPORTED_IMAGE`; portafolio del barbero 201, el del dueño 403; el catálogo muestra la leyenda; borrar 204; quitar logo 204. Con `APP_URL` y `RESCHEDULE_URL`; omitidos el alta por el admin y el límite de peticiones (`SKIP_RATE_LIMIT=1`) |
