@@ -150,6 +150,9 @@ type Config struct {
 	// time (it receives ?token=); without it the API's page points to the app.
 	PublicAPIURL             string
 	AppointmentRescheduleURL string
+	// AppointmentReviewURL, optional, is the frontend's page where the customer reviews a
+	// completed appointment (it receives ?appointmentId=; 2026-11-28).
+	AppointmentReviewURL string
 	// PublicAppURL is the base URL of the client app used in email links (/verify-email, …).
 	PublicAppURL string
 	// OwnedBusinessLimit is how many businesses an account may create itself (P-11): 2 during
@@ -218,6 +221,7 @@ func Load(getenv func(string) string) (Config, error) {
 		PublicAPIURL:       strings.TrimRight(p.str("PUBLIC_API_URL", "http://localhost:8080"), "/"),
 
 		AppointmentRescheduleURL: p.str("APPOINTMENT_RESCHEDULE_URL", ""),
+		AppointmentReviewURL:     p.str("APPOINTMENT_REVIEW_URL", ""),
 		Notifications: Notifications{
 			EmailEnabled:               p.boolean("NOTIFICATIONS_EMAIL_ENABLED", true),
 			WhatsAppEnabled:            p.boolean("WHATSAPP_ENABLED", false),
@@ -241,9 +245,12 @@ func Load(getenv func(string) string) (Config, error) {
 	p.validateSMTP(cfg.Env, cfg.SMTP)
 	p.validatePublicURL(cfg.Env, "PUBLIC_APP_URL", cfg.PublicAppURL)
 	p.validatePublicURL(cfg.Env, "PUBLIC_API_URL", cfg.PublicAPIURL)
-	if u := cfg.AppointmentRescheduleURL; u != "" {
+	for name, u := range map[string]string{"APPOINTMENT_RESCHEDULE_URL": cfg.AppointmentRescheduleURL, "APPOINTMENT_REVIEW_URL": cfg.AppointmentReviewURL} {
+		if u == "" {
+			continue
+		}
 		if pu, err := url.Parse(u); err != nil || pu.Scheme != "https" || pu.Host == "" || pu.RawQuery != "" || pu.Fragment != "" {
-			p.fail("APPOINTMENT_RESCHEDULE_URL", "must be an absolute https URL without query or fragment")
+			p.fail(name, "must be an absolute https URL without query or fragment")
 		}
 	}
 	p.validateWhatsApp(cfg.Env, cfg.Notifications)

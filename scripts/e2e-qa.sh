@@ -361,6 +361,19 @@ check "  customers see it in the catalog" "Degradado" "$(status GET "/api/v1/bus
 check "  barber deletes it" 204 "$(status DELETE "$port/$pimg" "" "$TS")"
 check "owner removes the logo" 204 "$(status DELETE "/api/v1/business/$mine/logo" "" "$T1")"
 
+# --- reviews (2026-11-28): a pending appointment cannot be reviewed; ratings in the public views --
+# (The whole flow needs a completed appointment: covered by the contract and integration tests.)
+rv="/api/v1/me/appointments/$appt/review"
+check "review a pending appointment -> 409 NOT_REVIEWABLE" "409 NOT_REVIEWABLE" "$(status PUT "$rv" '{"businessRating":5,"professionalRating":5}' "$T1") $(json .code)"
+check "  someone else's appointment -> 404" 404 "$(status PUT "$rv" '{"businessRating":5,"professionalRating":5}' "$TS")"
+check "  not reviewable yet in my appointments" "null null" "$(status GET "/api/v1/me/appointments/$appt" "" "$T1" >/dev/null; json '"\(.review) \(.reviewableUntil)"')"
+check "public reviews: none yet" "200 0 null" "$(status GET "/api/v1/businesses/$myslug/reviews") $(json '"\(.rating.count) \(.rating.average)"')"
+check "  rating in the public business" 0 "$(status GET "/api/v1/businesses/$myslug" >/dev/null; json .rating.count)"
+check "  rating of each professional in the catalog" true "$(status GET "/api/v1/businesses/$myslug/catalog" >/dev/null; json 'all(.professionals[]; .rating.count == 0)')"
+check "staff reviews: owner and barber" "200 200" "$(status GET "/api/v1/business/$mine/reviews" "" "$T1") $(status GET "/api/v1/business/$mine/reviews" "" "$TS")"
+check "  the barber cannot read the owner's" 403 "$(status GET "/api/v1/business/$mine/reviews?professionalId=$powner" "" "$TS")"
+check "only an administrator hides a review" 403 "$(status POST /api/v1/admin/reviews/01a20aae-0000-7000-8000-000000000000/hide '{"reason":"x"}' "$T1")"
+
 # --- changes of an appointment (T6.6) ------------------------------------------------------------
 me_appt="/api/v1/me/appointments/$appt"
 st_appt="/api/v1/business/$mine/appointments/$appt"

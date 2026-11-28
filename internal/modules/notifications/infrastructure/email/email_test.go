@@ -261,3 +261,39 @@ func TestRenderButtons(t *testing.T) {
 		t.Error("buttons without a base URL")
 	}
 }
+
+// TestRenderReviewRequest (2026-11-28): "Calificar" to the frontend's page with the appointment;
+// without that page, the text points to the app. No policies, nothing to the professional.
+func TestRenderReviewRequest(t *testing.T) {
+	c := content()
+	c.Status = "COMPLETED"
+	m := out(domain.KindReviewRequest, domain.RecipientCustomer, c)
+	m.AppointmentID = uuid.MustParse("01900000-0000-7000-8000-0000000000aa")
+	r, ok, err := Render(m, Config{ReviewURL: "https://app.booka.example/citas/calificar"})
+	if err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	h := html.UnescapeString(r.HTML)
+	if r.Subject != "¿Cómo te fue en Barbería El Paisa?" {
+		t.Errorf("subject %q", r.Subject)
+	}
+	for _, want := range []string{"Cuéntanos cómo te fue", "Hola Laura,", "Atendida", ">Calificar<",
+		"https://app.booka.example/citas/calificar?appointmentId=01900000-0000-7000-8000-0000000000aa", "Tienes 30 días"} {
+		if !strings.Contains(h, want) {
+			t.Errorf("html without %q", want)
+		}
+	}
+	if strings.Contains(h, "Políticas del negocio") || strings.Contains(h, "confirmas el cambio") {
+		t.Error("policies or the links' note in a review request")
+	}
+	if !strings.Contains(r.Text, "Calificar tu cita: https://app.booka.example/citas/calificar?appointmentId=") {
+		t.Errorf("text:\n%s", r.Text)
+	}
+	r, _, _ = Render(m, Config{})
+	if strings.Contains(r.HTML, "Calificar<") || !strings.Contains(html.UnescapeString(r.HTML), "«Mis citas» de la app") {
+		t.Error("without the review page")
+	}
+	if _, ok, _ := Render(out(domain.KindReviewRequest, domain.RecipientProfessional, c), Config{}); ok {
+		t.Error("review request to the professional")
+	}
+}

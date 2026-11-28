@@ -42,19 +42,23 @@ type Store struct {
 	Appointments map[uuid.UUID]domain.Appointment
 	Customers    map[uuid.UUID]domain.BusinessCustomer
 	Events       []Event
+	Reviews      map[uuid.UUID]domain.Review
 	keys         map[key]idem
 }
 
 // NewStore returns an empty store.
 func NewStore() *Store {
-	return &Store{Appointments: map[uuid.UUID]domain.Appointment{}, Customers: map[uuid.UUID]domain.BusinessCustomer{}, keys: map[key]idem{}}
+	return &Store{Appointments: map[uuid.UUID]domain.Appointment{}, Customers: map[uuid.UUID]domain.BusinessCustomer{}, Reviews: map[uuid.UUID]domain.Review{}, keys: map[key]idem{}}
 }
 
 // WithinTx implements application.Store: all-or-nothing on a copy, one transaction at a time.
 func (s *Store) WithinTx(ctx context.Context, fn func(ctx context.Context, tx application.Tx) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	t := &tx{s: s, appts: map[uuid.UUID]domain.Appointment{}, customers: map[uuid.UUID]domain.BusinessCustomer{}, keys: map[key]idem{}}
+	t := &tx{s: s, appts: map[uuid.UUID]domain.Appointment{}, customers: map[uuid.UUID]domain.BusinessCustomer{}, keys: map[key]idem{}, reviews: map[uuid.UUID]domain.Review{}}
+	for id, r := range s.Reviews {
+		t.reviews[id] = r
+	}
 	for id, a := range s.Appointments {
 		t.appts[id] = a
 	}
@@ -69,7 +73,7 @@ func (s *Store) WithinTx(ctx context.Context, fn func(ctx context.Context, tx ap
 	if err := fn(ctx, t); err != nil {
 		return err
 	}
-	s.Appointments, s.Customers, s.keys, s.Events = t.appts, t.customers, t.keys, t.events
+	s.Appointments, s.Customers, s.keys, s.Events, s.Reviews = t.appts, t.customers, t.keys, t.events, t.reviews
 	return nil
 }
 
@@ -79,6 +83,7 @@ type tx struct {
 	appts     map[uuid.UUID]domain.Appointment
 	keys      map[key]idem
 	events    []Event
+	reviews   map[uuid.UUID]domain.Review
 }
 
 func (t *tx) SetBookingTimeouts(context.Context) error { return nil }

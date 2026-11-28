@@ -15,6 +15,7 @@ import (
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/domain"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
+	scheduling "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/httpx"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/media"
 )
@@ -51,6 +52,7 @@ type Handler struct {
 	logger        *slog.Logger
 	requireAuth   httpx.Middleware
 	createLimiter httpx.Allower
+	ratings       scheduling.Ratings
 }
 
 // New builds the handler; requireAuth is the identity module's authentication middleware and

@@ -52,6 +52,7 @@ type PublicProfessional struct {
 
 // PublicCatalog is what customers see of a business's offer.
 type PublicCatalog struct {
+	BusinessID    uuid.UUID
 	Categories    []domain.Category // ACTIVE and used by a listed service
 	Services      []PublicService
 	Professionals []PublicProfessional
@@ -141,7 +142,7 @@ func (s *Service) PublicCatalog(ctx context.Context, slug string) (PublicCatalog
 	for _, c := range categories {
 		activeCategory[c.ID] = c.Status == domain.StatusActive
 	}
-	var out PublicCatalog
+	out := PublicCatalog{BusinessID: businessID}
 	used := map[uuid.UUID]bool{}
 	listed := map[uuid.UUID]bool{}
 	for _, svc := range services { // already ordered

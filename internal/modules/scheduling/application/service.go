@@ -38,6 +38,7 @@ type Tx interface {
 	BookingTx
 	CustomerTx
 	AgendaTx
+	ReviewTx
 }
 
 // Authorizer is the part of identity's authorizer the staff use cases need.
@@ -60,6 +61,8 @@ type Deps struct {
 	Schedules   professionals.Schedules
 	Currencies  businesses.Currencies
 	Memberships identity.Memberships
+	// Admins hides reviews (platform administrators); nil refuses every hiding.
+	Admins PlatformAdmins
 }
 
 // Service implements the scheduling use cases.

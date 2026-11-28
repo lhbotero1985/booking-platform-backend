@@ -141,10 +141,10 @@ func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		Modules: []app.RouteRegistrar{
 			identityHandler,
 			geographyhttp.New(geographySvc, logger, identityHandler.RequireAuth),
-			businesseshttp.New(businessesSvc, logger, identityHandler.RequireAuth, limiters.Auth),
+			businesseshttp.New(businessesSvc, logger, identityHandler.RequireAuth, limiters.Auth).WithRatings(schedulingSvc),
 			subscriptionshttp.New(subscriptionsSvc, logger, identityHandler.RequireAuth),
 			professionalshttp.New(professionalsSvc, logger, identityHandler.RequireAuth),
-			cataloghttp.New(catalogSvc, logger, identityHandler.RequireAuth),
+			cataloghttp.New(catalogSvc, logger, identityHandler.RequireAuth).WithRatings(schedulingSvc),
 			schedulinghttp.New(schedulingSvc, logger, identityHandler.RequireAuth),
 			notificationshttp.New(notificationsSvc, logger, identityHandler.RequireAuth),
 			// T7.7: the links of the appointment emails (two taps), with the strict limit.

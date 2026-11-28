@@ -81,7 +81,7 @@ func newGeoServer(t *testing.T) geoEnv {
 	cat := catapp.NewService(catalogtest.NewStore(), e.identity, biz, profs, clk)
 	LinkPublicCatalog(biz, cat, profs, biz)
 	sched := schedapp.NewService(schedapp.Deps{Store: schedtest.NewStore(), Authz: e.identity, Businesses: biz, Catalog: cat, Professionals: profs, Bookable: profs, Customers: e.identity, Clock: clk,
-		Schedules: profs, Currencies: biz, Memberships: e.identity})
+		Schedules: profs, Currencies: biz, Memberships: e.identity, Admins: e.identity})
 	LinkAgendaGuard(profs, sched)
 	if e.media, err = media.NewLocal(t.TempDir()); err != nil {
 		t.Fatal(err)
@@ -94,10 +94,10 @@ func newGeoServer(t *testing.T) geoEnv {
 	e.notif, e.outbox = notif, outbox
 	LinkNotifications(sched, notif)
 	e.modules = []RouteRegistrar{
-		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),
+		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil).WithRatings(sched),
 		subscriptionshttp.New(subs, logger, idh.RequireAuth),
 		professionalshttp.New(profs, logger, idh.RequireAuth),
-		cataloghttp.New(cat, logger, idh.RequireAuth),
+		cataloghttp.New(cat, logger, idh.RequireAuth).WithRatings(sched),
 		schedulinghttp.New(sched, logger, idh.RequireAuth),
 		notificationshttp.New(notif, logger, idh.RequireAuth),
 		notificationshttp.NewWebhook(notif, notificationshttp.WebhookConfig{AppSecret: testWebhookSecret, VerifyToken: testWebhookVerifyToken}, logger),

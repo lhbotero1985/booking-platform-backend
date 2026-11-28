@@ -20,6 +20,8 @@ type Querier interface {
 	// Agenda of a business in [from_at, to_at) (T6.5), every status, by start; optionally only some
 	// professionals; keyset pagination after (after_start, after_id).
 	AgendaAppointments(ctx context.Context, arg AgendaAppointmentsParams) ([]Appointment, error)
+	// The review whatever its business (platform administrator).
+	AnyReviewByID(ctx context.Context, id uuid.UUID) (AppointmentReview, error)
 	AppointmentByID(ctx context.Context, id uuid.UUID) (Appointment, error)
 	AppointmentEvents(ctx context.Context, appointmentID uuid.UUID) ([]AppointmentEvent, error)
 	// Past appointments of a customer of the business (P-10), optionally only of some
@@ -28,6 +30,10 @@ type Querier interface {
 	// Appointments of a customer of the business from now on (P-10), optionally only of some
 	// professionals, by start.
 	BusinessCustomerUpcomingAppointments(ctx context.Context, arg BusinessCustomerUpcomingAppointmentsParams) ([]Appointment, error)
+	// Visible reviews of some businesses: how many and the sum of the stars for the business.
+	BusinessRatings(ctx context.Context, businessIds []uuid.UUID) ([]BusinessRatingsRow, error)
+	// Reviews of a business, newest first, optionally of some professionals and with the hidden ones.
+	BusinessReviews(ctx context.Context, arg BusinessReviewsParams) ([]AppointmentReview, error)
 	// Waits for a concurrent transaction holding the same key; returns no row if it already exists.
 	ClaimIdempotencyKey(ctx context.Context, arg ClaimIdempotencyKeyParams) ([]uuid.UUID, error)
 	CustomerByID(ctx context.Context, arg CustomerByIDParams) (Customer, error)
@@ -36,6 +42,7 @@ type Querier interface {
 	CustomerPastAppointments(ctx context.Context, arg CustomerPastAppointmentsParams) ([]Appointment, error)
 	// Appointments of a customer account from now on, in every business, by start.
 	CustomerUpcomingAppointments(ctx context.Context, arg CustomerUpcomingAppointmentsParams) ([]Appointment, error)
+	DeleteReview(ctx context.Context, arg DeleteReviewParams) error
 	// P-12: the first COMPLETED appointment in the business of each customer, when it starts in
 	// [from_at, to_at).
 	FirstCompletedVisits(ctx context.Context, arg FirstCompletedVisitsParams) ([]FirstCompletedVisitsRow, error)
@@ -43,20 +50,32 @@ type Querier interface {
 	InsertAppointment(ctx context.Context, arg InsertAppointmentParams) error
 	InsertAppointmentEvent(ctx context.Context, arg InsertAppointmentEventParams) error
 	InsertCustomer(ctx context.Context, arg InsertCustomerParams) error
+	// Reviews of appointments (2026-11-28). Every read of business data filters by business_id.
+	InsertReview(ctx context.Context, arg InsertReviewParams) error
 	// Customers of a business, optionally filtered by name (case-insensitive, contains) or phone
 	// (contains), by name.
 	ListCustomers(ctx context.Context, arg ListCustomersParams) ([]Customer, error)
 	// Serializes the changes of one appointment (T6.6).
 	LockAppointment(ctx context.Context, id uuid.UUID) (Appointment, error)
+	LockReview(ctx context.Context, arg LockReviewParams) (AppointmentReview, error)
+	// Visible reviews of the professionals of a business.
+	ProfessionalRatings(ctx context.Context, businessID uuid.UUID) ([]ProfessionalRatingsRow, error)
+	ReviewByID(ctx context.Context, arg ReviewByIDParams) (AppointmentReview, error)
+	ReviewOfAppointment(ctx context.Context, arg ReviewOfAppointmentParams) (AppointmentReview, error)
+	// Reviews of some appointments of a customer (its "my appointments").
+	ReviewsOfAppointments(ctx context.Context, arg ReviewsOfAppointmentsParams) ([]AppointmentReview, error)
 	// ADR-0004: a booking waits at most 3 s for the professional's lock (503 retryable instead of
 	// hanging). is_local = true: the settings last until the end of the transaction.
 	SetBookingTimeouts(ctx context.Context) error
 	SetIdempotencyAppointment(ctx context.Context, arg SetIdempotencyAppointmentParams) error
+	SetReviewHidden(ctx context.Context, arg SetReviewHiddenParams) error
+	SetReviewReply(ctx context.Context, arg SetReviewReplyParams) error
 	// P-12: the appointments of a business that start in [from_at, to_at), every status.
 	StatsAppointments(ctx context.Context, arg StatsAppointmentsParams) ([]StatsAppointmentsRow, error)
 	// Writes a change; the version guard makes a lost update impossible (0 rows = changed meanwhile).
 	UpdateAppointment(ctx context.Context, arg UpdateAppointmentParams) (int64, error)
 	UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) error
+	UpdateReview(ctx context.Context, arg UpdateReviewParams) error
 }
 
 var _ Querier = (*Queries)(nil)

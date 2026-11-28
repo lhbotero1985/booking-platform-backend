@@ -26,3 +26,4 @@ la fase.
 | [0018](0018-self-service-onboarding-trial-subscriptions.md) | Alta autoservicio, demo de 7 días y suscripciones | Aceptado |
 | [0019](0019-email-channel-push-deferred.md) | Correo como canal de citas; push aplazada | Aceptado |
 | [0020](0020-media-storage-images.md) | Imágenes de negocios y profesionales en el disco del servidor | Aceptado |
+| [0021](0021-reviews-ratings.md) | Reseñas y calificaciones de negocios y profesionales | Aceptado |

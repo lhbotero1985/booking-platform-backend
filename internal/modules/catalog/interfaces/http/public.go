@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/application"
+	scheduling "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/httpx"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/media"
 )
@@ -38,6 +39,22 @@ type publicProfessionalDTO struct {
 	Bio         string              `json:"bio"`
 	ServiceIDs  []uuid.UUID         `json:"serviceIds"`
 	Portfolio   []portfolioPhotoDTO `json:"portfolio"`
+	// Rating of the professional from the customers' reviews (2026-11-28).
+	Rating ratingDTO `json:"rating"`
+}
+
+// ratingDTO is the average of the visible reviews (one decimal, null without reviews) and how
+// many there are.
+type ratingDTO struct {
+	Average *float64 `json:"average"`
+	Count   int      `json:"count"`
+}
+
+// WithRatings makes the public catalog show the professionals' ratings (the scheduling
+// module's reviews). Call once, before serving.
+func (h *Handler) WithRatings(r scheduling.Ratings) *Handler {
+	h.ratings = r
+	return h
 }
 
 // portfolioPhotoDTO is an image of a professional's best work.
@@ -56,7 +73,7 @@ type publicCatalogDTO struct {
 	Professionals []publicProfessionalDTO `json:"professionals"`
 }
 
-func toPublicCatalogDTO(c application.PublicCatalog) publicCatalogDTO {
+func toPublicCatalogDTO(c application.PublicCatalog, ratings map[uuid.UUID]scheduling.Rating) publicCatalogDTO {
 	out := publicCatalogDTO{
 		Categories:    make([]publicCategoryDTO, 0, len(c.Categories)),
 		Services:      make([]publicServiceDTO, 0, len(c.Services)),
@@ -81,7 +98,9 @@ func toPublicCatalogDTO(c application.PublicCatalog) publicCatalogDTO {
 		for _, ph := range p.Portfolio {
 			photos = append(photos, portfolioPhotoDTO{ID: ph.ID, URL: media.URL(ph.Key), Caption: ph.Caption, Width: ph.Width, Height: ph.Height})
 		}
-		out.Professionals = append(out.Professionals, publicProfessionalDTO{ID: p.ID, DisplayName: p.DisplayName, Bio: p.Bio, ServiceIDs: p.ServiceIDs, Portfolio: photos})
+		rt := ratings[p.ID]
+		out.Professionals = append(out.Professionals, publicProfessionalDTO{ID: p.ID, DisplayName: p.DisplayName, Bio: p.Bio, ServiceIDs: p.ServiceIDs,
+			Portfolio: photos, Rating: ratingDTO{Average: rt.Average, Count: rt.Count}})
 	}
 	return out
 }
@@ -94,5 +113,12 @@ func (h *Handler) publicCatalog(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, toPublicCatalogDTO(c))
+	ratings := map[uuid.UUID]scheduling.Rating{}
+	if h.ratings != nil && len(c.Professionals) > 0 {
+		if ratings, err = h.ratings.ProfessionalRatings(r.Context(), c.BusinessID); err != nil {
+			h.fail(w, r, err)
+			return
+		}
+	}
+	httpx.WriteJSON(w, http.StatusOK, toPublicCatalogDTO(c, ratings))
 }

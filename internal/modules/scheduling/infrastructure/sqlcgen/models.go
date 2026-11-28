@@ -55,6 +55,27 @@ type AppointmentEvent struct {
 	Reason                 *string
 }
 
+type AppointmentReview struct {
+	ID                 uuid.UUID
+	BusinessID         uuid.UUID
+	AppointmentID      uuid.UUID
+	ProfessionalID     uuid.UUID
+	CustomerUserID     uuid.UUID
+	AuthorName         string
+	ServiceName        string
+	BusinessRating     int16
+	ProfessionalRating int16
+	Comment            string
+	Reply              string
+	RepliedAt          *time.Time
+	RepliedBy          *uuid.UUID
+	HiddenAt           *time.Time
+	HiddenBy           *uuid.UUID
+	HiddenReason       string
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
 type Customer struct {
 	ID         uuid.UUID
 	BusinessID uuid.UUID

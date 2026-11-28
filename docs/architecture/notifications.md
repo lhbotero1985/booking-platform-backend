@@ -261,6 +261,12 @@ sale de inmediato**.
 - **Errores:** dirección mal formada o respuesta 5xx del servidor SMTP → `FAILED` sin reintento
   (`INVALID_EMAIL`, `SMTP_5xx`); lo demás se reintenta (`SMTP_ERROR`).
 
+- **Invitación a calificar (2026-11-28, ADR-0021):** al quedar COMPLETED una cita de un cliente con
+  cuenta sale un correo `APPOINTMENT_REVIEW_REQUEST` (sin WhatsApp ni aviso al barbero) con el
+  botón «Calificar» hacia `APPOINTMENT_REVIEW_URL?appointmentId=…`; sin esa URL invita a calificar
+  desde «Mis citas». Se omite (`CHANGED`) si al enviarlo la cita ya no está completada; respeta la
+  preferencia de correo del cliente. Texto propuesto, pendiente de aprobación (P45).
+
 ## 13. Acciones desde el correo (T7.7, ADR-0019)
 
 - **Botones del correo al cliente** sobre una cita activa (agendada, reprogramada, cambio de

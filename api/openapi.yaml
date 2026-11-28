@@ -26,6 +26,8 @@ tags:
     description: Bookable start times of a professional (T6.2).
   - name: Appointments
     description: Bookings of customers (T6.3).
+  - name: Reviews
+    description: Reviews of completed appointments and ratings of businesses and professionals (2026-11-28).
   - name: Catalog
     description: Service categories and services of a business (T5.5).
   - name: Notifications
@@ -1512,6 +1514,349 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PublicCatalog"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/businesses/{slug}/reviews:
+    get:
+      tags: [Reviews]
+      operationId: listPublicReviews
+      summary: Reviews of a business (public)
+      description: |
+        The visible reviews of the business, newest first, with the business's rating (or the
+        professional's with `professionalId`). The customer shows as first name and an initial.
+        404 under the same rules as the public business.
+      security: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: professionalId
+          in: query
+          description: Only the reviews of this professional (the rating is then the professional's).
+          schema:
+            type: string
+            format: uuid
+        - name: cursor
+          in: query
+          description: The `nextCursor` of the previous page.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: 1 to 50 (default 20).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+      responses:
+        "200":
+          description: A page of reviews.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/me/appointments/{appointmentId}/review:
+    parameters:
+      - name: appointmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Reviews]
+      operationId: getMyReview
+      summary: Your review of an appointment (customer)
+      description: 404 without a review, and for anyone else's appointment.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The review.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyReview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Reviews]
+      operationId: submitReview
+      summary: Review an appointment, or change your review (customer)
+      description: |
+        Only the customer of a COMPLETED appointment (409 `NOT_REVIEWABLE`), up to 30 days after
+        it ends (409 `REVIEW_WINDOW_CLOSED`; `reviewableUntil` in your appointments). One review
+        per appointment: the first PUT creates it (201), the next ones change it (200). The
+        business's reply is kept. Anyone else's appointment is a 404.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewInput"
+      responses:
+        "200":
+          description: The review, changed.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyReview"
+        "201":
+          description: The review, created.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyReview"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [Reviews]
+      operationId: deleteMyReview
+      summary: Delete your review (customer)
+      description: Any time. 404 without a review.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "204":
+          description: Deleted.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/business/{businessId}/reviews:
+    get:
+      tags: [Reviews]
+      operationId: listBusinessReviews
+      summary: Reviews of the business (staff)
+      description: |
+        Hidden ones included (`hidden`, `hiddenReason`). The OWNER sees every professional's (or
+        one's); a PROFESSIONAL only its own (another professional → 403).
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - name: businessId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: professionalId
+          in: query
+          description: Only the reviews of this professional (the rating is then the professional's).
+          schema:
+            type: string
+            format: uuid
+        - name: cursor
+          in: query
+          description: The `nextCursor` of the previous page.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: 1 to 50 (default 20).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+      responses:
+        "200":
+          description: A page of reviews.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/business/{businessId}/reviews/{reviewId}/reply:
+    parameters:
+      - name: businessId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: reviewId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      tags: [Reviews]
+      operationId: replyToReview
+      summary: Reply in public to a review (OWNER)
+      description: Replaces the previous reply. The business cannot hide or delete reviews.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplyInput"
+      responses:
+        "200":
+          description: The review with the reply.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Reviews]
+      operationId: removeReviewReply
+      summary: Remove the reply to a review (OWNER)
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The review without a reply.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/admin/reviews/{reviewId}/hide:
+    post:
+      tags: [Reviews]
+      operationId: hideReview
+      summary: Hide an abusive review (platform administrator)
+      description: |
+        It leaves the public list and the ratings; the business still sees it, marked. The review
+        keeps who hid it, when and why.
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HideReviewInput"
+      responses:
+        "200":
+          description: The hidden review.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/admin/reviews/{reviewId}/unhide:
+    post:
+      tags: [Reviews]
+      operationId: unhideReview
+      summary: Show a hidden review again (platform administrator)
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      parameters:
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The review, visible again.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -5175,8 +5520,11 @@ components:
     PublicBusiness:
       type: object
       additionalProperties: false
-      required: [id, name, slug, description, contactPhone, location, timeZone, currency, bookingPolicy, logoUrl, coverUrl]
+      required: [id, name, slug, description, contactPhone, location, timeZone, currency, bookingPolicy, logoUrl, coverUrl, rating]
       properties:
+        rating:
+          description: From the customers' visible reviews.
+          $ref: "#/components/schemas/Rating"
         logoUrl:
           description: Public URL of the logo (512 px at most), null without one.
           type: [string, "null"]
@@ -5846,8 +6194,19 @@ components:
       type: object
       additionalProperties: false
       required: [id, business, professional, serviceName, durationMinutes, priceMinor, currency, startAt,
-                 endAt, startLocal, status, customerReschedules, createdAt]
+                 endAt, startLocal, status, customerReschedules, createdAt, review, reviewableUntil]
       properties:
+        review:
+          description: Your review of it; null without one.
+          oneOf:
+            - $ref: "#/components/schemas/MyReview"
+            - type: "null"
+        reviewableUntil:
+          description: |
+            Last moment to review it or change the review (30 days after it ends); null unless it
+            is COMPLETED. It can be reviewed while now is before this.
+          type: [string, "null"]
+          format: date-time
         id:
           type: string
           format: uuid
@@ -6245,6 +6604,171 @@ components:
         max:
           type: integer
           description: Most images allowed (10).
+    Rating:
+      type: object
+      additionalProperties: false
+      required: [average, count]
+      properties:
+        average:
+          description: Average stars (1 to 5, one decimal); null without reviews.
+          type: [number, "null"]
+          minimum: 1
+          maximum: 5
+        count:
+          type: integer
+          minimum: 0
+    ReviewReply:
+      type: object
+      additionalProperties: false
+      required: [text, repliedAt]
+      properties:
+        text:
+          type: string
+          maxLength: 1000
+        repliedAt:
+          type: string
+          format: date-time
+    Review:
+      type: object
+      additionalProperties: false
+      required: [id, authorName, serviceName, professional, businessRating, professionalRating, comment, reply,
+                 createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        authorName:
+          description: First name and an initial ("Ana M.").
+          type: string
+        serviceName:
+          type: string
+        professional:
+          type: object
+          additionalProperties: false
+          required: [id, name]
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+        businessRating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        professionalRating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: [string, "null"]
+          maxLength: 1000
+        reply:
+          description: The business's public reply; null without one.
+          oneOf:
+            - $ref: "#/components/schemas/ReviewReply"
+            - type: "null"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        appointmentId:
+          description: Staff and administrators only.
+          type: string
+          format: uuid
+        hidden:
+          description: Staff and administrators only. Hidden by a platform administrator.
+          type: boolean
+        hiddenReason:
+          description: Staff and administrators only; null unless hidden.
+          type: [string, "null"]
+    ReviewPage:
+      type: object
+      additionalProperties: false
+      required: [rating, items, nextCursor]
+      properties:
+        rating:
+          $ref: "#/components/schemas/Rating"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Review"
+        nextCursor:
+          type: [string, "null"]
+    MyReview:
+      type: object
+      additionalProperties: false
+      required: [id, appointmentId, businessRating, professionalRating, comment, reply, hidden, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        appointmentId:
+          type: string
+          format: uuid
+        businessRating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        professionalRating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: [string, "null"]
+          maxLength: 1000
+        reply:
+          oneOf:
+            - $ref: "#/components/schemas/ReviewReply"
+            - type: "null"
+        hidden:
+          description: Hidden by a platform administrator (not public).
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ReviewInput:
+      type: object
+      additionalProperties: false
+      required: [businessRating, professionalRating]
+      properties:
+        businessRating:
+          description: Stars for the business (`INVALID_RATING` outside 1-5).
+          type: integer
+          minimum: 1
+          maximum: 5
+        professionalRating:
+          description: Stars for the professional who served you.
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          description: Optional, up to 1000 characters (`TOO_LONG`).
+          type: string
+          maxLength: 1000
+    ReplyInput:
+      type: object
+      additionalProperties: false
+      required: [reply]
+      properties:
+        reply:
+          description: 1 to 1000 characters (`REQUIRED`, `TOO_LONG`).
+          type: string
+          maxLength: 1000
+    HideReviewInput:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          description: 1 to 200 characters (`REQUIRED`, `TOO_LONG`).
+          type: string
+          maxLength: 200
     PublicCatalog:
       type: object
       additionalProperties: false
@@ -6296,8 +6820,11 @@ components:
           items:
             type: object
             additionalProperties: false
-            required: [id, displayName, bio, serviceIds, portfolio]
+            required: [id, displayName, bio, serviceIds, portfolio, rating]
             properties:
+              rating:
+                description: From the customers' visible reviews.
+                $ref: "#/components/schemas/Rating"
               id:
                 type: string
                 format: uuid
@@ -6450,7 +6977,8 @@ components:
         images (`PORTFOLIO_FULL`), the start time is not
         available (`SLOT_UNAVAILABLE`), or an appointment change is not allowed
         (`INVALID_TRANSITION`, `TOO_EARLY`, `APPOINTMENT_STARTED`, `CUTOFF_PASSED`,
-        `RESCHEDULE_LIMIT_REACHED`, `APPOINTMENT_CHANGED`), or an absence or weekly schedule would break active appointments
+        `RESCHEDULE_LIMIT_REACHED`, `APPOINTMENT_CHANGED`), or the appointment cannot be reviewed
+        (`NOT_REVIEWABLE`: not COMPLETED; `REVIEW_WINDOW_CLOSED`: more than 30 days after it), or an absence or weekly schedule would break active appointments
         (`AGENDA_CONFLICTS`, listed in `conflicts`).
       headers:
         X-Request-ID:

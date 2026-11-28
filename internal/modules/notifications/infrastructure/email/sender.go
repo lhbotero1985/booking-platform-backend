@@ -25,6 +25,9 @@ type Config struct {
 	// RescheduleURL, when set, is the frontend's page that picks the new time (it gets ?token=);
 	// otherwise the API's page points to the app.
 	RescheduleURL string
+	// ReviewURL, when set, is the frontend's page where the customer reviews a completed
+	// appointment (it gets ?appointmentId=; 2026-11-28); otherwise the email points to the app.
+	ReviewURL string
 }
 
 // Sender implements application.Sender for the EMAIL channel.

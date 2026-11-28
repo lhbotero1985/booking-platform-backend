@@ -37,6 +37,7 @@ type view struct {
 	Policy          []string
 	AppURL          string
 	Buttons         []button
+	ButtonsNote     string
 	ForProfessional bool
 }
 
@@ -64,7 +65,7 @@ func copyOf(kind domain.Kind, role domain.Role, c domain.Content) (texts, bool) 
 		case domain.KindRescheduled:
 			return texts{"Cita reprogramada: " + c.CustomerName + ", " + short, "Un cliente cambió la hora de su cita",
 				"Hola " + pro + ", " + c.CustomerName + " movió su cita contigo. Ahora es:"}, true
-		case domain.KindCreatedByBusiness, domain.KindCancelled, domain.KindReassigned, domain.KindReminder:
+		case domain.KindCreatedByBusiness, domain.KindCancelled, domain.KindReassigned, domain.KindReminder, domain.KindReviewRequest:
 			// The staff's own changes and the reminders are not told to the professional.
 		}
 		return texts{}, false
@@ -91,6 +92,9 @@ func copyOf(kind domain.Kind, role domain.Role, c domain.Content) (texts, bool) 
 	case domain.KindReminder:
 		return texts{"Recordatorio: tu cita en " + b + " es el " + short, "Te esperamos",
 			"Hola " + cust + ", te recordamos tu cita. Si no puedes asistir, cancélala a tiempo o comunícate con el negocio."}, true
+	case domain.KindReviewRequest: // 2026-11-28
+		return texts{"¿Cómo te fue en " + b + "?", "Cuéntanos cómo te fue",
+			"Hola " + cust + ", gracias por tu visita. Califica a " + b + " y a quien te atendió: tu opinión ayuda a otros clientes y al negocio."}, true //nolint:misspell // Spanish
 	}
 	return texts{}, false
 }
@@ -131,6 +135,16 @@ func buttons(links map[domain.Action]string, cfg Config) []button {
 	return out
 }
 
+// reviewButton is the review request's link to the frontend's review page (it gets
+// ?appointmentId=; the customer signs in there), or nil without that page.
+func reviewButton(appointmentID string, cfg Config) []button {
+	if cfg.ReviewURL == "" {
+		return nil
+	}
+	u := strings.TrimRight(cfg.ReviewURL, "?") + "?appointmentId=" + url.QueryEscape(appointmentID)
+	return []button{{"Calificar", u, "Calificar tu cita", stylePrimary}}
+}
+
 // Render builds the email of a message. false when the kind has no email for that recipient.
 func Render(m application.Outgoing, cfg Config) (Rendered, bool, error) {
 	c := m.Content
@@ -142,6 +156,13 @@ func Render(m application.Outgoing, cfg Config) (Rendered, bool, error) {
 		Title: cp.title, Intro: cp.intro, BusinessName: c.BusinessName, ServiceName: c.ServiceName,
 		Date: capitalize(c.DateES()), Time: c.TimeES(), Professional: c.ProfessionalName, CustomerName: c.CustomerName,
 		ForProfessional: m.Role == domain.RecipientProfessional, AppURL: cfg.AppDownloadURL, Buttons: buttons(m.Links, cfg),
+		ButtonsNote: "Cada botón abre una página donde confirmas el cambio.",
+	}
+	if m.Kind == domain.KindReviewRequest {
+		v.Buttons, v.ButtonsNote = reviewButton(m.AppointmentID.String(), cfg), "Inicia sesión con tu cuenta de Booka para calificar. Tienes 30 días."
+		if v.Buttons == nil {
+			v.Intro += " Puedes hacerlo en «Mis citas» de la app durante los próximos 30 días."
+		}
 	}
 	if s, ok := statuses[c.Status]; ok {
 		v.Badge, v.BadgeColor, v.BadgeBackground = s[0], s[1], s[2]
@@ -165,7 +186,7 @@ func Render(m application.Outgoing, cfg Config) (Rendered, bool, error) {
 			v.PhoneURL = htmltemplate.URL("tel:+" + digits) //nolint:gosec // only digits after the scheme
 			v.WhatsAppURL = "https://wa.me/" + digits
 		}
-		if m.Kind != domain.KindCancelled && m.Kind != domain.KindCancelledByCustomer {
+		if m.Kind != domain.KindCancelled && m.Kind != domain.KindCancelledByCustomer && m.Kind != domain.KindReviewRequest {
 			v.Policy = policy(c)
 		}
 	}
@@ -254,7 +275,7 @@ var htmlTemplate = htmltemplate.Must(htmltemplate.New("email").Parse(`<!doctype 
 </table>
 </td></tr>
 {{if .Buttons}}<tr><td style="padding:12px 24px 4px;">{{range .Buttons}}<a href="{{.URL}}" style="display:inline-block;margin:0 8px 10px 0;padding:12px 18px;border-radius:10px;font-size:15px;font-weight:bold;text-decoration:none;{{.Style}}">{{.Label}}</a>{{end}}
-<div style="font-size:12px;line-height:1.5;color:#64748B;">Cada botón abre una página donde confirmas el cambio.</div>
+<div style="font-size:12px;line-height:1.5;color:#64748B;">{{.ButtonsNote}}</div>
 </td></tr>{{end}}
 {{if .Policy}}<tr><td style="padding:8px 24px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F3E8FF;border-radius:12px;">

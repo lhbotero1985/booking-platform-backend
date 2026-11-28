@@ -256,6 +256,8 @@ WHATSAPP_ALLOWLIST=+57XXXXXXXXXX[,+57…]   # obligatorio fuera de PROD; máx. 5
 - Enlace de la app (`GET /app`, botón de `cita_agendada_negocio`): sin `APP_DOWNLOAD_URL` muestra
   "muy pronto"; cuando la app esté en las tiendas, agregar `APP_DOWNLOAD_URL=https://…` al `.env`
   y aplicar con `docker compose up -d api worker` (el compose ya la pasa, vacía por defecto).
+- Reseñas (ADR-0021): `APPOINTMENT_REVIEW_URL` (opcional) es la página del portal para calificar; el
+  correo de invitación la usa con `?appointmentId=`. Vacía: el correo remite a «Mis citas».
 - Imágenes (ADR-0020): volumen Docker `media` montado en `/data/media` de la API (lo crea el primer
   despliegue que traiga el compose nuevo). **No entra en `backup.sh`**: en QA son datos de prueba
   (P44 antes de PROD).

@@ -33,6 +33,7 @@ type Service interface {
 	StaffService
 	AgendaService
 	ChangeService
+	ReviewService
 }
 
 // Handler serves the scheduling endpoints.
@@ -41,13 +42,14 @@ type Handler struct {
 	staff       StaffService
 	agendas     AgendaService
 	changes     ChangeService
+	reviews     ReviewService
 	logger      *slog.Logger
 	requireAuth httpx.Middleware
 }
 
 // New builds the handler; requireAuth is the identity module's authentication middleware.
 func New(svc Service, logger *slog.Logger, requireAuth httpx.Middleware) *Handler {
-	return &Handler{svc: svc, staff: svc, agendas: svc, changes: svc, logger: logger, requireAuth: requireAuth}
+	return &Handler{svc: svc, staff: svc, agendas: svc, changes: svc, reviews: svc, logger: logger, requireAuth: requireAuth}
 }
 
 // Routes registers the endpoints.
@@ -57,6 +59,7 @@ func (h *Handler) Routes(rt *httpx.Router) {
 	h.staffRoutes(rt)
 	h.agendaRoutes(rt)
 	h.changeRoutes(rt)
+	h.reviewRoutes(rt)
 }
 
 type slotDTO struct {
@@ -215,7 +218,8 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 		httpx.WriteProblem(w, r, p)
 	case errors.Is(err, application.ErrInvalidRange):
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusBadRequest, CodeInvalidRange, "to must not be before from; at most 366 days by day and 5 years by month or year"))
-	case errors.Is(err, application.ErrCustomerNotFound), errors.Is(err, application.ErrAppointmentNotFound):
+	case errors.Is(err, application.ErrCustomerNotFound), errors.Is(err, application.ErrAppointmentNotFound),
+		errors.Is(err, application.ErrReviewNotFound):
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusNotFound, httpx.CodeNotFound, ""))
 	case errors.Is(err, application.ErrCustomerPhoneTaken):
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeCustomerPhoneTaken, "another customer of this business has that mobile number"))
@@ -245,6 +249,10 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeRescheduleLimit, "the appointment was already moved as many times as the business allows; contact the business"))
 	case errors.Is(err, application.ErrAppointmentChanged):
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeAppointmentChanged, "the appointment changed meanwhile; read it again"))
+	case errors.Is(err, domain.ErrNotReviewable):
+		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeNotReviewable, "only a completed appointment can be reviewed"))
+	case errors.Is(err, domain.ErrReviewWindowClosed):
+		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusConflict, CodeReviewWindowClosed, "the time to review this appointment is over (30 days after it)"))
 	case errors.Is(err, application.ErrBusy):
 		w.Header().Set("Retry-After", "1")
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusServiceUnavailable, CodeBusy, "the agenda is busy, retry"))

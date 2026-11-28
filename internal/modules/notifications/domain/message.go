@@ -25,6 +25,9 @@ const (
 	KindReassigned          Kind = "APPOINTMENT_REASSIGNED"
 	// KindReminder asks the customer to confirm before the appointment (T7.4).
 	KindReminder Kind = "APPOINTMENT_REMINDER"
+	// KindReviewRequest asks the customer to review a completed appointment (2026-11-28, email
+	// only, customers with an account: reviewing needs one).
+	KindReviewRequest Kind = "APPOINTMENT_REVIEW_REQUEST"
 )
 
 // Channel of delivery.
@@ -86,7 +89,9 @@ const (
 const (
 	statusCancelled  = "CANCELLED" //nolint:misspell // value of the scheduling module
 	statusPending    = "PENDING_CONFIRMATION"
+	statusCompleted  = "COMPLETED"
 	eventCreated     = "CREATED"
+	eventCompleted   = "COMPLETED"
 	eventCancelled   = "CANCELLED" //nolint:misspell // value of the scheduling module
 	eventRescheduled = "RESCHEDULED"
 	eventReassigned  = "REASSIGNED"
@@ -124,6 +129,7 @@ type Change struct {
 	Type, ActorRole, Status                            string
 	Start                                              time.Time
 	CustomerPhone                                      string
+	CustomerHasAccount                                 bool
 	At                                                 time.Time
 }
 
@@ -143,6 +149,9 @@ type Reminders struct {
 // To the professional, by email, only what the customer did (decision of the user 2026-11-25): a
 // new booking, a cancellation or a new time.
 //
+// Review request (2026-11-28): when the appointment is completed, an email asks the customer
+// with an account to review it.
+//
 // Reminder (T7.4, decisions of the user 2026-11-25), by both channels: when the change leaves the
 // appointment pending confirmation, a reminder is due r.Before the start; if that moment already
 // passed it goes at once. Confirmed appointments (manual ones are, by default) get no reminder.
@@ -156,6 +165,9 @@ func Plan(c Change, r Reminders, newID func() uuid.UUID) []Message {
 		}
 	}
 	var out []Message
+	if c.Type == eventCompleted && c.CustomerHasAccount {
+		out = append(out, msg(KindReviewRequest, ChannelEmail, RecipientCustomer, "", at))
+	}
 	kind, notify := customerKind(c)
 	if notify {
 		if kind != KindCancelledByCustomer {
@@ -220,6 +232,11 @@ func Stale(m Message, current Appointment, now time.Time) SkipReason {
 	switch {
 	case m.Recipient == "":
 		return SkipNoRecipient
+	case m.Kind == KindReviewRequest: // sent after the appointment, while it stays completed
+		if current.Status != statusCompleted {
+			return SkipChanged
+		}
+		return ""
 	case !now.Before(m.Start):
 		return SkipPassed
 	case m.Kind == KindCancelled, m.Kind == KindCancelledByCustomer:

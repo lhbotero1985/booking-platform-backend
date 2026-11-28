@@ -1,7 +1,11 @@
 # Siguiente tarea
 
 ## Última tarea completada
-Imágenes del negocio (logo, portada) y portafolio de los profesionales (2026-11-27), en `qa`
+Reseñas y calificaciones de negocios y profesionales (2026-11-28, ADR-0021), en `feature/reviews`
+con commit y push. Falta autorizar: PR, merge, despliegue y E2E en QA. Para el correo de
+invitación, configurar `APPOINTMENT_REVIEW_URL` en QA cuando el frontend tenga la página (P45).
+
+Anterior: Imágenes del negocio (logo, portada) y portafolio de los profesionales (2026-11-27), en `qa`
 (PR #82, 2026-11-28) y validadas en QA: E2E 257/257. El frontend puede usar `logoUrl`, `coverUrl`,
 el portafolio y las subidas `multipart/form-data` (campo `image`). Antes de PROD: P44 (respaldo
 del volumen `media` o Spaces).

@@ -133,7 +133,7 @@ func TestEveryBusinessRouteIsTenantIsolated(t *testing.T) {
 				body = "{}"
 			}
 			url := func(biz string) string {
-				return strings.NewReplacer("{businessId}", biz, "{userId}", staffID, "{professionalId}", prof.ID, "{absenceId}", absence.ID, "{categoryId}", categoryID, "{serviceId}", serviceID, "{customerId}", customerID, "{appointmentId}", appt.ID, "{imageId}", missing).Replace(path)
+				return strings.NewReplacer("{businessId}", biz, "{userId}", staffID, "{professionalId}", prof.ID, "{absenceId}", absence.ID, "{categoryId}", categoryID, "{serviceId}", serviceID, "{customerId}", customerID, "{appointmentId}", appt.ID, "{imageId}", missing, "{reviewId}", missing).Replace(path)
 			}
 			if strings.Contains(url(bobBiz), "{") {
 				t.Fatalf("%s: unresolved path placeholder in %s", op, url(bobBiz))

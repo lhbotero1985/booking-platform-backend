@@ -88,6 +88,10 @@ type myAppointmentDTO struct {
 	// T7.8: times the customer moved it.
 	CustomerReschedules int       `json:"customerReschedules"`
 	CreatedAt           time.Time `json:"createdAt"`
+	// Reviews (2026-11-28): the customer's review (null without one) and the last moment it may
+	// write or change it (null when the appointment is not COMPLETED).
+	Review          *myReviewDTO `json:"review"`
+	ReviewableUntil *time.Time   `json:"reviewableUntil"`
 }
 
 type myAppointmentsDTO struct {
@@ -280,13 +284,18 @@ func toMyAppointmentDTO(a application.MyAppointment) myAppointmentDTO {
 	if loc, err := time.LoadLocation(a.Business.TimeZone); err == nil && a.Business.TimeZone != "" {
 		local = a.Start.In(loc).Format(time.RFC3339)
 	}
-	return myAppointmentDTO{
+	out := myAppointmentDTO{
 		ID: a.ID, Business: businessRefDTO{ID: a.BusinessID, Name: a.Business.Name, Slug: a.Business.Slug},
 		Professional: refDTO{ID: a.ProfessionalID, Name: a.ProfessionalName}, ServiceName: a.Service.Name,
 		DurationMinutes: a.Service.DurationMinutes, PriceMinor: a.Service.PriceMinor, Currency: a.Service.Currency,
 		StartAt: a.Start, EndAt: a.End, StartLocal: local, Status: string(a.Status), CustomerReschedules: a.CustomerReschedules,
-		CreatedAt: a.CreatedAt,
+		CreatedAt: a.CreatedAt, ReviewableUntil: optional(a.ReviewableUntil),
 	}
+	if a.Review != nil {
+		r := toMyReviewDTO(*a.Review)
+		out.Review = &r
+	}
+	return out
 }
 
 // myAppointments serves GET /api/v1/me/appointments?scope=upcoming|past&cursor=&limit=.
