@@ -19,7 +19,7 @@ import (
 func NewSchedulingService(pool *pgxpool.Pool, id IdentityForScheduling, biz BusinessesForScheduling, cat catalog.Booking, profs ProfessionalsForScheduling) *application.Service {
 	return application.NewService(application.Deps{
 		Store: postgres.NewStore(pool), Authz: id, Businesses: biz, Catalog: cat, Professionals: profs, Bookable: profs,
-		Customers: id, Clock: clock.System{}, Schedules: profs, Currencies: biz, Memberships: id,
+		Customers: id, Clock: clock.System{}, Schedules: profs, Currencies: biz, Memberships: id, Admins: id,
 	})
 }
 

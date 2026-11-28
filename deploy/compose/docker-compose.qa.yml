@@ -32,6 +32,7 @@ x-app-env: &app-env
   # Optional, from .env: the frontend's page behind the emails' "Reagendar" button (it gets
   # ?token=) and the app's download page behind GET /app. Empty = the API's own pages.
   APPOINTMENT_RESCHEDULE_URL: ${APPOINTMENT_RESCHEDULE_URL:-}
+  APPOINTMENT_REVIEW_URL: ${APPOINTMENT_REVIEW_URL:-}
   APP_DOWNLOAD_URL: ${APP_DOWNLOAD_URL:-}
   # P-11: businesses an account may create itself (2 during the demo).
   OWNED_BUSINESS_LIMIT: ${OWNED_BUSINESS_LIMIT:-2}

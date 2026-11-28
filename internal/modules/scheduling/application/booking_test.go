@@ -45,6 +45,16 @@ func (f fakeAuthz) RequireBusinessRole(_ context.Context, p identity.Principal, 
 	return "", authz.ErrForbidden
 }
 
+// fakeAdmins allows the principals flagged IsPlatformAdmin.
+type fakeAdmins struct{}
+
+func (fakeAdmins) RequirePlatformAdmin(_ context.Context, p identity.Principal) error {
+	if !p.IsPlatformAdmin {
+		return authz.ErrForbidden
+	}
+	return nil
+}
+
 type bookingEnv struct {
 	clk      *clock.Fixed
 	roles    fakeAuthz
@@ -89,7 +99,7 @@ func newBookingEnvWith(t *testing.T, policy func(*businesses.BookingPolicy)) boo
 			e.ana.UserID: {UserID: e.ana.UserID, FullName: "Ana Cliente", Phone: "+573001112233"},
 			e.bob.UserID: {UserID: e.bob.UserID, FullName: "Bob Cliente", Phone: "+573004445566"},
 		},
-		Clock: e.clk,
+		Clock: e.clk, Admins: fakeAdmins{},
 	})
 	return e
 }

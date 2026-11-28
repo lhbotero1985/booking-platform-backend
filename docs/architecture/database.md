@@ -129,6 +129,19 @@ idempotency_keys(user_id, key text, request_hash bytea, response_status int, res
 Índices clave: `appointments(business_id, start_at)`, `appointments(professional_id, start_at)`,
 `appointments(client_id, start_at desc)`.
 
+Reseñas (00030, ADR-0021):
+```sql
+appointment_reviews(id, business_id, appointment_id unique, professional_id, customer_user_id → users,
+                    author_name, service_name, business_rating 1–5, professional_rating 1–5,
+                    comment ≤1000, reply ≤1000, replied_at, replied_by, hidden_at, hidden_by,
+                    hidden_reason ≤200, created_at, updated_at,
+                    fk (business_id, appointment_id) → appointments on delete cascade,
+                    fk (business_id, professional_id) → professionals)
+-- CHECK: respuesta y su fecha/autor juntos; hidden_at y hidden_by juntos. Índices
+-- (business_id, created_at desc, id desc) y (business_id, professional_id, created_at desc, id desc).
+-- notification_messages.kind admite APPOINTMENT_REVIEW_REQUEST.
+```
+
 ### Notifications
 ```sql
 devices(id, user_id, platform, app_kind, push_token text unique, last_seen_at, revoked_at)

@@ -1213,3 +1213,19 @@ PR #9 (`feature/t1.8-ci` → `qa`) y push a `qa` tras el merge (`bbf7626`).
 | Imagen Docker | ✅ | `task docker:build`; un volumen nuevo montado en `/data/media` queda a nombre de `65532:65532` (nonroot) |
 | `task check` | ✅ | build, vet, golangci-lint (0), pruebas; govulncheck sin vulnerabilidades (reintento por DNS); `sqlc vet/diff` al día; shellcheck del E2E |
 | E2E en QA | ⏳ | Tras el merge y el despliegue (requieren autorización): 10 comprobaciones nuevas (logo, servirlo, permisos, PDF disfrazado, portafolio, catálogo, borrar) |
+
+## 2026-11-28 · Fuera de fase · Reseñas y calificaciones (ADR-0021)
+
+| Comando / verificación | Resultado | Observaciones |
+|---|---|---|
+| `TestCanReview`, `TestAuthorName`, `TestCleanText`, `TestRatingAverage` (dominio) | ✅ | Solo COMPLETED y de la misma cuenta; hasta 30 días exactos (un segundo después no); no asistida, cancelada y sin cuenta rechazadas; «Ana María Gómez» → «Ana M.»; largos en caracteres, no bytes; sin caracteres de control; promedio con un decimal (14/3 → 4,7) |
+| `TestReviews`, `TestReviewPages` (casos de uso) | ✅ | Antes de completar → `NOT_REVIEWABLE`; otro cliente → 404 aunque el cuerpo sea inválido; validación; crear y luego cambiar (misma reseña, conserva la respuesta); `MyAppointment` con la reseña y el plazo; públicas y promedios del negocio y del profesional; solo el OWNER responde (barbero 403, ajeno 404 antes de validar); el barbero ve las suyas, otro barbero 403; solo el administrador oculta, con motivo; oculta sale de lo público y de los promedios, el dueño la ve marcada; mostrar de nuevo; pasados 30 días → `REVIEW_WINDOW_CLOSED`; borrar; páginas por cursor |
+| `TestPlanReviewRequest`, `TestStaleReviewRequest`, `TestRenderReviewRequest` (notificaciones) | ✅ | Al completar, un correo al cliente con cuenta (sin WhatsApp, nada sin cuenta ni en no asistida); se omite si la cita dejó de estar completada; «Calificar» hacia `APPOINTMENT_REVIEW_URL?appointmentId=…`; sin la URL remite a «Mis citas»; sin políticas; nada al barbero |
+| `TestContractReviews` (contrato OpenAPI, HTTP real) | ✅ | Todo el flujo validado contra el documento: 409, 400, 201/200, 404 de otra cuenta, `reviewableUntil`; correo de invitación en cola; lista pública sin id de la cita; `rating` en el detalle público, la búsqueda y el catálogo; personal, respuesta (403/400/404/200), ocultar (403/400/404/200), mostrar, borrar |
+| `TestReviewsOnPostgres` (`-tags integration`) | ✅ | Mensaje `APPOINTMENT_REVIEW_REQUEST` con su job (restricción de tipos); **40 envíos simultáneos → 1 reseña creada, 0 errores**; todas las lecturas; promedios; respuesta y ocultamiento en la fila; los `CHECK` rechazan 6 estrellas, respuesta sin fecha, oculta sin autor, comentario de 1001; `UNIQUE` rechaza una segunda reseña; no asistida → `NOT_REVIEWABLE`. Estable con `-count=3` |
+| Suite de seguridad | ✅ | Aislamiento en las rutas nuevas (entran solas desde el OpenAPI); campo público `rating` permitido |
+| Mutaciones | ✅ detectadas | Otro cliente reseñando; reseñas ocultas en la lista pública; **sin el bloqueo de la cita** (16 reseñas creadas y errores `duplicate key`: hizo falta abrir todas las conexiones del pool antes de soltar los envíos para que de verdad se crucen). Código restaurado |
+| `task check` | ✅ | build, vet, golangci-lint (0), pruebas, govulncheck sin vulnerabilidades |
+| `task sqlc:check`, `task shellcheck` | ✅ | Código SQLC al día; script E2E sin hallazgos |
+| `task test:integration` (completa) | ✅ | Toda la suite con PostgreSQL real |
+| E2E en QA | ⏳ | Tras PR, merge y despliegue (requieren autorización): 9 comprobaciones nuevas (pendiente no calificable, cita ajena, `rating` público y del catálogo, listas del personal, permisos de ocultar). El flujo completo necesita una cita completada: lo cubren el contrato y la integración |

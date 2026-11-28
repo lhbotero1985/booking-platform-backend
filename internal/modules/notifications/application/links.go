@@ -32,9 +32,10 @@ type LinkView struct {
 }
 
 // emailActions are the links of an email to the customer about an active appointment: confirm
-// while pending, reschedule while the business's limit allows it (T7.8), cancel.
+// while pending, reschedule while the business's limit allows it (T7.8), cancel. None for the
+// review request (its link is the frontend's review page).
 func emailActions(kind domain.Kind, role domain.Role, c domain.Content) []domain.Action {
-	if role != domain.RecipientCustomer || kind == domain.KindCancelled || kind == domain.KindCancelledByCustomer {
+	if role != domain.RecipientCustomer || kind == domain.KindCancelled || kind == domain.KindCancelledByCustomer || kind == domain.KindReviewRequest {
 		return nil
 	}
 	var out []domain.Action

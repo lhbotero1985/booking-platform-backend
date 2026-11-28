@@ -143,6 +143,8 @@ linters:
             - github.com/lhbotero1985/booking-platform-backend/internal/modules/geography/contract
             - github.com/lhbotero1985/booking-platform-backend/internal/modules/subscriptions/contract
             - github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/contract
+            # Reseñas (2026-11-28): las vistas públicas muestran las calificaciones.
+            - github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/contract
           deny:
             - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules
               desc: los módulos se comunican solo vía su paquete contract
@@ -245,6 +247,8 @@ linters:
             - github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract
             - github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/contract
             - github.com/lhbotero1985/booking-platform-backend/internal/modules/professionals/contract
+            # Reseñas (2026-11-28): el catálogo público muestra la calificación de cada profesional.
+            - github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/contract
           deny:
             - pkg: github.com/lhbotero1985/booking-platform-backend/internal/modules
               desc: los módulos se comunican solo vía su paquete contract

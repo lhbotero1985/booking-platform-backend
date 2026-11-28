@@ -466,6 +466,20 @@ Registro cronológico. Una entrada por tarea. No borrar entradas anteriores.
 - PR #24 → `qa`: 6/6 ✅, squash merge `9bacd39`. Rama `feature/t3.1-qa-server-bootstrap` borrada.
 - El usuario pidió configurar el despliegue desde GitHub al servidor (T3.4 + T3.5, tras T3.3).
 
+## 2026-11-28 · Fuera de fase · Reseñas y calificaciones (G-18)
+
+- **Estado:** ✅ en `feature/reviews` (commit y push). PR pendiente de autorización.
+- **Decisiones del usuario:** solo con cita completada (30 días); negocio y profesional aparte; el
+  dueño responde y el administrador oculta; invitación por correo al completar la cita.
+- **Hecho:** módulo `scheduling` (dominio, casos de uso, SQL) y contrato `scheduling.Ratings`;
+  `GET|PUT|DELETE /me/appointments/{id}/review`; `GET /businesses/{slug}/reviews`;
+  `GET /business/{id}/reviews`; `PUT|DELETE …/reviews/{reviewId}/reply`;
+  `POST /admin/reviews/{reviewId}/hide|unhide`; `rating` en `PublicBusiness` (detalle y búsqueda) y
+  en los profesionales del catálogo; `review` y `reviewableUntil` en `MyAppointment`; correo
+  `APPOINTMENT_REVIEW_REQUEST` y variable `APPOINTMENT_REVIEW_URL`. Migración 00030. ADR-0021.
+  OpenAPI: **120 operaciones**.
+- **Pendiente:** P45 (texto del correo y página del frontend); E2E en QA tras el PR.
+
 ## 2026-11-27 · Fuera de fase · Imágenes del negocio y portafolio de los profesionales
 
 - **Estado:** ✅ en `feature/business-images` (commit y push). PR autorizado el 2026-11-28; merge y despliegue pendientes de autorización.

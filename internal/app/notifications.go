@@ -52,6 +52,7 @@ func NewNotificationsService(cfg config.Config, pool *pgxpool.Pool, jobs postgre
 			domain.ChannelWhatsApp: wa,
 			domain.ChannelEmail: email.New(mailer, email.Config{
 				AppDownloadURL: cfg.AppDownloadURL, LinksBaseURL: cfg.PublicAPIURL, RescheduleURL: cfg.AppointmentRescheduleURL,
+				ReviewURL: cfg.AppointmentReviewURL,
 			}),
 		},
 		Policy: application.Policy{

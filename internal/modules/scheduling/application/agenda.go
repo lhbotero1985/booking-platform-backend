@@ -222,6 +222,10 @@ type MyAppointment struct {
 	domain.Appointment
 	Business         businesses.BusinessSummary
 	ProfessionalName string
+	// Review is the customer's review of it (nil without one); ReviewableUntil the last moment
+	// it may write or change it (zero when the appointment cannot be reviewed: not COMPLETED).
+	Review          *domain.Review
+	ReviewableUntil time.Time
 }
 
 // MyAppointmentsQuery selects a page of the caller's appointments.
@@ -256,7 +260,7 @@ func (s *Service) MyAppointments(ctx context.Context, p identity.Principal, q My
 		last := rows[limit-1]
 		next = Cursor{Start: last.Start, ID: last.ID}.Encode()
 	}
-	out, err := s.describe(ctx, rows)
+	out, err := s.describe(ctx, p.UserID, rows)
 	return out, next, err
 }
 
@@ -274,15 +278,16 @@ func (s *Service) MyAppointmentDetail(ctx context.Context, p identity.Principal,
 	if err != nil {
 		return MyAppointment{}, err
 	}
-	out, err := s.describe(ctx, []domain.Appointment{a})
+	out, err := s.describe(ctx, p.UserID, []domain.Appointment{a})
 	if err != nil {
 		return MyAppointment{}, err
 	}
 	return out[0], nil
 }
 
-// describe adds the business and professional names to appointments of any businesses.
-func (s *Service) describe(ctx context.Context, rows []domain.Appointment) ([]MyAppointment, error) {
+// describe adds the business and professional names, and the reviews of userID, to appointments
+// of any businesses.
+func (s *Service) describe(ctx context.Context, userID uuid.UUID, rows []domain.Appointment) ([]MyAppointment, error) {
 	var ids []uuid.UUID
 	seen := map[uuid.UUID]bool{}
 	for _, a := range rows {
@@ -305,9 +310,20 @@ func (s *Service) describe(ctx context.Context, rows []domain.Appointment) ([]My
 			names[r.ID] = r.DisplayName
 		}
 	}
+	reviews, err := s.reviewsOf(ctx, userID, rows)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]MyAppointment, 0, len(rows))
 	for _, a := range rows {
-		out = append(out, MyAppointment{Appointment: a, Business: summaries[a.BusinessID], ProfessionalName: names[a.ProfessionalID]})
+		m := MyAppointment{Appointment: a, Business: summaries[a.BusinessID], ProfessionalName: names[a.ProfessionalID]}
+		if r, ok := reviews[a.ID]; ok {
+			m.Review = &r
+		}
+		if a.Status == domain.StatusCompleted {
+			m.ReviewableUntil = domain.ReviewDeadline(a)
+		}
+		out = append(out, m)
 	}
 	return out, nil
 }

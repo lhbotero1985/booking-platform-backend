@@ -317,3 +317,41 @@ func TestMonthAndDayOf(t *testing.T) {
 		t.Errorf("day %s %s", from, to)
 	}
 }
+
+// TestPlanReviewRequest (2026-11-28): a completed appointment asks its customer with an account
+// for a review, by email only; one booked by hand without an account gets nothing.
+func TestPlanReviewRequest(t *testing.T) {
+	c := change("COMPLETED", "BUSINESS")
+	c.CustomerHasAccount = true
+	got := keys(domain.Plan(c, domain.Reminders{Enabled: true, Before: time.Hour}, func() uuid.UUID { return uuid.Must(uuid.NewV7()) }))
+	if !slices.Equal(got, []string{"APPOINTMENT_REVIEW_REQUEST/EMAIL/CUSTOMER"}) {
+		t.Errorf("with an account: %v", got)
+	}
+	c.CustomerHasAccount = false
+	if got := domain.Plan(c, domain.Reminders{}, func() uuid.UUID { return uuid.Must(uuid.NewV7()) }); len(got) != 0 {
+		t.Errorf("without an account: %v", keys(got))
+	}
+	for _, typ := range []string{"NO_SHOW", "STARTED"} {
+		c := change(typ, "BUSINESS")
+		c.CustomerHasAccount = true
+		if got := domain.Plan(c, domain.Reminders{}, func() uuid.UUID { return uuid.Must(uuid.NewV7()) }); len(got) != 0 {
+			t.Errorf("%s: %v", typ, keys(got))
+		}
+	}
+}
+
+// TestStaleReviewRequest: sent after the appointment while it stays completed.
+func TestStaleReviewRequest(t *testing.T) {
+	m := domain.Message{Kind: domain.KindReviewRequest, Recipient: "ana@example.com", ProfessionalID: pro, Start: start}
+	later := start.Add(3 * time.Hour)
+	if got := domain.Stale(m, domain.Appointment{Status: "COMPLETED", ProfessionalID: pro, Start: start}, later); got != "" {
+		t.Errorf("completed: %q", got)
+	}
+	if got := domain.Stale(m, domain.Appointment{Status: "NO_SHOW", ProfessionalID: pro, Start: start}, later); got != domain.SkipChanged {
+		t.Errorf("no longer completed: %q", got)
+	}
+	m.Recipient = ""
+	if got := domain.Stale(m, domain.Appointment{Status: "COMPLETED"}, later); got != domain.SkipNoRecipient {
+		t.Errorf("no address: %q", got)
+	}
+}

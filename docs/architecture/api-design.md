@@ -49,6 +49,19 @@ Estado: **Propuesta — Fase 0.** ADR-0011.
 `POST /businesses` (cuenta verificada → OWNER de un negocio `ACTIVE` con demo de 7 días; hasta
 `OWNED_BUSINESS_LIMIT` negocios propios por cuenta, 2 durante la demo, luego 409
 `OWNED_BUSINESS_LIMIT` (P-11); `Idempotency-Key` opcional; límite estricto por cliente).
+### Reseñas (2026-11-28, ADR-0021)
+Cliente: `GET|PUT|DELETE /me/appointments/{id}/review` (solo una cita COMPLETED propia, hasta 30
+días después; el primer PUT crea, 201, los siguientes cambian, 200; 409 `NOT_REVIEWABLE` y
+`REVIEW_WINDOW_CLOSED`). Cuerpo: `businessRating` y `professionalRating` (1 a 5,
+`INVALID_RATING`) y `comment` opcional (1000, `TOO_LONG`). `MyAppointment` trae `review` (o null) y
+`reviewableUntil` (o null si no está COMPLETED). Público: `GET /businesses/{slug}/reviews`
+(`professionalId`, `cursor`, `limit` 1–50; trae `rating` del negocio o del profesional filtrado).
+Personal: `GET /business/{id}/reviews` (con las ocultas, marcadas; un PROFESSIONAL solo las suyas) y
+`PUT|DELETE /business/{id}/reviews/{reviewId}/reply` (OWNER). Administrador:
+`POST /admin/reviews/{reviewId}/hide` (`reason` obligatorio) y `/unhide`. `PublicBusiness` (detalle
+y búsqueda) y cada profesional del catálogo traen `rating: {average, count}` (`average` con un
+decimal, null sin reseñas).
+
 ### Imágenes (2026-11-27, ADR-0020)
 `PUT|DELETE /business/{id}/logo` y `/cover` (OWNER) y
 `GET|POST /business/{id}/professionals/{pid}/portfolio`, `PATCH|DELETE …/portfolio/{imageId}`

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -8,6 +9,7 @@ import (
 
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/businesses/domain"
+	scheduling "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/httpx"
 )
 
@@ -39,6 +41,30 @@ type publicBusinessDTO struct {
 	BookingPolicy publicPolicyDTO `json:"bookingPolicy"`
 	LogoURL       *string         `json:"logoUrl"`
 	CoverURL      *string         `json:"coverUrl"`
+	// Rating of the business from its customers' reviews (2026-11-28).
+	Rating ratingDTO `json:"rating"`
+}
+
+// ratingDTO is the average of the visible reviews (one decimal, null without reviews) and how
+// many there are.
+type ratingDTO struct {
+	Average *float64 `json:"average"`
+	Count   int      `json:"count"`
+}
+
+// WithRatings makes the public views show the businesses' ratings (the scheduling module's
+// reviews). Call once, before serving.
+func (h *Handler) WithRatings(r scheduling.Ratings) *Handler {
+	h.ratings = r
+	return h
+}
+
+// ratingsOf reads the ratings of some businesses; without a source they all have none.
+func (h *Handler) ratingsOf(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]scheduling.Rating, error) {
+	if h.ratings == nil || len(ids) == 0 {
+		return map[uuid.UUID]scheduling.Rating{}, nil
+	}
+	return h.ratings.BusinessRatings(ctx, ids)
 }
 
 type publicListDTO struct {
@@ -46,7 +72,7 @@ type publicListDTO struct {
 	NextCursor *string             `json:"nextCursor,omitempty"`
 }
 
-func toPublicDTO(b *domain.Business) publicBusinessDTO {
+func toPublicDTO(b *domain.Business, rating scheduling.Rating) publicBusinessDTO {
 	full, p := toDTO(b), b.Policy()
 	return publicBusinessDTO{
 		ID: full.ID, Name: full.Name, Slug: full.Slug, Description: full.Description, ContactPhone: full.ContactPhone,
@@ -56,7 +82,7 @@ func toPublicDTO(b *domain.Business) publicBusinessDTO {
 			CancellationCutoffHours: p.CancellationCutoffHours, RescheduleCutoffHours: p.RescheduleCutoffHours,
 			MaxCustomerReschedules: p.MaxCustomerReschedules,
 		},
-		LogoURL: full.LogoURL, CoverURL: full.CoverURL,
+		LogoURL: full.LogoURL, CoverURL: full.CoverURL, Rating: ratingDTO{Average: rating.Average, Count: rating.Count},
 	}
 }
 
@@ -84,9 +110,18 @@ func (h *Handler) search(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
+	ids := make([]uuid.UUID, 0, len(items))
+	for _, b := range items {
+		ids = append(ids, b.ID())
+	}
+	ratings, err := h.ratingsOf(r.Context(), ids)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
 	out := publicListDTO{Items: make([]publicBusinessDTO, 0, len(items))}
 	for _, b := range items {
-		out.Items = append(out.Items, toPublicDTO(b))
+		out.Items = append(out.Items, toPublicDTO(b, ratings[b.ID()]))
 	}
 	if next != "" {
 		out.NextCursor = &next
@@ -100,5 +135,10 @@ func (h *Handler) publicDetail(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, toPublicDTO(b))
+	ratings, err := h.ratingsOf(r.Context(), []uuid.UUID{b.ID()})
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, toPublicDTO(b, ratings[b.ID()]))
 }

@@ -94,7 +94,7 @@ func startAuth(t *testing.T) authHarness {
 	cat := catapp.NewService(catalogtest.NewStore(), h.svc, biz, profs, h.clock)
 	app.LinkPublicCatalog(biz, cat, profs, biz)
 	sched := schedapp.NewService(schedapp.Deps{Store: schedtest.NewStore(), Authz: h.svc, Businesses: biz, Catalog: cat, Professionals: profs, Bookable: profs, Customers: h.svc, Clock: h.clock,
-		Schedules: profs, Currencies: biz, Memberships: h.svc})
+		Schedules: profs, Currencies: biz, Memberships: h.svc, Admins: h.svc})
 	app.LinkAgendaGuard(profs, sched)
 	mediaStore, err := media.NewLocal(t.TempDir())
 	if err != nil {
@@ -108,10 +108,10 @@ func startAuth(t *testing.T) authHarness {
 	app.LinkNotifications(sched, notif)
 	h.notif, h.outbox = notif, outbox
 	h.srv = httptest.NewServer(app.NewHTTPHandler(cfg, logger, app.Deps{Media: mediaStore.Handler(), Modules: []app.RouteRegistrar{
-		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil),
+		idh, geographyhttp.New(geo, logger, idh.RequireAuth), businesseshttp.New(biz, logger, idh.RequireAuth, nil).WithRatings(sched),
 		subscriptionshttp.New(subs, logger, idh.RequireAuth),
 		professionalshttp.New(profs, logger, idh.RequireAuth),
-		cataloghttp.New(cat, logger, idh.RequireAuth),
+		cataloghttp.New(cat, logger, idh.RequireAuth).WithRatings(sched),
 		schedulinghttp.New(sched, logger, idh.RequireAuth),
 		notificationshttp.New(notif, logger, idh.RequireAuth),
 		notificationshttp.NewWebhook(notif, notificationshttp.WebhookConfig{AppSecret: testWebhookSecret, VerifyToken: testWebhookVerifyToken}, logger),

@@ -53,11 +53,13 @@ type Tx interface {
 // Outgoing is what a Sender delivers.
 type Outgoing struct {
 	MessageID uuid.UUID
-	Kind      domain.Kind
-	Channel   domain.Channel
-	Role      domain.Role
-	To        string
-	Content   domain.Content
+	// AppointmentID is the appointment the message is about (the review request's link).
+	AppointmentID uuid.UUID
+	Kind          domain.Kind
+	Channel       domain.Channel
+	Role          domain.Role
+	To            string
+	Content       domain.Content
 	// ButtonPayloads are the payloads of the quick-reply buttons, in order (T7.5: the reminder's
 	// single-use tokens for "Confirmar cita" and "Cancelar cita").
 	ButtonPayloads []string
@@ -165,7 +167,8 @@ func (s *Service) AppointmentEventRecorded(ctx context.Context, e scheduling.App
 	}
 	msgs := domain.Plan(domain.Change{
 		EventID: e.ID, BusinessID: e.BusinessID, AppointmentID: e.AppointmentID, ProfessionalID: e.ProfessionalID,
-		Type: e.Type, ActorRole: e.ActorRole, Status: e.Status, Start: e.Start, CustomerPhone: e.CustomerPhone, At: e.At,
+		Type: e.Type, ActorRole: e.ActorRole, Status: e.Status, Start: e.Start, CustomerPhone: e.CustomerPhone,
+		CustomerHasAccount: e.CustomerHasAccount, At: e.At,
 	}, rem, func() uuid.UUID { return uuid.Must(uuid.NewV7()) })
 	if len(msgs) == 0 {
 		return nil
@@ -253,7 +256,7 @@ func (s *Service) Send(ctx context.Context, id uuid.UUID, lastAttempt bool) erro
 	if !ok {
 		return s.skip(ctx, m, domain.SkipChannelDisabled)
 	}
-	out := Outgoing{MessageID: m.ID, Kind: m.Kind, Channel: m.Channel, Role: m.RecipientRole, To: m.Recipient, Content: contentOf(st)}
+	out := Outgoing{MessageID: m.ID, AppointmentID: m.AppointmentID, Kind: m.Kind, Channel: m.Channel, Role: m.RecipientRole, To: m.Recipient, Content: contentOf(st)}
 	if m.Channel == domain.ChannelEmail {
 		if err := s.addPolicy(ctx, m.BusinessID, &out.Content); err != nil {
 			return err

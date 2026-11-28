@@ -113,6 +113,12 @@ servicio).
 | Errores | RFC 9457 sin stack traces ni mensajes internos hacia el cliente. |
 | Dependencias | govulncheck, Dependabot, Trivy (ver `devsecops.md`). |
 
+### Reseñas (ADR-0021)
+Solo el cliente de la cita (otra cuenta: 404, igual que una cita inexistente); la autorización va
+antes de validar el cuerpo y la consulta. En público el cliente aparece como nombre e inicial, sin
+cuenta, correo ni teléfono, y sin el id de la cita. El negocio no oculta ni borra reseñas; solo un
+administrador de la plataforma las oculta, con motivo, y la fila guarda quién y cuándo.
+
 ### Subida de imágenes (ADR-0020)
 Autorización antes de leer el archivo; `multipart/form-data` con tope de 5 MiB (el resto de la API
 sigue en 1 MiB); tipo por contenido (JPEG, PNG, WebP), tope de píxeles, **nueva codificación** en

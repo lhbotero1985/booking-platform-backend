@@ -18,6 +18,7 @@ import (
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/application"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/catalog/domain"
 	"github.com/lhbotero1985/booking-platform-backend/internal/modules/identity/contract"
+	scheduling "github.com/lhbotero1985/booking-platform-backend/internal/modules/scheduling/contract"
 	"github.com/lhbotero1985/booking-platform-backend/internal/platform/httpx"
 )
 
@@ -47,6 +48,7 @@ type Handler struct {
 	svc         Service
 	logger      *slog.Logger
 	requireAuth httpx.Middleware
+	ratings     scheduling.Ratings
 }
 
 // New builds the handler; requireAuth is the identity module's authentication middleware.
